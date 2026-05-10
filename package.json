@@ -16,16 +16,16 @@
     "pinia": "^3.0.3",
     "tasmota-webserial-esptool": "^9.2.21",
     "vue": "^3.5.18",
-    "vuetify": "^3.9.5"
+    "vuetify": "^4.0.7"
   },
   "devDependencies": {
-    "@types/node": "^24.2.0",
+    "@types/node": "^25.6.2",
     "@types/w3c-web-serial": "^1.0.8",
     "@vitejs/plugin-vue": "^6.0.1",
     "electron": "^42.0.1",
-    "esbuild": "^0.25.8",
-    "typescript": "^5.9.2",
-    "vite": "^7.1.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.11",
     "vue-tsc": "^3.0.5"
   }
 }
