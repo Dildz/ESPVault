@@ -13,7 +13,8 @@ and no telemetry.
 ## Technical Stack
 
 Use Electron, Vue 3, TypeScript, Vite, Vuetify 3, Pinia, Dexie, and
-IndexedDB.
+IndexedDB. Use `tasmota-webserial-esptool` for ESP board scanning through Web
+Serial.
 
 Use Dexie from the Vue renderer for structured local data. The renderer must
 not use Node.js APIs directly. It communicates with the main process only for
@@ -90,9 +91,27 @@ BoardRepository
 ProjectService
 FirmwareHistoryService
 AttachmentService
-SerialDetectionService
 ExportImportService
 ```
+
+## ESP Board Scanning
+
+Use `tasmota-webserial-esptool` for scan and detection flows. The package is
+browser/WebSerial-based, so scan orchestration belongs in the renderer. Electron
+main should only handle Web Serial permission and port selection through the
+session Web Serial APIs.
+
+Current scanner path:
+
+```text
+src/renderer/pages/ScanBoardPage.vue
+src/renderer/services/espBoardScanner.ts
+src/main/main.ts
+```
+
+The scan flow should read chip model, chip revision, MAC address, and flash
+size when available. Do not flash firmware or erase devices from the scan flow.
+Reset and disconnect after scanning where practical.
 
 ## Electron Security Requirements
 
@@ -154,8 +173,8 @@ unknown
 
 The first milestone is a working desktop app where a user can create, view,
 edit, and delete ESP32 board inventory records stored in local IndexedDB.
-Manual board creation is enough. ESP32 serial detection should be
-represented by a placeholder service and placeholder UI.
+Manual board creation is supported, and the scan screen should use
+`tasmota-webserial-esptool` for Web Serial based ESP detection.
 
 ## Definition of Done
 

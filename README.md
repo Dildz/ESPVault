@@ -25,9 +25,20 @@ This first vertical slice includes:
 - Storage-neutral repository interfaces with a Dexie-backed implementation.
 - Dashboard and Boards screens.
 - Add/edit board dialog and delete confirmation.
-- Placeholder mock scan screen.
+- ESP board scan screen using `tasmota-webserial-esptool` and Web Serial.
 
 No cloud sync, accounts, telemetry, payments, or remote services are included.
+
+## Board Scanning
+
+The scan screen uses `tasmota-webserial-esptool` in the renderer through the
+browser Web Serial API. Electron main grants Web Serial permission only for the
+local app origin and auto-selects a matching serial port from Electron's
+`select-serial-port` event.
+
+The scanner currently reads chip model, revision, MAC address, and detected
+flash size. PSRAM and crystal frequency remain unset until a reliable detection
+path is added.
 
 ## Storage Boundary
 

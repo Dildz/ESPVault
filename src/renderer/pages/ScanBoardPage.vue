@@ -1,25 +1,31 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import type { MockDetectedBoard } from "../../shared/types/serial";
+import type { DetectedEspBoard } from "../../shared/types/serial";
+import { scanEspBoard } from "../services/espBoardScanner";
 import { useBoardStore } from "../stores/boardStore";
 import { formatBytes, formatDate } from "../utils/boardDisplay";
 
 const boardStore = useBoardStore();
-const detectedBoard = ref<MockDetectedBoard | null>(null);
+const detectedBoard = ref<DetectedEspBoard | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
+const scanLogs = ref<string[]>([]);
 
-async function runMockScan(): Promise<void> {
+async function runScan(): Promise<void> {
   loading.value = true;
   error.value = null;
+  scanLogs.value = [];
+  detectedBoard.value = null;
 
   try {
-    detectedBoard.value = await window.api.serialDetection.scanMock();
+    detectedBoard.value = await scanEspBoard((_level, message) => {
+      scanLogs.value = [...scanLogs.value.slice(-80), message];
+    });
   } catch (caughtError) {
     error.value =
       caughtError instanceof Error
         ? caughtError.message
-        : "The mock scan could not be completed.";
+        : "The board scan could not be completed.";
   } finally {
     loading.value = false;
   }
@@ -31,7 +37,7 @@ async function addDetectedBoard(): Promise<void> {
   }
 
   await boardStore.createBoard({
-    name: `${detectedBoard.value.chipModel} board`,
+    name: `${detectedBoard.value.chipModel ?? "ESP32"} board`,
     status: "available",
     chipModel: detectedBoard.value.chipModel,
     macAddress: detectedBoard.value.macAddress,
@@ -39,7 +45,7 @@ async function addDetectedBoard(): Promise<void> {
     psramSizeBytes: detectedBoard.value.psramSizeBytes,
     crystalFrequency: detectedBoard.value.crystalFrequency,
     lastConnectedAt: detectedBoard.value.detectedAt,
-    notes: "Created from mock scan data."
+    notes: "Created from tasmota-webserial-esptool scan data."
   });
 }
 </script>
@@ -50,16 +56,16 @@ async function addDetectedBoard(): Promise<void> {
       <div>
         <h1 class="page-title">Scan board</h1>
         <p class="page-subtitle">
-          This placeholder keeps serial detection behind the main-process service boundary.
+          Connect an ESP board in bootloader mode and read chip details through Web Serial.
         </p>
       </div>
       <v-btn
         color="primary"
         prepend-icon="mdi-usb-port"
         :loading="loading"
-        @click="runMockScan"
+        @click="runScan"
       >
-        Run mock scan
+        Scan board
       </v-btn>
     </div>
 
@@ -69,15 +75,23 @@ async function addDetectedBoard(): Promise<void> {
 
     <v-card v-if="detectedBoard" flat border>
       <v-card-title class="text-subtitle-1 font-weight-bold">
-        Mock detected board
+        Detected board
       </v-card-title>
       <v-divider />
       <v-list>
-        <v-list-item title="Chip model" :subtitle="detectedBoard.chipModel" />
-        <v-list-item title="MAC address" :subtitle="detectedBoard.macAddress" />
-        <v-list-item title="Flash" :subtitle="formatBytes(detectedBoard.flashSizeBytes)" />
+        <v-list-item title="Chip model" :subtitle="detectedBoard.chipModel ?? 'Unknown'" />
+        <v-list-item
+          title="Chip revision"
+          :subtitle="detectedBoard.chipRevision === null ? 'Unknown' : String(detectedBoard.chipRevision)"
+        />
+        <v-list-item title="Chip variant" :subtitle="detectedBoard.chipVariant ?? 'Unknown'" />
+        <v-list-item title="MAC address" :subtitle="detectedBoard.macAddress ?? 'Unknown'" />
+        <v-list-item
+          title="Flash"
+          :subtitle="detectedBoard.flashSizeLabel ?? formatBytes(detectedBoard.flashSizeBytes)"
+        />
         <v-list-item title="PSRAM" :subtitle="formatBytes(detectedBoard.psramSizeBytes)" />
-        <v-list-item title="Crystal" :subtitle="detectedBoard.crystalFrequency" />
+        <v-list-item title="Crystal" :subtitle="detectedBoard.crystalFrequency ?? 'Unknown'" />
         <v-list-item title="Detected" :subtitle="formatDate(detectedBoard.detectedAt)" />
       </v-list>
       <v-card-actions>
@@ -90,11 +104,18 @@ async function addDetectedBoard(): Promise<void> {
 
     <div v-else class="empty-state">
       <v-icon icon="mdi-usb-port" size="40" color="secondary" />
-      <div class="text-subtitle-1 font-weight-bold mt-3">Serial scan placeholder</div>
+      <div class="text-subtitle-1 font-weight-bold mt-3">No board scanned yet</div>
       <div class="text-body-2 muted mt-1">
-        Real ESP32 detection can be added later without changing the renderer contract.
+        The app will ask for a serial port, reset into the ESP bootloader, and read chip details.
       </div>
     </div>
+
+    <v-card v-if="scanLogs.length" class="mt-4" flat border>
+      <v-card-title class="text-subtitle-1 font-weight-bold">Scan log</v-card-title>
+      <v-divider />
+      <v-card-text>
+        <pre class="scan-log">{{ scanLogs.join("\n") }}</pre>
+      </v-card-text>
+    </v-card>
   </section>
 </template>
-
