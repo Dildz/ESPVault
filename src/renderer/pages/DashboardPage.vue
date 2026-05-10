@@ -10,6 +10,9 @@ import {
 
 const boardStore = useBoardStore();
 const { dashboardStats, error, loading } = storeToRefs(boardStore);
+const emit = defineEmits<{
+  "open-boards": [];
+}>();
 
 onMounted(() => {
   void boardStore.refresh();
@@ -105,6 +108,14 @@ onMounted(() => {
             <div class="text-body-2 muted mt-1">
               Add a board manually to start building your inventory.
             </div>
+            <v-btn
+              class="mt-4"
+              color="primary"
+              prepend-icon="mdi-plus"
+              @click="emit('open-boards')"
+            >
+              Add board
+            </v-btn>
           </div>
         </v-card>
       </v-col>
@@ -134,4 +145,3 @@ onMounted(() => {
     </v-row>
   </section>
 </template>
-

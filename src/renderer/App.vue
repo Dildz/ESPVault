@@ -93,8 +93,11 @@ const activePlaceholderProps = computed(() =>
     </v-app-bar>
 
     <v-main>
-      <component :is="activeComponent" v-bind="activePlaceholderProps" />
+      <component
+        :is="activeComponent"
+        v-bind="activePlaceholderProps"
+        @open-boards="currentView = 'boards'"
+      />
     </v-main>
   </v-app>
 </template>
-
