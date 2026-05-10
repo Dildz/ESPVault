@@ -23,21 +23,75 @@ privileged operations through a typed preload API exposed with `contextBridge`.
 
 ```text
 Vue Renderer
+  -> Pinia stores
+  -> Repository interfaces
+  -> Storage implementation
+     -> Dexie / IndexedDB for structured local data
+
+Vue Renderer
   -> Preload API using contextBridge
-  -> Dexie / IndexedDB for structured local data
   -> Electron IPC only for privileged operations
   -> Main Process Services for serial, files, export/import, and attachments
 ```
 
+Structured local data belongs in the renderer storage layer. Electron main and
+preload must not own board CRUD or other normal inventory CRUD unless the data
+operation needs privileged OS access.
+
+## Storage Abstraction
+
+Keep storage replaceable. Vue pages and components must not import Dexie,
+IndexedDB helpers, or concrete storage implementation files directly.
+
+Use this dependency direction:
+
+```text
+Vue pages/components
+  -> Pinia stores
+  -> repository interfaces from src/renderer/repositories/
+  -> implementation selected in src/renderer/repositories/index.ts
+  -> concrete storage under src/renderer/storage/{provider}/
+```
+
+Current implementation:
+
+```text
+src/renderer/repositories/BoardRepository.ts
+src/renderer/repositories/index.ts
+src/renderer/storage/dexie/DexieBoardRepository.ts
+src/renderer/storage/dexie/vaultDatabase.ts
+```
+
+When adding new data areas such as projects, firmware history, attachments
+metadata, pin assignments, or settings:
+
+1. Define a storage-neutral repository interface in `src/renderer/repositories/`.
+2. Implement it under `src/renderer/storage/dexie/`.
+3. Wire it through `src/renderer/repositories/index.ts`.
+4. Use the repository from Pinia stores.
+
+To switch storage in the future, add a new implementation folder such as:
+
+```text
+src/renderer/storage/file/
+src/renderer/storage/sqlite/
+```
+
+Then change only the implementation wiring in
+`src/renderer/repositories/index.ts` where practical.
+
+Do not leak provider-specific types from repository interfaces. Interfaces
+should use shared domain types from `src/shared/types/`.
+
 Keep service responsibilities clear:
 
 ```text
+BoardRepository
 ProjectService
 FirmwareHistoryService
 AttachmentService
 SerialDetectionService
 ExportImportService
-DatabaseService
 ```
 
 ## Electron Security Requirements
@@ -77,6 +131,9 @@ Use Dexie schema versions for IndexedDB. The first useful schema must support
 
 Do not use native database modules such as `better-sqlite3`, `sqlite3`, or
 native LevelDB bindings.
+
+Dexie-specific schema and table declarations belong under
+`src/renderer/storage/dexie/`. Repository interfaces must stay Dexie-free.
 
 Binary files such as photos, firmware files, and backups must not be stored
 directly in IndexedDB for the MVP. Store metadata in Dexie and copy the actual

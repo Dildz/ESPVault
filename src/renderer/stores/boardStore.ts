@@ -6,7 +6,9 @@ import type {
   CreateBoardInput,
   UpdateBoardInput
 } from "../../shared/types/board";
-import { boardRepository } from "../database/boardRepository";
+import { repositories } from "../repositories";
+
+const boardRepository = repositories.boards;
 
 export const useBoardStore = defineStore("boards", () => {
   const boards = ref<Board[]>([]);

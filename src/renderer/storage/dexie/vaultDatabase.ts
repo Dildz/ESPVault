@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { Board } from "../../shared/types/board";
+import type { Board } from "../../../shared/types/board";
 import type {
   AppSetting,
   BoardAttachment,
@@ -7,7 +7,7 @@ import type {
   FirmwareHistoryEntry,
   PinAssignment,
   Project
-} from "../../shared/types/inventory";
+} from "../../../shared/types/inventory";
 
 export class VaultDatabase extends Dexie {
   boards!: Table<Board, string>;
@@ -35,4 +35,3 @@ export class VaultDatabase extends Dexie {
 }
 
 export const vaultDatabase = new VaultDatabase();
-

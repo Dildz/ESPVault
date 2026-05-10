@@ -6,10 +6,11 @@ import {
   type BoardStatus,
   type CreateBoardInput,
   type UpdateBoardInput
-} from "../../shared/types/board";
+} from "../../../shared/types/board";
+import type { BoardRepository } from "../../repositories/BoardRepository";
 import { vaultDatabase } from "./vaultDatabase";
 
-class BoardRepository {
+export class DexieBoardRepository implements BoardRepository {
   async list(filters: BoardListFilters = {}): Promise<Board[]> {
     const boards = await vaultDatabase.boards
       .orderBy("updatedAt")
@@ -228,5 +229,3 @@ class BoardRepository {
     }
   }
 }
-
-export const boardRepository = new BoardRepository();
