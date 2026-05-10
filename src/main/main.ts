@@ -1,11 +1,8 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
-import { DatabaseService } from "./database/DatabaseService";
-import { registerBoardHandlers } from "./ipc/boardHandlers";
 import { registerSerialDetectionHandlers } from "./ipc/serialDetectionHandlers";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
-let databaseService: DatabaseService | null = null;
 
 app.setName("ESP Board Vault");
 
@@ -36,10 +33,6 @@ function createMainWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  databaseService = new DatabaseService();
-  databaseService.initialize();
-
-  registerBoardHandlers(databaseService);
   registerSerialDetectionHandlers();
 
   createMainWindow();
@@ -49,10 +42,6 @@ app.whenReady().then(() => {
       createMainWindow();
     }
   });
-});
-
-app.on("before-quit", () => {
-  databaseService?.close();
 });
 
 app.on("window-all-closed", () => {

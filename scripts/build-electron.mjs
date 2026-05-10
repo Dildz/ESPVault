@@ -13,7 +13,7 @@ await build({
   entryPoints: ["src/main/main.ts"],
   outfile: "dist-electron/main.js",
   format: "cjs",
-  external: ["electron", "better-sqlite3"]
+  external: ["electron"]
 });
 
 await build({
@@ -23,4 +23,3 @@ await build({
   format: "cjs",
   external: ["electron"]
 });
-

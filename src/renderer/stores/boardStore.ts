@@ -6,6 +6,7 @@ import type {
   CreateBoardInput,
   UpdateBoardInput
 } from "../../shared/types/board";
+import { boardRepository } from "../database/boardRepository";
 
 export const useBoardStore = defineStore("boards", () => {
   const boards = ref<Board[]>([]);
@@ -28,7 +29,7 @@ export const useBoardStore = defineStore("boards", () => {
     error.value = null;
 
     try {
-      boards.value = await window.api.boards.list();
+      boards.value = await boardRepository.list();
     } catch (caughtError) {
       error.value = getErrorMessage(caughtError);
     } finally {
@@ -40,26 +41,26 @@ export const useBoardStore = defineStore("boards", () => {
     error.value = null;
 
     try {
-      dashboardStats.value = await window.api.boards.dashboardStats();
+      dashboardStats.value = await boardRepository.dashboardStats();
     } catch (caughtError) {
       error.value = getErrorMessage(caughtError);
     }
   }
 
   async function createBoard(input: CreateBoardInput): Promise<Board> {
-    const board = await window.api.boards.create(input);
+    const board = await boardRepository.create(input);
     await refresh();
     return board;
   }
 
   async function updateBoard(id: string, input: UpdateBoardInput): Promise<Board> {
-    const board = await window.api.boards.update(id, input);
+    const board = await boardRepository.update(id, input);
     await refresh();
     return board;
   }
 
   async function deleteBoard(id: string): Promise<boolean> {
-    const deleted = await window.api.boards.delete(id);
+    const deleted = await boardRepository.delete(id);
     await refresh();
     return deleted;
   }
@@ -88,4 +89,3 @@ export const useBoardStore = defineStore("boards", () => {
     deleteBoard
   };
 });
-

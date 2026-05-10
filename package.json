@@ -5,26 +5,22 @@
   "main": "dist-electron/main.js",
   "private": true,
   "scripts": {
-    "postinstall": "npm run rebuild:native",
-    "predev": "npm run rebuild:native",
     "dev": "node scripts/dev.mjs",
     "build": "npm run typecheck && vite build && node scripts/build-electron.mjs",
-    "rebuild:native": "node scripts/install-native.mjs",
     "typecheck": "vue-tsc --noEmit -p tsconfig.renderer.json && tsc --noEmit -p tsconfig.electron.json",
     "preview": "vite preview"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
-    "better-sqlite3": "^12.2.0",
+    "dexie": "^4.4.2",
     "pinia": "^3.0.3",
     "vue": "^3.5.18",
     "vuetify": "^3.9.5"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.2.0",
     "@vitejs/plugin-vue": "^6.0.1",
-    "electron": "39.8.5",
+    "electron": "^42.0.1",
     "esbuild": "^0.25.8",
     "typescript": "^5.9.2",
     "vite": "^7.1.0",

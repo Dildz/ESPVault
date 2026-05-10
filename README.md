@@ -21,11 +21,10 @@ npm run build
 This first vertical slice includes:
 
 - Secure Electron shell with a typed preload API.
-- SQLite database under Electron `userData`.
-- Board table migration and board CRUD service.
+- Dexie/IndexedDB local database in the Vue renderer.
+- Board CRUD repository backed by IndexedDB.
 - Dashboard and Boards screens.
 - Add/edit board dialog and delete confirmation.
 - Placeholder mock scan screen.
 
 No cloud sync, accounts, telemetry, payments, or remote services are included.
-
