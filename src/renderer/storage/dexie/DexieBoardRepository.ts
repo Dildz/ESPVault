@@ -17,11 +17,14 @@ export class DexieBoardRepository implements BoardRepository {
       .reverse()
       .toArray();
 
-    return boards.filter((board) => this.matchesFilters(board, filters));
+    return boards
+      .map((board) => this.normalizeBoard(board))
+      .filter((board) => this.matchesFilters(board, filters));
   }
 
   async get(id: string): Promise<Board | null> {
-    return (await vaultDatabase.boards.get(id)) ?? null;
+    const board = await vaultDatabase.boards.get(id);
+    return board ? this.normalizeBoard(board) : null;
   }
 
   async create(input: CreateBoardInput): Promise<Board> {
@@ -32,10 +35,34 @@ export class DexieBoardRepository implements BoardRepository {
       description: this.optionalText(input.description),
       status: input.status ?? "unknown",
       chipModel: this.optionalText(input.chipModel),
+      chipRevision: this.optionalNumber(input.chipRevision),
+      chipVariant: this.optionalText(input.chipVariant),
+      chipFamily: this.optionalNumber(input.chipFamily),
+      chipFamilyHex: this.optionalText(input.chipFamilyHex),
       macAddress: this.optionalText(input.macAddress),
       flashSizeBytes: this.optionalNumber(input.flashSizeBytes),
+      flashSizeLabel: this.optionalText(input.flashSizeLabel),
+      flashChipId: this.optionalNumber(input.flashChipId),
+      flashChipIdHex: this.optionalText(input.flashChipIdHex),
+      flashManufacturerId: this.optionalNumber(input.flashManufacturerId),
+      flashManufacturerIdHex: this.optionalText(input.flashManufacturerIdHex),
+      flashManufacturerName: this.optionalText(input.flashManufacturerName),
+      flashDeviceId: this.optionalNumber(input.flashDeviceId),
+      flashDeviceIdHex: this.optionalText(input.flashDeviceIdHex),
       psramSizeBytes: this.optionalNumber(input.psramSizeBytes),
+      psramDetected: this.optionalBoolean(input.psramDetected),
       crystalFrequency: this.optionalText(input.crystalFrequency),
+      securityFlags: this.optionalNumber(input.securityFlags),
+      securityFlagsHex: this.optionalText(input.securityFlagsHex),
+      flashCryptCnt: this.optionalNumber(input.flashCryptCnt),
+      flashCryptCntHex: this.optionalText(input.flashCryptCntHex),
+      securityKeyPurposes: this.optionalNumberArray(input.securityKeyPurposes),
+      securityChipId: this.optionalNumber(input.securityChipId),
+      securityApiVersion: this.optionalNumber(input.securityApiVersion),
+      secureBootEnabled: this.optionalBoolean(input.secureBootEnabled),
+      flashEncryptionEnabled: this.optionalBoolean(input.flashEncryptionEnabled),
+      bootloaderOffset: this.optionalNumber(input.bootloaderOffset),
+      bootloaderOffsetHex: this.optionalText(input.bootloaderOffsetHex),
       boardType: this.optionalText(input.boardType),
       manufacturer: this.optionalText(input.manufacturer),
       purchaseUrl: this.optionalText(input.purchaseUrl),
@@ -74,6 +101,22 @@ export class DexieBoardRepository implements BoardRepository {
         input.chipModel === undefined
           ? existing.chipModel
           : this.optionalText(input.chipModel),
+      chipRevision:
+        input.chipRevision === undefined
+          ? existing.chipRevision
+          : this.optionalNumber(input.chipRevision),
+      chipVariant:
+        input.chipVariant === undefined
+          ? existing.chipVariant
+          : this.optionalText(input.chipVariant),
+      chipFamily:
+        input.chipFamily === undefined
+          ? existing.chipFamily
+          : this.optionalNumber(input.chipFamily),
+      chipFamilyHex:
+        input.chipFamilyHex === undefined
+          ? existing.chipFamilyHex
+          : this.optionalText(input.chipFamilyHex),
       macAddress:
         input.macAddress === undefined
           ? existing.macAddress
@@ -82,14 +125,94 @@ export class DexieBoardRepository implements BoardRepository {
         input.flashSizeBytes === undefined
           ? existing.flashSizeBytes
           : this.optionalNumber(input.flashSizeBytes),
+      flashSizeLabel:
+        input.flashSizeLabel === undefined
+          ? existing.flashSizeLabel
+          : this.optionalText(input.flashSizeLabel),
+      flashChipId:
+        input.flashChipId === undefined
+          ? existing.flashChipId
+          : this.optionalNumber(input.flashChipId),
+      flashChipIdHex:
+        input.flashChipIdHex === undefined
+          ? existing.flashChipIdHex
+          : this.optionalText(input.flashChipIdHex),
+      flashManufacturerId:
+        input.flashManufacturerId === undefined
+          ? existing.flashManufacturerId
+          : this.optionalNumber(input.flashManufacturerId),
+      flashManufacturerIdHex:
+        input.flashManufacturerIdHex === undefined
+          ? existing.flashManufacturerIdHex
+          : this.optionalText(input.flashManufacturerIdHex),
+      flashManufacturerName:
+        input.flashManufacturerName === undefined
+          ? existing.flashManufacturerName
+          : this.optionalText(input.flashManufacturerName),
+      flashDeviceId:
+        input.flashDeviceId === undefined
+          ? existing.flashDeviceId
+          : this.optionalNumber(input.flashDeviceId),
+      flashDeviceIdHex:
+        input.flashDeviceIdHex === undefined
+          ? existing.flashDeviceIdHex
+          : this.optionalText(input.flashDeviceIdHex),
       psramSizeBytes:
         input.psramSizeBytes === undefined
           ? existing.psramSizeBytes
           : this.optionalNumber(input.psramSizeBytes),
+      psramDetected:
+        input.psramDetected === undefined
+          ? existing.psramDetected
+          : this.optionalBoolean(input.psramDetected),
       crystalFrequency:
         input.crystalFrequency === undefined
           ? existing.crystalFrequency
           : this.optionalText(input.crystalFrequency),
+      securityFlags:
+        input.securityFlags === undefined
+          ? existing.securityFlags
+          : this.optionalNumber(input.securityFlags),
+      securityFlagsHex:
+        input.securityFlagsHex === undefined
+          ? existing.securityFlagsHex
+          : this.optionalText(input.securityFlagsHex),
+      flashCryptCnt:
+        input.flashCryptCnt === undefined
+          ? existing.flashCryptCnt
+          : this.optionalNumber(input.flashCryptCnt),
+      flashCryptCntHex:
+        input.flashCryptCntHex === undefined
+          ? existing.flashCryptCntHex
+          : this.optionalText(input.flashCryptCntHex),
+      securityKeyPurposes:
+        input.securityKeyPurposes === undefined
+          ? existing.securityKeyPurposes
+          : this.optionalNumberArray(input.securityKeyPurposes),
+      securityChipId:
+        input.securityChipId === undefined
+          ? existing.securityChipId
+          : this.optionalNumber(input.securityChipId),
+      securityApiVersion:
+        input.securityApiVersion === undefined
+          ? existing.securityApiVersion
+          : this.optionalNumber(input.securityApiVersion),
+      secureBootEnabled:
+        input.secureBootEnabled === undefined
+          ? existing.secureBootEnabled
+          : this.optionalBoolean(input.secureBootEnabled),
+      flashEncryptionEnabled:
+        input.flashEncryptionEnabled === undefined
+          ? existing.flashEncryptionEnabled
+          : this.optionalBoolean(input.flashEncryptionEnabled),
+      bootloaderOffset:
+        input.bootloaderOffset === undefined
+          ? existing.bootloaderOffset
+          : this.optionalNumber(input.bootloaderOffset),
+      bootloaderOffsetHex:
+        input.bootloaderOffsetHex === undefined
+          ? existing.bootloaderOffsetHex
+          : this.optionalText(input.bootloaderOffsetHex),
       boardType:
         input.boardType === undefined
           ? existing.boardType
@@ -197,6 +320,36 @@ export class DexieBoardRepository implements BoardRepository {
     return matchesSearch && matchesStatus && matchesChipModel;
   }
 
+  private normalizeBoard(board: Board): Board {
+    return {
+      ...board,
+      chipRevision: board.chipRevision ?? null,
+      chipVariant: board.chipVariant ?? null,
+      chipFamily: board.chipFamily ?? null,
+      chipFamilyHex: board.chipFamilyHex ?? null,
+      flashSizeLabel: board.flashSizeLabel ?? null,
+      flashChipId: board.flashChipId ?? null,
+      flashChipIdHex: board.flashChipIdHex ?? null,
+      flashManufacturerId: board.flashManufacturerId ?? null,
+      flashManufacturerIdHex: board.flashManufacturerIdHex ?? null,
+      flashManufacturerName: board.flashManufacturerName ?? null,
+      flashDeviceId: board.flashDeviceId ?? null,
+      flashDeviceIdHex: board.flashDeviceIdHex ?? null,
+      psramDetected: board.psramDetected ?? null,
+      securityFlags: board.securityFlags ?? null,
+      securityFlagsHex: board.securityFlagsHex ?? null,
+      flashCryptCnt: board.flashCryptCnt ?? null,
+      flashCryptCntHex: board.flashCryptCntHex ?? null,
+      securityKeyPurposes: board.securityKeyPurposes ?? null,
+      securityChipId: board.securityChipId ?? null,
+      securityApiVersion: board.securityApiVersion ?? null,
+      secureBootEnabled: board.secureBootEnabled ?? null,
+      flashEncryptionEnabled: board.flashEncryptionEnabled ?? null,
+      bootloaderOffset: board.bootloaderOffset ?? null,
+      bootloaderOffsetHex: board.bootloaderOffsetHex ?? null
+    };
+  }
+
   private requireName(value: string): string {
     const name = value.trim();
     if (!name) {
@@ -221,6 +374,25 @@ export class DexieBoardRepository implements BoardRepository {
     }
 
     return Math.trunc(value);
+  }
+
+  private optionalBoolean(value: boolean | null | undefined): boolean | null {
+    return value ?? null;
+  }
+
+  private optionalNumberArray(value: number[] | null | undefined): number[] | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (
+      !Array.isArray(value) ||
+      value.some((item) => !Number.isFinite(item) || item < 0)
+    ) {
+      throw new Error("Numeric board array fields must contain positive numbers.");
+    }
+
+    return value.map((item) => Math.trunc(item));
   }
 
   private assertStatus(value: BoardStatus): void {

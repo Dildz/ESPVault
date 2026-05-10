@@ -1,7 +1,7 @@
 import electronPath from "electron";
-import { build } from "esbuild";
 import { spawn } from "node:child_process";
 import { createServer } from "vite";
+import { buildElectronBundles } from "./buildElectronBundles.mjs";
 
 const rendererServer = await createServer({
   configFile: "vite.config.ts",
@@ -16,29 +16,7 @@ await rendererServer.listen();
 const resolvedUrls = rendererServer.resolvedUrls;
 const devServerUrl = resolvedUrls?.local[0] ?? "http://127.0.0.1:5173/";
 
-const sharedOptions = {
-  bundle: true,
-  platform: "node",
-  target: "node22",
-  sourcemap: true,
-  logLevel: "silent"
-};
-
-await build({
-  ...sharedOptions,
-  entryPoints: ["src/main/main.ts"],
-  outfile: "dist-electron/main.js",
-  format: "cjs",
-  external: ["electron"]
-});
-
-await build({
-  ...sharedOptions,
-  entryPoints: ["src/preload/index.ts"],
-  outfile: "dist-electron/preload.js",
-  format: "cjs",
-  external: ["electron"]
-});
+await buildElectronBundles();
 
 const { ELECTRON_RUN_AS_NODE, ...cleanEnv } = process.env;
 
