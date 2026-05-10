@@ -1,0 +1,10 @@
+node_modules/
+.npm-cache/
+dist/
+dist-electron/
+release/
+*.tsbuildinfo
+*.local
+*.log
+.DS_Store
+Thumbs.db
