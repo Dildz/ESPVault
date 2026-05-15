@@ -21,10 +21,11 @@ body {
 }
 
 .page-shell {
+  box-sizing: border-box;
   width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 28px;
+  max-width: none;
+  margin: 0;
+  padding: 28px clamp(28px, 2vw, 44px);
 }
 
 .page-header {
