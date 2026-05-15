@@ -147,6 +147,7 @@ async function scanEspBoardFromPort(
   try {
     loader = await connectWithPort(port, logger);
     await loader.initialize();
+    const macAddress = readMacAddress(loader, logger);
 
     const scanLoader = await runStubForFlashMetadata(loader, logger);
     loader = scanLoader;
@@ -168,7 +169,7 @@ async function scanEspBoardFromPort(
       chipVariant: loader.chipVariant,
       chipFamily,
       chipFamilyHex: formatHex(chipFamily, 4),
-      macAddress: readMacAddress(loader, logger),
+      macAddress,
       ...flashSizeInfo,
       ...flashChipInfo,
       psramSizeBytes: null,
