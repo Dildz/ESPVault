@@ -13,6 +13,7 @@ import {
   BOARD_STATUS_COLORS,
   BOARD_STATUS_LABELS,
   formatBytes,
+  formatFlashSize,
   formatDate
 } from "../utils/boardDisplay";
 
@@ -209,7 +210,7 @@ async function confirmDelete(): Promise<void> {
               </v-chip>
             </td>
             <td>{{ board.chipModel || "Not set" }}</td>
-            <td>{{ formatBytes(board.flashSizeBytes) }}</td>
+            <td>{{ formatFlashSize(board.flashSizeBytes, board.flashSizeLabel) }}</td>
             <td>{{ formatBytes(board.psramSizeBytes) }}</td>
             <td>{{ board.physicalLocation || "Not set" }}</td>
             <td>{{ formatDate(board.updatedAt) }}</td>
@@ -260,4 +261,3 @@ async function confirmDelete(): Promise<void> {
     </v-dialog>
   </section>
 </template>
-

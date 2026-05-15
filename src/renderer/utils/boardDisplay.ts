@@ -23,12 +23,26 @@ export function formatBytes(value: number | null): string {
     return "Not set";
   }
 
+  if (value < 1024 * 1024) {
+    const kilobytes = value / 1024;
+    return Number.isInteger(kilobytes)
+      ? `${kilobytes} KB`
+      : `${kilobytes.toFixed(1)} KB`;
+  }
+
   const megabytes = value / 1024 / 1024;
   if (Number.isInteger(megabytes)) {
     return `${megabytes} MB`;
   }
 
   return `${megabytes.toFixed(1)} MB`;
+}
+
+export function formatFlashSize(
+  bytes: number | null,
+  label: string | null
+): string {
+  return bytes === null ? label ?? "Not set" : formatBytes(bytes);
 }
 
 export function formatDate(value: string | null): string {
@@ -41,4 +55,3 @@ export function formatDate(value: string | null): string {
     timeStyle: "short"
   }).format(new Date(value));
 }
-

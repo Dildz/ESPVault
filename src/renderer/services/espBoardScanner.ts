@@ -19,6 +19,11 @@ interface FlashChipInfo {
   flashDeviceIdHex: string | null;
 }
 
+interface FlashSizeInfo {
+  flashSizeBytes: number | null;
+  flashSizeLabel: string | null;
+}
+
 interface SecurityInfo {
   securityFlags: number | null;
   securityFlagsHex: string | null;
@@ -45,6 +50,32 @@ const FLASH_MANUFACTURER_NAMES: Record<number, string> = {
   0xef: "Winbond"
 };
 
+const DETECTED_FLASH_SIZE_LABELS: Record<number, string> = {
+  0x12: "256KB",
+  0x13: "512KB",
+  0x14: "1MB",
+  0x15: "2MB",
+  0x16: "4MB",
+  0x17: "8MB",
+  0x18: "16MB",
+  0x19: "32MB",
+  0x1a: "64MB",
+  0x1b: "128MB",
+  0x1c: "256MB",
+  0x20: "64MB",
+  0x21: "128MB",
+  0x22: "256MB",
+  0x32: "256KB",
+  0x33: "512KB",
+  0x34: "1MB",
+  0x35: "2MB",
+  0x36: "4MB",
+  0x37: "8MB",
+  0x38: "16MB",
+  0x39: "32MB",
+  0x3a: "64MB"
+};
+
 export async function scanEspBoard(
   onLog?: (level: ScannerLogLevel, message: string) => void
 ): Promise<DetectedEspBoard> {
@@ -62,14 +93,16 @@ export async function scanEspBoard(
     loader = await connect(logger);
     await loader.initialize();
 
-    try {
-      await loader.detectFlashSize();
-    } catch (error) {
-      logger.error(`Flash size detection failed: ${getErrorMessage(error)}`);
-    }
+    const scanLoader = await runStubForFlashMetadata(loader, logger);
+    loader = scanLoader;
 
     const chipFamily = readChipFamily(loader, logger);
     const flashChipInfo = await readFlashChipInfo(loader, logger);
+    const flashSizeInfo = await readFlashSize(
+      loader,
+      flashChipInfo.flashChipId,
+      logger
+    );
     const crystalFrequency = await readCrystalFrequency(loader, chipFamily, logger);
     const bootloaderOffset = readBootloaderOffset(loader, logger);
     const securityInfo = await readSecurityInfo(loader, logger);
@@ -81,8 +114,7 @@ export async function scanEspBoard(
       chipFamily,
       chipFamilyHex: formatHex(chipFamily, 4),
       macAddress: readMacAddress(loader, logger),
-      flashSizeBytes: parseFlashSize(loader.flashSize),
-      flashSizeLabel: loader.flashSize,
+      ...flashSizeInfo,
       ...flashChipInfo,
       psramSizeBytes: null,
       psramDetected: null,
@@ -98,6 +130,50 @@ export async function scanEspBoard(
       await resetAndDisconnect(loader, logger);
     }
   }
+}
+
+async function runStubForFlashMetadata(
+  loader: ESPLoader,
+  logger: Logger
+): Promise<ESPLoader> {
+  try {
+    return await loader.runStub();
+  } catch (error) {
+    logger.error(
+      `Stub loader unavailable; flash metadata may be incomplete: ${getErrorMessage(error)}`
+    );
+    return loader;
+  }
+}
+
+async function readFlashSize(
+  loader: ESPLoader,
+  flashChipId: number | null,
+  logger: Logger
+): Promise<FlashSizeInfo> {
+  let flashSizeLabel = normalizeFlashSizeLabel(loader.flashSize);
+
+  if (!flashSizeLabel) {
+    try {
+      await loader.detectFlashSize();
+      flashSizeLabel = normalizeFlashSizeLabel(loader.flashSize);
+    } catch (error) {
+      logger.error(`Flash size detection failed: ${getErrorMessage(error)}`);
+    }
+  }
+
+  if (!flashSizeLabel) {
+    flashSizeLabel = inferFlashSizeLabelFromFlashId(flashChipId);
+
+    if (flashSizeLabel) {
+      logger.log(`Flash size inferred from flash ID: ${flashSizeLabel}`);
+    }
+  }
+
+  return {
+    flashSizeBytes: parseFlashSize(flashSizeLabel),
+    flashSizeLabel
+  };
 }
 
 function createLogger(
@@ -141,6 +217,11 @@ async function readFlashChipInfo(
 ): Promise<FlashChipInfo> {
   try {
     const flashChipId = await loader.flashId();
+    if (!isValidFlashChipId(flashChipId)) {
+      logger.debug(`Flash chip ID read returned invalid value: ${formatHex(flashChipId, 3)}`);
+      return emptyFlashChipInfo();
+    }
+
     const flashManufacturerId = flashChipId & 0xff;
     const flashDeviceId = (flashChipId >> 8) & 0xffff;
 
@@ -228,6 +309,24 @@ function parseFlashSize(value: string | null): number | null {
   }
 
   return Math.trunc(amount * (unit === "MB" ? 1024 * 1024 : 1024));
+}
+
+function normalizeFlashSizeLabel(value: string | null | undefined): string | null {
+  const label = value?.trim();
+  return label ? label : null;
+}
+
+function inferFlashSizeLabelFromFlashId(flashChipId: number | null): string | null {
+  if (flashChipId === null) {
+    return null;
+  }
+
+  const capacityCode = (flashChipId >> 16) & 0xff;
+  return DETECTED_FLASH_SIZE_LABELS[capacityCode] ?? null;
+}
+
+function isValidFlashChipId(value: number): boolean {
+  return value !== 0 && value !== 0xffffff;
 }
 
 function emptyFlashChipInfo(): FlashChipInfo {
