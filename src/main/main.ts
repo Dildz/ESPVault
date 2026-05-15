@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain } from "electron";
 import path from "node:path";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const SERIAL_SELECTION_COUNT_CHANNEL = "serial:get-last-selection-count";
+const CLIPBOARD_WRITE_TEXT_CHANNEL = "clipboard:write-text";
 
 let pendingSelectedSerialPortIds: string[] = [];
 let lastSerialPortSelectionCount = 0;
@@ -19,6 +20,13 @@ interface SelectableSerialPort {
 app.setName("ESP Board Vault");
 
 ipcMain.handle(SERIAL_SELECTION_COUNT_CHANNEL, () => lastSerialPortSelectionCount);
+ipcMain.handle(CLIPBOARD_WRITE_TEXT_CHANNEL, (_event, text: unknown) => {
+  if (typeof text !== "string") {
+    throw new Error("Clipboard text must be a string.");
+  }
+
+  clipboard.writeText(text);
+});
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onBeforeUnmount, ref } from "vue";
 import type { CreateBoardInput } from "../../shared/types/board";
 import type { DetectedEspBoard } from "../../shared/types/serial";
 import { scanEspBoards } from "../services/espBoardScanner";
@@ -11,6 +11,8 @@ const detectedBoards = ref<DetectedEspBoard[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const scanLogs = ref<string[]>([]);
+const logCopied = ref(false);
+let copyResetTimeout: number | null = null;
 
 async function runScan(): Promise<void> {
   loading.value = true;
@@ -39,6 +41,31 @@ async function addDetectedBoard(board: DetectedEspBoard): Promise<void> {
 async function addDetectedBoards(): Promise<void> {
   for (const board of detectedBoards.value) {
     await addDetectedBoard(board);
+  }
+}
+
+async function copyScanLog(): Promise<void> {
+  if (!scanLogs.value.length) {
+    return;
+  }
+
+  try {
+    await window.api.clipboard.writeText(scanLogs.value.join("\n"));
+    logCopied.value = true;
+
+    if (copyResetTimeout !== null) {
+      window.clearTimeout(copyResetTimeout);
+    }
+
+    copyResetTimeout = window.setTimeout(() => {
+      logCopied.value = false;
+      copyResetTimeout = null;
+    }, 1600);
+  } catch (caughtError) {
+    error.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The scan log could not be copied.";
   }
 }
 
@@ -122,6 +149,12 @@ function formatFlashManufacturer(board: DetectedEspBoard): string {
 function formatKeyPurposes(value: number[] | null): string {
   return value?.length ? value.join(", ") : "Unknown";
 }
+
+onBeforeUnmount(() => {
+  if (copyResetTimeout !== null) {
+    window.clearTimeout(copyResetTimeout);
+  }
+});
 </script>
 
 <template>
@@ -250,7 +283,17 @@ function formatKeyPurposes(value: number[] | null): string {
     </div>
 
     <v-card v-if="scanLogs.length" class="mt-4" flat border>
-      <v-card-title class="text-subtitle-1 font-weight-bold">Scan log</v-card-title>
+      <v-card-title class="scan-log-title">
+        <span class="text-subtitle-1 font-weight-bold">Scan log</span>
+        <v-btn
+          size="small"
+          variant="text"
+          :prepend-icon="logCopied ? 'mdi-check' : 'mdi-content-copy'"
+          @click="copyScanLog"
+        >
+          {{ logCopied ? "Copied" : "Copy" }}
+        </v-btn>
+      </v-card-title>
       <v-divider />
       <v-card-text>
         <pre class="scan-log">{{ scanLogs.join("\n") }}</pre>
@@ -268,5 +311,12 @@ function formatKeyPurposes(value: number[] | null): string {
 .scan-result-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.scan-log-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 </style>
