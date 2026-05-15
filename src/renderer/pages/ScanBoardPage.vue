@@ -4,7 +4,7 @@ import type { CreateBoardInput } from "../../shared/types/board";
 import type { DetectedEspBoard } from "../../shared/types/serial";
 import { scanEspBoards } from "../services/espBoardScanner";
 import { useBoardStore } from "../stores/boardStore";
-import { formatBytes, formatDate } from "../utils/boardDisplay";
+import { formatBytes, formatDate, formatFlashSize } from "../utils/boardDisplay";
 
 const boardStore = useBoardStore();
 const detectedBoards = ref<DetectedEspBoard[]>([]);
@@ -107,47 +107,57 @@ function buildBoardInput(board: DetectedEspBoard): CreateBoardInput {
   };
 }
 
-function formatBoolean(value: boolean | null): string {
+function formatBoardLabel(board: DetectedEspBoard, index: number): string {
+  return board.chipModel ? `${board.chipModel} board` : `Detected board ${index + 1}`;
+}
+
+function formatChipSummary(board: DetectedEspBoard): string {
+  return [board.chipModel ?? "Unknown", formatRevision(board.chipRevision)]
+    .filter((value): value is string => Boolean(value))
+    .join(" / ");
+}
+
+function formatRevision(value: number | null): string | null {
+  return value === null ? null : `rev ${value}`;
+}
+
+function formatFlashChipSummary(board: DetectedEspBoard): string {
+  if (board.flashManufacturerName && board.flashChipIdHex) {
+    return `${board.flashManufacturerName} ${board.flashChipIdHex}`;
+  }
+
+  return board.flashChipIdHex ?? board.flashManufacturerName ?? "Unknown";
+}
+
+function formatPsramSummary(board: DetectedEspBoard): string {
+  if (board.psramSizeBytes !== null) {
+    return formatBytes(board.psramSizeBytes);
+  }
+
+  if (board.psramDetected === null) {
+    return "Unknown";
+  }
+
+  return board.psramDetected ? "Detected" : "Not detected";
+}
+
+function formatSecuritySummary(board: DetectedEspBoard): string {
+  const secureBoot = formatEnabledState(board.secureBootEnabled);
+  const flashEncryption = formatEnabledState(board.flashEncryptionEnabled);
+
+  if (secureBoot === "Unknown" && flashEncryption === "Unknown") {
+    return "Unknown";
+  }
+
+  return `Boot ${secureBoot.toLowerCase()} / flash ${flashEncryption.toLowerCase()}`;
+}
+
+function formatEnabledState(value: boolean | null): string {
   if (value === null) {
     return "Unknown";
   }
 
   return value ? "Enabled" : "Disabled";
-}
-
-function formatDetection(value: boolean | null): string {
-  if (value === null) {
-    return "Unknown";
-  }
-
-  return value ? "Detected" : "Not detected";
-}
-
-function formatNumberWithHex(value: number | null, hexValue: string | null): string {
-  if (value === null && !hexValue) {
-    return "Unknown";
-  }
-
-  return hexValue
-    ? `${hexValue}${value === null ? "" : ` (${value})`}`
-    : String(value);
-}
-
-function formatFlashManufacturer(board: DetectedEspBoard): string {
-  const id = formatNumberWithHex(
-    board.flashManufacturerId,
-    board.flashManufacturerIdHex
-  );
-
-  if (id === "Unknown") {
-    return id;
-  }
-
-  return board.flashManufacturerName ? `${board.flashManufacturerName} ${id}` : id;
-}
-
-function formatKeyPurposes(value: number[] | null): string {
-  return value?.length ? value.join(", ") : "Unknown";
 }
 
 onBeforeUnmount(() => {
@@ -180,99 +190,78 @@ onBeforeUnmount(() => {
       {{ error }}
     </v-alert>
 
-    <div v-if="detectedBoards.length" class="detected-board-list">
-      <div v-if="detectedBoards.length > 1" class="scan-result-actions">
-        <v-btn color="primary" prepend-icon="mdi-plus" @click="addDetectedBoards">
-          Add all to boards
+    <v-card v-if="detectedBoards.length" flat border>
+      <v-card-title class="detected-board-title">
+        <span class="text-subtitle-1 font-weight-bold">
+          Detected boards
+        </span>
+        <v-btn
+          v-if="detectedBoards.length > 1"
+          color="primary"
+          size="small"
+          prepend-icon="mdi-plus"
+          @click="addDetectedBoards"
+        >
+          Add all
         </v-btn>
-      </div>
-
-      <v-card
-        v-for="(detectedBoard, index) in detectedBoards"
-        :key="`${detectedBoard.macAddress ?? 'board'}-${detectedBoard.detectedAt}-${index}`"
-        flat
-        border
-      >
-        <v-card-title class="text-subtitle-1 font-weight-bold">
-          Detected board {{ detectedBoards.length > 1 ? index + 1 : "" }}
-        </v-card-title>
-        <v-divider />
-        <v-list>
-          <v-list-item title="Chip model" :subtitle="detectedBoard.chipModel ?? 'Unknown'" />
-          <v-list-item
-            title="Chip revision"
-            :subtitle="detectedBoard.chipRevision === null ? 'Unknown' : String(detectedBoard.chipRevision)"
-          />
-          <v-list-item title="Chip variant" :subtitle="detectedBoard.chipVariant ?? 'Unknown'" />
-          <v-list-item
-            title="Chip family constant"
-            :subtitle="formatNumberWithHex(detectedBoard.chipFamily, detectedBoard.chipFamilyHex)"
-          />
-          <v-list-item title="MAC address" :subtitle="detectedBoard.macAddress ?? 'Unknown'" />
-          <v-list-item
-            title="Flash"
-            :subtitle="detectedBoard.flashSizeLabel ?? formatBytes(detectedBoard.flashSizeBytes)"
-          />
-          <v-list-item
-            title="Flash chip ID"
-            :subtitle="formatNumberWithHex(detectedBoard.flashChipId, detectedBoard.flashChipIdHex)"
-          />
-          <v-list-item
-            title="Flash manufacturer"
-            :subtitle="formatFlashManufacturer(detectedBoard)"
-          />
-          <v-list-item
-            title="Flash device ID"
-            :subtitle="formatNumberWithHex(detectedBoard.flashDeviceId, detectedBoard.flashDeviceIdHex)"
-          />
-          <v-list-item title="PSRAM" :subtitle="formatBytes(detectedBoard.psramSizeBytes)" />
-          <v-list-item
-            title="PSRAM detection"
-            :subtitle="formatDetection(detectedBoard.psramDetected)"
-          />
-          <v-list-item title="Crystal" :subtitle="detectedBoard.crystalFrequency ?? 'Unknown'" />
-          <v-list-item
-            title="Secure boot"
-            :subtitle="formatBoolean(detectedBoard.secureBootEnabled)"
-          />
-          <v-list-item
-            title="Flash encryption"
-            :subtitle="formatBoolean(detectedBoard.flashEncryptionEnabled)"
-          />
-          <v-list-item
-            title="Security flags"
-            :subtitle="formatNumberWithHex(detectedBoard.securityFlags, detectedBoard.securityFlagsHex)"
-          />
-          <v-list-item
-            title="Flash crypt count"
-            :subtitle="formatNumberWithHex(detectedBoard.flashCryptCnt, detectedBoard.flashCryptCntHex)"
-          />
-          <v-list-item
-            title="Security key purposes"
-            :subtitle="formatKeyPurposes(detectedBoard.securityKeyPurposes)"
-          />
-          <v-list-item
-            title="Security chip ID"
-            :subtitle="detectedBoard.securityChipId === null ? 'Unknown' : String(detectedBoard.securityChipId)"
-          />
-          <v-list-item
-            title="Security API version"
-            :subtitle="detectedBoard.securityApiVersion === null ? 'Unknown' : String(detectedBoard.securityApiVersion)"
-          />
-          <v-list-item
-            title="Bootloader offset"
-            :subtitle="formatNumberWithHex(detectedBoard.bootloaderOffset, detectedBoard.bootloaderOffsetHex)"
-          />
-          <v-list-item title="Detected" :subtitle="formatDate(detectedBoard.detectedAt)" />
-        </v-list>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn color="primary" prepend-icon="mdi-plus" @click="addDetectedBoard(detectedBoard)">
-            Add to boards
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </div>
+      </v-card-title>
+      <v-divider />
+      <v-table class="detected-board-table">
+        <thead>
+          <tr>
+            <th>Board</th>
+            <th>Chip</th>
+            <th>MAC address</th>
+            <th>Flash</th>
+            <th>Flash chip</th>
+            <th>PSRAM</th>
+            <th>Security</th>
+            <th>Detected</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="(detectedBoard, index) in detectedBoards"
+            :key="`${detectedBoard.macAddress ?? 'board'}-${detectedBoard.detectedAt}-${index}`"
+          >
+            <td>
+              <div class="board-name">
+                {{ formatBoardLabel(detectedBoard, index) }}
+              </div>
+              <div class="text-caption muted">
+                {{ detectedBoard.chipVariant ?? "No variant detected" }}
+              </div>
+            </td>
+            <td>{{ formatChipSummary(detectedBoard) }}</td>
+            <td class="metadata-mono">{{ detectedBoard.macAddress ?? "Unknown" }}</td>
+            <td>
+              {{ formatFlashSize(detectedBoard.flashSizeBytes, detectedBoard.flashSizeLabel) }}
+            </td>
+            <td>
+              <div>{{ formatFlashChipSummary(detectedBoard) }}</div>
+              <div class="text-caption muted">
+                {{ detectedBoard.flashDeviceIdHex ?? "No device ID" }}
+              </div>
+            </td>
+            <td>{{ formatPsramSummary(detectedBoard) }}</td>
+            <td>{{ formatSecuritySummary(detectedBoard) }}</td>
+            <td>{{ formatDate(detectedBoard.detectedAt) }}</td>
+            <td class="text-right">
+              <v-btn
+                color="primary"
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-plus"
+                @click="addDetectedBoard(detectedBoard)"
+              >
+                Add
+              </v-btn>
+            </td>
+          </tr>
+        </tbody>
+      </v-table>
+    </v-card>
 
     <div v-else class="empty-state">
       <v-icon icon="mdi-usb-port" size="40" color="secondary" />
@@ -303,14 +292,41 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.detected-board-list {
-  display: grid;
-  gap: 16px;
+.detected-board-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
 }
 
-.scan-result-actions {
-  display: flex;
-  justify-content: flex-end;
+.detected-board-table {
+  font-size: 0.875rem;
+}
+
+.detected-board-table :deep(th),
+.detected-board-table :deep(td) {
+  padding: 10px 12px;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.detected-board-table :deep(th:first-child),
+.detected-board-table :deep(td:first-child),
+.detected-board-table :deep(th:nth-child(5)),
+.detected-board-table :deep(td:nth-child(5)),
+.detected-board-table :deep(th:nth-child(7)),
+.detected-board-table :deep(td:nth-child(7)) {
+  white-space: normal;
+}
+
+.board-name {
+  font-weight: 650;
+}
+
+.metadata-mono {
+  font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
+  font-size: 0.8125rem;
 }
 
 .scan-log-title {
