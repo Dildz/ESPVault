@@ -1,6 +1,6 @@
 import {
   CHIP_FAMILY_ESP32C5,
-  connect,
+  connectWithPort,
   formatMacAddr,
   type ESPLoader,
   type Logger
@@ -79,18 +79,73 @@ const DETECTED_FLASH_SIZE_LABELS: Record<number, string> = {
 export async function scanEspBoard(
   onLog?: (level: ScannerLogLevel, message: string) => void
 ): Promise<DetectedEspBoard> {
+  const boards = await scanEspBoards(onLog);
+  return boards[0];
+}
+
+export async function scanEspBoards(
+  onLog?: (level: ScannerLogLevel, message: string) => void
+): Promise<DetectedEspBoard[]> {
   if (!("serial" in navigator)) {
     throw new Error(
       "Web Serial is not available. Use the Electron desktop app or a Chromium browser."
     );
   }
 
+  const ports = await requestSelectedSerialPorts();
+  const detectedBoards: DetectedEspBoard[] = [];
+
+  for (const [index, port] of ports.entries()) {
+    onLog?.("log", `Scanning selected serial port ${index + 1} of ${ports.length}.`);
+
+    try {
+      detectedBoards.push(await scanEspBoardFromPort(port, onLog));
+    } catch (error) {
+      onLog?.(
+        "error",
+        `Selected serial port ${index + 1} scan failed: ${getErrorMessage(error)}`
+      );
+    }
+  }
+
+  if (!detectedBoards.length) {
+    throw new Error("No selected boards could be scanned.");
+  }
+
+  return detectedBoards;
+}
+
+async function requestSelectedSerialPorts(): Promise<SerialPort[]> {
+  const firstPort = await navigator.serial.requestPort();
+  const selectionCount = await getLastSerialSelectionCount();
+  const ports = [firstPort];
+
+  while (ports.length < selectionCount) {
+    ports.push(await navigator.serial.requestPort());
+  }
+
+  return ports;
+}
+
+async function getLastSerialSelectionCount(): Promise<number> {
+  try {
+    const count = await window.api.serial.getLastSelectionCount();
+    return Number.isInteger(count) && count > 0 ? count : 1;
+  } catch {
+    return 1;
+  }
+}
+
+async function scanEspBoardFromPort(
+  port: SerialPort,
+  onLog?: (level: ScannerLogLevel, message: string) => void
+): Promise<DetectedEspBoard> {
   const logs: string[] = [];
   const logger = createLogger(logs, onLog);
   let loader: ESPLoader | null = null;
 
   try {
-    loader = await connect(logger);
+    loader = await connectWithPort(port, logger);
     await loader.initialize();
 
     const scanLoader = await runStubForFlashMetadata(loader, logger);

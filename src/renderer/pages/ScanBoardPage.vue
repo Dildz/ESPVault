@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import type { CreateBoardInput } from "../../shared/types/board";
 import type { DetectedEspBoard } from "../../shared/types/serial";
-import { scanEspBoard } from "../services/espBoardScanner";
+import { scanEspBoards } from "../services/espBoardScanner";
 import { useBoardStore } from "../stores/boardStore";
 import { formatBytes, formatDate } from "../utils/boardDisplay";
 
 const boardStore = useBoardStore();
-const detectedBoard = ref<DetectedEspBoard | null>(null);
+const detectedBoards = ref<DetectedEspBoard[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const scanLogs = ref<string[]>([]);
@@ -15,10 +16,10 @@ async function runScan(): Promise<void> {
   loading.value = true;
   error.value = null;
   scanLogs.value = [];
-  detectedBoard.value = null;
+  detectedBoards.value = [];
 
   try {
-    detectedBoard.value = await scanEspBoard((_level, message) => {
+    detectedBoards.value = await scanEspBoards((_level, message) => {
       scanLogs.value = [...scanLogs.value.slice(-80), message];
     });
   } catch (caughtError) {
@@ -31,46 +32,52 @@ async function runScan(): Promise<void> {
   }
 }
 
-async function addDetectedBoard(): Promise<void> {
-  if (!detectedBoard.value) {
-    return;
-  }
+async function addDetectedBoard(board: DetectedEspBoard): Promise<void> {
+  await boardStore.createBoard(buildBoardInput(board));
+}
 
-  await boardStore.createBoard({
-    name: `${detectedBoard.value.chipModel ?? "ESP32"} board`,
+async function addDetectedBoards(): Promise<void> {
+  for (const board of detectedBoards.value) {
+    await addDetectedBoard(board);
+  }
+}
+
+function buildBoardInput(board: DetectedEspBoard): CreateBoardInput {
+  return {
+    name: `${board.chipModel ?? "ESP32"} board`,
     status: "available",
-    chipModel: detectedBoard.value.chipModel,
-    chipRevision: detectedBoard.value.chipRevision,
-    chipVariant: detectedBoard.value.chipVariant,
-    chipFamily: detectedBoard.value.chipFamily,
-    chipFamilyHex: detectedBoard.value.chipFamilyHex,
-    macAddress: detectedBoard.value.macAddress,
-    flashSizeBytes: detectedBoard.value.flashSizeBytes,
-    flashSizeLabel: detectedBoard.value.flashSizeLabel,
-    flashChipId: detectedBoard.value.flashChipId,
-    flashChipIdHex: detectedBoard.value.flashChipIdHex,
-    flashManufacturerId: detectedBoard.value.flashManufacturerId,
-    flashManufacturerIdHex: detectedBoard.value.flashManufacturerIdHex,
-    flashManufacturerName: detectedBoard.value.flashManufacturerName,
-    flashDeviceId: detectedBoard.value.flashDeviceId,
-    flashDeviceIdHex: detectedBoard.value.flashDeviceIdHex,
-    psramSizeBytes: detectedBoard.value.psramSizeBytes,
-    psramDetected: detectedBoard.value.psramDetected,
-    crystalFrequency: detectedBoard.value.crystalFrequency,
-    securityFlags: detectedBoard.value.securityFlags,
-    securityFlagsHex: detectedBoard.value.securityFlagsHex,
-    flashCryptCnt: detectedBoard.value.flashCryptCnt,
-    flashCryptCntHex: detectedBoard.value.flashCryptCntHex,
-    securityKeyPurposes: detectedBoard.value.securityKeyPurposes,
-    securityChipId: detectedBoard.value.securityChipId,
-    securityApiVersion: detectedBoard.value.securityApiVersion,
-    secureBootEnabled: detectedBoard.value.secureBootEnabled,
-    flashEncryptionEnabled: detectedBoard.value.flashEncryptionEnabled,
-    bootloaderOffset: detectedBoard.value.bootloaderOffset,
-    bootloaderOffsetHex: detectedBoard.value.bootloaderOffsetHex,
-    lastConnectedAt: detectedBoard.value.detectedAt,
+    chipModel: board.chipModel,
+    chipRevision: board.chipRevision,
+    chipVariant: board.chipVariant,
+    chipFamily: board.chipFamily,
+    chipFamilyHex: board.chipFamilyHex,
+    macAddress: board.macAddress,
+    flashSizeBytes: board.flashSizeBytes,
+    flashSizeLabel: board.flashSizeLabel,
+    flashChipId: board.flashChipId,
+    flashChipIdHex: board.flashChipIdHex,
+    flashManufacturerId: board.flashManufacturerId,
+    flashManufacturerIdHex: board.flashManufacturerIdHex,
+    flashManufacturerName: board.flashManufacturerName,
+    flashDeviceId: board.flashDeviceId,
+    flashDeviceIdHex: board.flashDeviceIdHex,
+    psramSizeBytes: board.psramSizeBytes,
+    psramDetected: board.psramDetected,
+    crystalFrequency: board.crystalFrequency,
+    securityFlags: board.securityFlags,
+    securityFlagsHex: board.securityFlagsHex,
+    flashCryptCnt: board.flashCryptCnt,
+    flashCryptCntHex: board.flashCryptCntHex,
+    securityKeyPurposes: board.securityKeyPurposes,
+    securityChipId: board.securityChipId,
+    securityApiVersion: board.securityApiVersion,
+    secureBootEnabled: board.secureBootEnabled,
+    flashEncryptionEnabled: board.flashEncryptionEnabled,
+    bootloaderOffset: board.bootloaderOffset,
+    bootloaderOffsetHex: board.bootloaderOffsetHex,
+    lastConnectedAt: board.detectedAt,
     notes: "Created from tasmota-webserial-esptool scan data."
-  });
+  };
 }
 
 function formatBoolean(value: boolean | null): string {
@@ -132,7 +139,7 @@ function formatKeyPurposes(value: number[] | null): string {
         :loading="loading"
         @click="runScan"
       >
-        Scan board
+        Scan boards
       </v-btn>
     </div>
 
@@ -140,92 +147,105 @@ function formatKeyPurposes(value: number[] | null): string {
       {{ error }}
     </v-alert>
 
-    <v-card v-if="detectedBoard" flat border>
-      <v-card-title class="text-subtitle-1 font-weight-bold">
-        Detected board
-      </v-card-title>
-      <v-divider />
-      <v-list>
-        <v-list-item title="Chip model" :subtitle="detectedBoard.chipModel ?? 'Unknown'" />
-        <v-list-item
-          title="Chip revision"
-          :subtitle="detectedBoard.chipRevision === null ? 'Unknown' : String(detectedBoard.chipRevision)"
-        />
-        <v-list-item title="Chip variant" :subtitle="detectedBoard.chipVariant ?? 'Unknown'" />
-        <v-list-item
-          title="Chip family constant"
-          :subtitle="formatNumberWithHex(detectedBoard.chipFamily, detectedBoard.chipFamilyHex)"
-        />
-        <v-list-item title="MAC address" :subtitle="detectedBoard.macAddress ?? 'Unknown'" />
-        <v-list-item
-          title="Flash"
-          :subtitle="detectedBoard.flashSizeLabel ?? formatBytes(detectedBoard.flashSizeBytes)"
-        />
-        <v-list-item
-          title="Flash chip ID"
-          :subtitle="formatNumberWithHex(detectedBoard.flashChipId, detectedBoard.flashChipIdHex)"
-        />
-        <v-list-item
-          title="Flash manufacturer"
-          :subtitle="formatFlashManufacturer(detectedBoard)"
-        />
-        <v-list-item
-          title="Flash device ID"
-          :subtitle="formatNumberWithHex(detectedBoard.flashDeviceId, detectedBoard.flashDeviceIdHex)"
-        />
-        <v-list-item title="PSRAM" :subtitle="formatBytes(detectedBoard.psramSizeBytes)" />
-        <v-list-item
-          title="PSRAM detection"
-          :subtitle="formatDetection(detectedBoard.psramDetected)"
-        />
-        <v-list-item title="Crystal" :subtitle="detectedBoard.crystalFrequency ?? 'Unknown'" />
-        <v-list-item
-          title="Secure boot"
-          :subtitle="formatBoolean(detectedBoard.secureBootEnabled)"
-        />
-        <v-list-item
-          title="Flash encryption"
-          :subtitle="formatBoolean(detectedBoard.flashEncryptionEnabled)"
-        />
-        <v-list-item
-          title="Security flags"
-          :subtitle="formatNumberWithHex(detectedBoard.securityFlags, detectedBoard.securityFlagsHex)"
-        />
-        <v-list-item
-          title="Flash crypt count"
-          :subtitle="formatNumberWithHex(detectedBoard.flashCryptCnt, detectedBoard.flashCryptCntHex)"
-        />
-        <v-list-item
-          title="Security key purposes"
-          :subtitle="formatKeyPurposes(detectedBoard.securityKeyPurposes)"
-        />
-        <v-list-item
-          title="Security chip ID"
-          :subtitle="detectedBoard.securityChipId === null ? 'Unknown' : String(detectedBoard.securityChipId)"
-        />
-        <v-list-item
-          title="Security API version"
-          :subtitle="detectedBoard.securityApiVersion === null ? 'Unknown' : String(detectedBoard.securityApiVersion)"
-        />
-        <v-list-item
-          title="Bootloader offset"
-          :subtitle="formatNumberWithHex(detectedBoard.bootloaderOffset, detectedBoard.bootloaderOffsetHex)"
-        />
-        <v-list-item title="Detected" :subtitle="formatDate(detectedBoard.detectedAt)" />
-      </v-list>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn color="primary" prepend-icon="mdi-plus" @click="addDetectedBoard">
-          Add to boards
+    <div v-if="detectedBoards.length" class="detected-board-list">
+      <div v-if="detectedBoards.length > 1" class="scan-result-actions">
+        <v-btn color="primary" prepend-icon="mdi-plus" @click="addDetectedBoards">
+          Add all to boards
         </v-btn>
-      </v-card-actions>
-    </v-card>
+      </div>
+
+      <v-card
+        v-for="(detectedBoard, index) in detectedBoards"
+        :key="`${detectedBoard.macAddress ?? 'board'}-${detectedBoard.detectedAt}-${index}`"
+        flat
+        border
+      >
+        <v-card-title class="text-subtitle-1 font-weight-bold">
+          Detected board {{ detectedBoards.length > 1 ? index + 1 : "" }}
+        </v-card-title>
+        <v-divider />
+        <v-list>
+          <v-list-item title="Chip model" :subtitle="detectedBoard.chipModel ?? 'Unknown'" />
+          <v-list-item
+            title="Chip revision"
+            :subtitle="detectedBoard.chipRevision === null ? 'Unknown' : String(detectedBoard.chipRevision)"
+          />
+          <v-list-item title="Chip variant" :subtitle="detectedBoard.chipVariant ?? 'Unknown'" />
+          <v-list-item
+            title="Chip family constant"
+            :subtitle="formatNumberWithHex(detectedBoard.chipFamily, detectedBoard.chipFamilyHex)"
+          />
+          <v-list-item title="MAC address" :subtitle="detectedBoard.macAddress ?? 'Unknown'" />
+          <v-list-item
+            title="Flash"
+            :subtitle="detectedBoard.flashSizeLabel ?? formatBytes(detectedBoard.flashSizeBytes)"
+          />
+          <v-list-item
+            title="Flash chip ID"
+            :subtitle="formatNumberWithHex(detectedBoard.flashChipId, detectedBoard.flashChipIdHex)"
+          />
+          <v-list-item
+            title="Flash manufacturer"
+            :subtitle="formatFlashManufacturer(detectedBoard)"
+          />
+          <v-list-item
+            title="Flash device ID"
+            :subtitle="formatNumberWithHex(detectedBoard.flashDeviceId, detectedBoard.flashDeviceIdHex)"
+          />
+          <v-list-item title="PSRAM" :subtitle="formatBytes(detectedBoard.psramSizeBytes)" />
+          <v-list-item
+            title="PSRAM detection"
+            :subtitle="formatDetection(detectedBoard.psramDetected)"
+          />
+          <v-list-item title="Crystal" :subtitle="detectedBoard.crystalFrequency ?? 'Unknown'" />
+          <v-list-item
+            title="Secure boot"
+            :subtitle="formatBoolean(detectedBoard.secureBootEnabled)"
+          />
+          <v-list-item
+            title="Flash encryption"
+            :subtitle="formatBoolean(detectedBoard.flashEncryptionEnabled)"
+          />
+          <v-list-item
+            title="Security flags"
+            :subtitle="formatNumberWithHex(detectedBoard.securityFlags, detectedBoard.securityFlagsHex)"
+          />
+          <v-list-item
+            title="Flash crypt count"
+            :subtitle="formatNumberWithHex(detectedBoard.flashCryptCnt, detectedBoard.flashCryptCntHex)"
+          />
+          <v-list-item
+            title="Security key purposes"
+            :subtitle="formatKeyPurposes(detectedBoard.securityKeyPurposes)"
+          />
+          <v-list-item
+            title="Security chip ID"
+            :subtitle="detectedBoard.securityChipId === null ? 'Unknown' : String(detectedBoard.securityChipId)"
+          />
+          <v-list-item
+            title="Security API version"
+            :subtitle="detectedBoard.securityApiVersion === null ? 'Unknown' : String(detectedBoard.securityApiVersion)"
+          />
+          <v-list-item
+            title="Bootloader offset"
+            :subtitle="formatNumberWithHex(detectedBoard.bootloaderOffset, detectedBoard.bootloaderOffsetHex)"
+          />
+          <v-list-item title="Detected" :subtitle="formatDate(detectedBoard.detectedAt)" />
+        </v-list>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="primary" prepend-icon="mdi-plus" @click="addDetectedBoard(detectedBoard)">
+            Add to boards
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </div>
 
     <div v-else class="empty-state">
       <v-icon icon="mdi-usb-port" size="40" color="secondary" />
       <div class="text-subtitle-1 font-weight-bold mt-3">No board scanned yet</div>
       <div class="text-body-2 muted mt-1">
-        The app will ask for a serial port, reset into the ESP bootloader, and read chip details.
+        The app will ask for serial ports, reset into the ESP bootloader, and read chip details.
       </div>
     </div>
 
@@ -238,3 +258,15 @@ function formatKeyPurposes(value: number[] | null): string {
     </v-card>
   </section>
 </template>
+
+<style scoped>
+.detected-board-list {
+  display: grid;
+  gap: 16px;
+}
+
+.scan-result-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+</style>

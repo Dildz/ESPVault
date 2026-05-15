@@ -1,7 +1,11 @@
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
+const SERIAL_SELECTION_COUNT_CHANNEL = "serial:get-last-selection-count";
+
+let pendingSelectedSerialPortIds: string[] = [];
+let lastSerialPortSelectionCount = 0;
 
 interface SelectableSerialPort {
   portId: string;
@@ -13,6 +17,8 @@ interface SelectableSerialPort {
 }
 
 app.setName("ESP Board Vault");
+
+ipcMain.handle(SERIAL_SELECTION_COUNT_CHANNEL, () => lastSerialPortSelectionCount);
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -65,13 +71,22 @@ function configureWebSerial(window: BrowserWindow): void {
   session.on("select-serial-port", async (event, portList, _webContents, callback) => {
     event.preventDefault();
 
+    const queuedPortId = pendingSelectedSerialPortIds.shift();
+    if (queuedPortId) {
+      callback(queuedPortId);
+      return;
+    }
+
     if (portList.length <= 1) {
+      lastSerialPortSelectionCount = portList.length;
       callback(portList[0]?.portId ?? "");
       return;
     }
 
-    const selectedPort = await showSerialPortPicker(window, portList);
-    callback(selectedPort?.portId ?? "");
+    const selectedPorts = await showSerialPortPicker(window, portList);
+    lastSerialPortSelectionCount = selectedPorts.length;
+    pendingSelectedSerialPortIds = selectedPorts.slice(1).map((port) => port.portId);
+    callback(selectedPorts[0]?.portId ?? "");
   });
 }
 
@@ -90,30 +105,81 @@ function isTrustedAppOrigin(origin: string | undefined): boolean {
 async function showSerialPortPicker<TPort extends SelectableSerialPort>(
   window: BrowserWindow,
   ports: TPort[]
-): Promise<TPort | null> {
-  const cancelId = ports.length;
-  const defaultId = getPreferredSerialPortIndex(ports);
-  const { response } = await dialog.showMessageBox(window, {
-    type: "question",
-    title: "Select ESP Board",
-    message: "Select the serial port to scan.",
-    detail: ports
-      .map((port, index) => `${index + 1}. ${formatSerialPortDetail(port)}`)
-      .join("\n"),
-    buttons: [...ports.map(formatSerialPortButton), "Cancel"],
-    defaultId,
-    cancelId,
-    noLink: true
+): Promise<TPort[]> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const picker = new BrowserWindow({
+      width: 680,
+      height: 560,
+      minWidth: 560,
+      minHeight: 460,
+      parent: window,
+      modal: true,
+      title: "Select ESP Boards",
+      backgroundColor: "#f7f8f5",
+      show: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        webSecurity: true
+      }
+    });
+
+    const finish = (selectedIndexes: number[]) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      resolve(
+        selectedIndexes
+          .map((index) => ports[index])
+          .filter((port): port is TPort => Boolean(port))
+      );
+      picker.close();
+    };
+
+    picker.webContents.on("will-navigate", (event, url) => {
+      if (!url.startsWith("https://esp-board-vault.local/serial-picker/")) {
+        return;
+      }
+
+      event.preventDefault();
+      const parsedUrl = new URL(url);
+
+      if (parsedUrl.pathname.endsWith("/cancel")) {
+        finish([]);
+        return;
+      }
+
+      const indexes = (parsedUrl.searchParams.get("indexes") ?? "")
+        .split(",")
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 0);
+      finish(indexes);
+    });
+
+    picker.on("closed", () => {
+      if (!settled) {
+        settled = true;
+        resolve([]);
+      }
+    });
+
+    picker.once("ready-to-show", () => {
+      picker.show();
+    });
+
+    void picker.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(
+        renderSerialPortPickerHtml(ports)
+      )}`
+    );
   });
-
-  return response === cancelId ? null : ports[response] ?? null;
-}
-
-function getPreferredSerialPortIndex<TPort extends SelectableSerialPort>(
-  ports: TPort[]
-): number {
-  const preferredIndex = ports.findIndex(isPreferredSerialPort);
-  return preferredIndex === -1 ? 0 : preferredIndex;
 }
 
 function isPreferredSerialPort(port: SelectableSerialPort): boolean {
@@ -139,6 +205,204 @@ function isPreferredSerialPort(port: SelectableSerialPort): boolean {
   );
 }
 
+function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
+  const rows = ports
+    .map(
+      (port, index) => `
+        <label class="port-row">
+          <input class="port-checkbox" type="checkbox" value="${index}" checked />
+          <span class="port-body">
+            <span class="port-title">
+              ${escapeHtml(formatSerialPortButton(port))}
+              ${isPreferredSerialPort(port) ? '<span class="badge">Suggested</span>' : ""}
+            </span>
+            <span class="port-detail">${escapeHtml(formatSerialPortDetail(port))}</span>
+          </span>
+        </label>
+      `
+    )
+    .join("");
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';" />
+  <title>Select ESP Boards</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #242622;
+      background: #f7f8f5;
+      font-family: Segoe UI, Arial, sans-serif;
+      font-size: 14px;
+    }
+    .shell { display: flex; flex-direction: column; min-height: 100vh; }
+    header { padding: 22px 24px 14px; border-bottom: 1px solid #dcded8; }
+    h1 { margin: 0; font-size: 22px; font-weight: 700; }
+    .subtitle { margin: 8px 0 0; color: #666d61; line-height: 1.4; }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 24px;
+      border-bottom: 1px solid #e2e4df;
+      background: #ffffff;
+    }
+    .toolbar-spacer { flex: 1; }
+    .select-all-state { color: #596154; font-size: 13px; }
+    main {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 14px 24px 20px;
+    }
+    .port-list {
+      display: grid;
+      gap: 8px;
+    }
+    .port-row {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid #d8dbd3;
+      border-radius: 8px;
+      background: #ffffff;
+      cursor: pointer;
+    }
+    .port-row:hover { border-color: #8d9a82; }
+    .port-checkbox {
+      width: 18px;
+      height: 18px;
+      margin: 2px 0 0;
+      accent-color: #466a3f;
+    }
+    .port-body { display: grid; gap: 4px; min-width: 0; }
+    .port-title {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+    .port-detail {
+      color: #666d61;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .badge {
+      padding: 2px 7px;
+      border-radius: 999px;
+      color: #2f6d3a;
+      background: #e3f0e2;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 14px 24px;
+      border-top: 1px solid #dcded8;
+      background: #ffffff;
+    }
+    button {
+      min-height: 34px;
+      padding: 0 14px;
+      border: 1px solid #c6cac1;
+      border-radius: 7px;
+      background: #ffffff;
+      color: #242622;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover { background: #f1f3ef; }
+    button.primary {
+      border-color: #466a3f;
+      background: #466a3f;
+      color: #ffffff;
+      font-weight: 650;
+    }
+    button.primary:hover { background: #3c5f36; }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <h1>Select ESP boards</h1>
+      <p class="subtitle">Choose the serial ports to scan. All detected ports are selected by default.</p>
+    </header>
+    <div class="toolbar">
+      <button id="selectAll" type="button">Select all</button>
+      <button id="clearAll" type="button">Clear</button>
+      <span class="toolbar-spacer"></span>
+      <span id="selectionState" class="select-all-state"></span>
+    </div>
+    <main>
+      <div class="port-list">${rows}</div>
+    </main>
+    <footer>
+      <button id="cancel" type="button">Cancel</button>
+      <button id="scan" class="primary" type="button">Scan selected</button>
+    </footer>
+  </div>
+  <script>
+    const checkboxes = Array.from(document.querySelectorAll(".port-checkbox"));
+    const scanButton = document.getElementById("scan");
+    const selectionState = document.getElementById("selectionState");
+
+    function checkedIndexes() {
+      return checkboxes
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => checkbox.value);
+    }
+
+    function updateState() {
+      const count = checkedIndexes().length;
+      selectionState.textContent = count + " of " + checkboxes.length + " selected";
+      scanButton.disabled = count === 0;
+      scanButton.textContent = count === checkboxes.length
+        ? "Scan all (" + count + ")"
+        : "Scan selected (" + count + ")";
+    }
+
+    document.getElementById("selectAll").addEventListener("click", () => {
+      checkboxes.forEach((checkbox) => { checkbox.checked = true; });
+      updateState();
+    });
+
+    document.getElementById("clearAll").addEventListener("click", () => {
+      checkboxes.forEach((checkbox) => { checkbox.checked = false; });
+      updateState();
+    });
+
+    document.getElementById("cancel").addEventListener("click", () => {
+      window.location.href = "https://esp-board-vault.local/serial-picker/cancel";
+    });
+
+    document.getElementById("scan").addEventListener("click", () => {
+      const indexes = checkedIndexes().join(",");
+      window.location.href = "https://esp-board-vault.local/serial-picker/select?indexes=" + encodeURIComponent(indexes);
+    });
+
+    checkboxes.forEach((checkbox) => {
+      checkbox.addEventListener("change", updateState);
+    });
+
+    updateState();
+  </script>
+</body>
+</html>`;
+}
+
 function formatSerialPortButton(port: SelectableSerialPort): string {
   return port.displayName || port.portName || port.portId;
 }
@@ -160,6 +424,15 @@ function formatVendorProduct(port: SelectableSerialPort): string | null {
   }
 
   return `VID: ${port.vendorId ?? "unknown"}, PID: ${port.productId ?? "unknown"}`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 app.whenReady().then(() => {

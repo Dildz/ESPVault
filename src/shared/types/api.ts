@@ -1,1 +1,5 @@
-export interface EspBoardVaultApi {}
+export interface EspBoardVaultApi {
+  serial: {
+    getLastSelectionCount(): Promise<number>;
+  };
+}
