@@ -15,6 +15,7 @@ and no telemetry.
 Use Electron, Vue 3, TypeScript, Vite, Vuetify 3, Pinia, Dexie, and
 IndexedDB. Use `tasmota-webserial-esptool` for ESP board scanning through Web
 Serial.
+https://github.com/Jason2866/WebSerial_ESPTool/tree/development
 
 Use Dexie from the Vue renderer for structured local data. The renderer must
 not use Node.js APIs directly. It communicates with the main process only for
