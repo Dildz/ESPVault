@@ -10,6 +10,10 @@ The first version is a standalone Electron desktop app built from a Vue 3 web ap
 There is no hosted backend, no user accounts, no cloud sync, no payment system,
 and no telemetry.
 
+## Working Preferences
+
+Always include a short commit comment suggestion in the final response.
+
 ## Technical Stack
 
 Use Electron, Vue 3, TypeScript, Vite, Vuetify 3, Pinia, Dexie, and
@@ -59,8 +63,12 @@ Current implementation:
 
 ```text
 src/renderer/repositories/BoardRepository.ts
+src/renderer/repositories/ProjectRepository.ts
+src/renderer/repositories/BackupRepository.ts
 src/renderer/repositories/index.ts
 src/renderer/storage/dexie/DexieBoardRepository.ts
+src/renderer/storage/dexie/DexieProjectRepository.ts
+src/renderer/storage/dexie/DexieBackupRepository.ts
 src/renderer/storage/dexie/vaultDatabase.ts
 ```
 
@@ -89,10 +97,10 @@ Keep service responsibilities clear:
 
 ```text
 BoardRepository
-ProjectService
-FirmwareHistoryService
-AttachmentService
-ExportImportService
+ProjectRepository
+BackupRepository
+FirmwareHistoryRepository
+AttachmentRepository
 ```
 
 ## ESP Board Scanning
@@ -107,12 +115,45 @@ Current scanner path:
 ```text
 src/renderer/pages/ScanBoardPage.vue
 src/renderer/services/espBoardScanner.ts
+src/renderer/services/chipMetadata.ts
 src/main/main.ts
 ```
 
 The scan flow should read chip model, chip revision, MAC address, and flash
 size when available. Do not flash firmware or erase devices from the scan flow.
 Reset and disconnect after scanning where practical.
+
+The scanner may load the `tasmota-webserial-esptool` stub for read-only
+operations such as flash ID, flash size, security info, and register reads.
+Do not call destructive stub operations such as erase or flash from scanning.
+
+PSRAM and package metadata are detected from chip eFuse/register metadata in
+`src/renderer/services/chipMetadata.ts` when available. This is read-only and
+mainly detects embedded/in-package PSRAM; not every external PSRAM setup can be
+guaranteed from this path. If `loader.macAddr()` returns an invalid MAC such as
+`00:00:00:00:00:00`, fall back to the eFuse MAC reader where supported.
+
+When more than one serial board is connected, the app should present a port
+picker, default all ports to selected, and scan the selected ports sequentially.
+The scan log should be copyable and should autoscroll to the latest message.
+
+## Projects
+
+Projects are first-class local records used to group boards that belong to the
+same build, device, installation, or experiment. The Projects page should help
+the user answer: which boards are part of this project, what state are they in,
+where are they, and what metadata is needed to repair or reproduce the project
+later.
+
+Board assignment belongs on both sides of the workflow:
+
+```text
+Boards page/editor -> choose a project from a selector
+Projects page -> assign or remove existing boards from the selected project
+```
+
+Deleting a project should clear board assignments but must not delete the
+boards themselves.
 
 ## Electron Security Requirements
 
@@ -142,6 +183,16 @@ userData/
 ```
 
 Create missing directories automatically. Never hard-code absolute user paths.
+
+The Settings page may let the user change the app data location. Be explicit in
+the UI that this moves Electron app data needed by the vault, not just one
+plain database file. Preserve window state across that move. The configured
+location is read by the main process before `app.whenReady()` so Electron uses
+the selected `userData` path.
+
+Database backup and restore should use a structured JSON export/import through
+the renderer repository layer. Importing a backup replaces local vault data only
+after user confirmation.
 
 ## Database Requirements
 
