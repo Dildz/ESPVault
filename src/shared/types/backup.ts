@@ -22,6 +22,19 @@ export interface VaultBackupTables {
 }
 
 export type VaultBackupCounts = Record<keyof VaultBackupTables, number>;
+export type VaultBackupFileKind = "project_cover" | "attachment_image";
+
+export interface VaultBackupFile {
+  id: string;
+  kind: VaultBackupFileKind;
+  ownerId: string;
+  filename: string;
+  originalPath: string;
+  relativePath: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  contentBase64: string;
+}
 
 export interface VaultBackup {
   format: typeof BACKUP_FORMAT;
@@ -31,6 +44,7 @@ export interface VaultBackup {
   databaseName: string;
   schemaVersion: number;
   data: VaultBackupTables;
+  files: VaultBackupFile[];
 }
 
 export interface VaultBackupSummary {
@@ -38,6 +52,8 @@ export interface VaultBackupSummary {
   exportedAt: string;
   schemaVersion: number;
   counts: VaultBackupCounts;
+  fileCount: number;
+  fileSizeBytes: number;
 }
 
 export function parseVaultBackup(value: unknown): VaultBackup {
@@ -90,7 +106,8 @@ export function parseVaultBackup(value: unknown): VaultBackup {
         "id"
       ),
       appSettings: readObjectArray<AppSetting>(value.data, "appSettings", "key")
-    }
+    },
+    files: readBackupFiles(value.files)
   };
 }
 
@@ -107,7 +124,12 @@ export function summarizeVaultBackup(backup: VaultBackup): VaultBackupSummary {
       attachments: backup.data.attachments.length,
       pinAssignments: backup.data.pinAssignments.length,
       appSettings: backup.data.appSettings.length
-    }
+    },
+    fileCount: backup.files.length,
+    fileSizeBytes: backup.files.reduce(
+      (total, file) => total + (file.sizeBytes ?? 0),
+      0
+    )
   };
 }
 
@@ -131,6 +153,87 @@ function readObjectArray<TRecord>(
   }
 
   return value as TRecord[];
+}
+
+function readBackupFiles(value: unknown): VaultBackupFile[] {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error('Backup field "files" is invalid.');
+  }
+
+  return value.map((item) => {
+    if (!isRecord(item)) {
+      throw new Error('Backup field "files" contains invalid entries.');
+    }
+
+    const kindValue = item.kind;
+    if (kindValue !== "project_cover" && kindValue !== "attachment_image") {
+      throw new Error("Backup contains an unsupported file entry.");
+    }
+    const kind: VaultBackupFileKind = kindValue;
+
+    const file = {
+      id: readString(item, "id"),
+      kind,
+      ownerId: readString(item, "ownerId"),
+      filename: readString(item, "filename"),
+      originalPath: readString(item, "originalPath"),
+      relativePath: readString(item, "relativePath"),
+      mimeType: readNullableString(item, "mimeType"),
+      sizeBytes: readNullableNumber(item, "sizeBytes"),
+      contentBase64: readString(item, "contentBase64")
+    };
+
+    if (!file.contentBase64) {
+      throw new Error("Backup contains an empty file entry.");
+    }
+
+    return file;
+  });
+}
+
+function readString(container: Record<string, unknown>, key: string): string {
+  const value = container[key];
+  if (typeof value !== "string") {
+    throw new Error(`Backup file field "${key}" is invalid.`);
+  }
+
+  return value;
+}
+
+function readNullableString(
+  container: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = container[key];
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error(`Backup file field "${key}" is invalid.`);
+  }
+
+  return value;
+}
+
+function readNullableNumber(
+  container: Record<string, unknown>,
+  key: string
+): number | null {
+  const value = container[key];
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new Error(`Backup file field "${key}" is invalid.`);
+  }
+
+  return value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

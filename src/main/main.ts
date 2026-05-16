@@ -21,6 +21,12 @@ import {
 } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import {
+  parseVaultBackup,
+  type VaultBackup,
+  type VaultBackupFile,
+  type VaultBackupFileKind
+} from "../shared/types/backup";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const SERIAL_SELECTION_COUNT_CHANNEL = "serial:get-last-selection-count";
@@ -32,6 +38,7 @@ const DATABASE_PENDING_MOVE_CHANNEL = "database:get-pending-move";
 const WINDOW_RESET_SIZE_CHANNEL = "window:reset-size";
 const BACKUP_SAVE_CHANNEL = "backup:save";
 const BACKUP_OPEN_CHANNEL = "backup:open";
+const BACKUP_RESTORE_FILES_CHANNEL = "backup:restore-files";
 const SHELL_OPEN_EXTERNAL_CHANNEL = "shell:open-external";
 const PROJECT_IMAGE_CHOOSE_COVER_CHANNEL = "project-image:choose-cover";
 const PROJECT_IMAGE_DELETE_COVER_CHANNEL = "project-image:delete-cover";
@@ -82,6 +89,8 @@ ipcMain.handle(DATABASE_CHANGE_LOCATION_CHANNEL, async (event, backupContent) =>
     throw new Error("App data move content is invalid.");
   }
 
+  const packagedBackup = buildBackupContentWithFiles(backupContent);
+
   const result = await showOpenDialogForSender(event.sender, {
     title: "Choose app data location",
     buttonLabel: "Move app data here",
@@ -105,7 +114,7 @@ ipcMain.handle(DATABASE_CHANGE_LOCATION_CHANNEL, async (event, backupContent) =>
   }
 
   assertDatabaseLocationTarget(targetUserDataPath, currentUserDataPath);
-  writePendingDatabaseMove(targetUserDataPath, backupContent);
+  writePendingDatabaseMove(targetUserDataPath, packagedBackup.content);
   writeWindowSizeForMove(targetUserDataPath);
   writeDatabaseLocationConfig(targetUserDataPath);
   scheduleRelaunch();
@@ -133,6 +142,7 @@ ipcMain.handle(WINDOW_RESET_SIZE_CHANNEL, (event) => {
 });
 ipcMain.handle(BACKUP_SAVE_CHANNEL, async (event, request: unknown) => {
   const backupRequest = parseBackupSaveRequest(request);
+  const packagedBackup = buildBackupContentWithFiles(backupRequest.content);
   const result = await showSaveDialogForSender(event.sender, {
     title: "Export backup",
     defaultPath: backupRequest.defaultFileName,
@@ -146,8 +156,12 @@ ipcMain.handle(BACKUP_SAVE_CHANNEL, async (event, request: unknown) => {
     return { canceled: true };
   }
 
-  writeFileSync(result.filePath, backupRequest.content, "utf8");
-  return { canceled: false, filePath: result.filePath };
+  writeFileSync(result.filePath, packagedBackup.content, "utf8");
+  return {
+    canceled: false,
+    filePath: result.filePath,
+    includedFileCount: packagedBackup.includedFileCount
+  };
 });
 ipcMain.handle(BACKUP_OPEN_CHANNEL, async (event) => {
   const result = await showOpenDialogForSender(event.sender, {
@@ -169,6 +183,13 @@ ipcMain.handle(BACKUP_OPEN_CHANNEL, async (event) => {
     filePath,
     content: readFileSync(filePath, "utf8")
   };
+});
+ipcMain.handle(BACKUP_RESTORE_FILES_CHANNEL, (_event, content: unknown) => {
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("Backup content is invalid.");
+  }
+
+  return restoreBackupFiles(content);
 });
 ipcMain.handle(PROJECT_IMAGE_CHOOSE_COVER_CHANNEL, async (event, request) => {
   const { projectId } = parseProjectImageChooseRequest(request);
@@ -541,6 +562,208 @@ function parseBackupSaveRequest(request: unknown): {
   }
 
   return { content, defaultFileName };
+}
+
+function buildBackupContentWithFiles(content: string): {
+  content: string;
+  includedFileCount: number;
+} {
+  const backup = parseBackupContent(content);
+  const files = collectBackupImageFiles(backup);
+
+  return {
+    content: formatBackupContent({ ...backup, files }),
+    includedFileCount: files.length
+  };
+}
+
+function restoreBackupFiles(content: string): {
+  content: string;
+  restoredFileCount: number;
+} {
+  const backup = parseBackupContent(content);
+
+  if (!backup.files.length) {
+    return {
+      content: formatBackupContent(backup),
+      restoredFileCount: 0
+    };
+  }
+
+  let restoredFileCount = 0;
+
+  for (const file of backup.files) {
+    const targetPath = getBackupFileRestorePath(file);
+    mkdirSync(path.dirname(targetPath), { recursive: true });
+    writeFileSync(targetPath, Buffer.from(file.contentBase64, "base64"));
+    restoredFileCount += 1;
+
+    if (file.kind === "project_cover") {
+      const project = backup.data.projects.find(
+        (item) => item.id === file.ownerId
+      );
+
+      if (project) {
+        project.coverImagePath = targetPath;
+        project.coverImageFilename = file.filename;
+        project.coverImageMimeType = file.mimeType;
+        project.coverImageSizeBytes = file.sizeBytes;
+      }
+    }
+
+    if (file.kind === "attachment_image") {
+      const attachment = backup.data.attachments.find(
+        (item) => item.id === file.ownerId
+      );
+
+      if (attachment) {
+        attachment.localPath = targetPath;
+        attachment.filename = file.filename;
+        attachment.mimeType = file.mimeType;
+        attachment.sizeBytes = file.sizeBytes;
+      }
+    }
+  }
+
+  return {
+    content: formatBackupContent(backup),
+    restoredFileCount
+  };
+}
+
+function parseBackupContent(content: string): VaultBackup {
+  return parseVaultBackup(JSON.parse(content) as unknown);
+}
+
+function formatBackupContent(backup: VaultBackup): string {
+  return `${JSON.stringify(backup, null, 2)}\n`;
+}
+
+function collectBackupImageFiles(backup: VaultBackup): VaultBackupFile[] {
+  const files: VaultBackupFile[] = [];
+  const seen = new Set<string>();
+
+  for (const project of backup.data.projects) {
+    if (!project.coverImagePath) {
+      continue;
+    }
+
+    const file = readBackupImageFile({
+      kind: "project_cover",
+      ownerId: project.id,
+      sourcePath: project.coverImagePath,
+      filename: project.coverImageFilename,
+      mimeType: project.coverImageMimeType
+    });
+
+    if (file && !seen.has(file.id)) {
+      seen.add(file.id);
+      files.push(file);
+    }
+  }
+
+  for (const attachment of backup.data.attachments) {
+    if (!isImageAttachment(attachment.type, attachment.mimeType)) {
+      continue;
+    }
+
+    const file = readBackupImageFile({
+      kind: "attachment_image",
+      ownerId: attachment.id,
+      sourcePath: attachment.localPath,
+      filename: attachment.filename,
+      mimeType: attachment.mimeType
+    });
+
+    if (file && !seen.has(file.id)) {
+      seen.add(file.id);
+      files.push(file);
+    }
+  }
+
+  return files;
+}
+
+function readBackupImageFile(input: {
+  kind: VaultBackupFileKind;
+  ownerId: string;
+  sourcePath: string;
+  filename: string | null;
+  mimeType: string | null;
+}): VaultBackupFile | null {
+  const sourcePath = input.sourcePath.trim();
+
+  if (!sourcePath) {
+    return null;
+  }
+
+  const resolvedPath = path.resolve(sourcePath);
+  const vaultDirectory = ensureVaultDataDirectory();
+
+  if (!isPathInside(resolvedPath, vaultDirectory) || !existsSync(resolvedPath)) {
+    return null;
+  }
+
+  const mimeType = input.mimeType ?? getImageMimeType(resolvedPath);
+  if (!mimeType?.startsWith("image/")) {
+    return null;
+  }
+
+  const stats = statSync(resolvedPath);
+  if (!stats.isFile()) {
+    return null;
+  }
+
+  const relativePath = toVaultRelativePath(resolvedPath);
+  const filename = input.filename?.trim() || path.basename(resolvedPath);
+
+  return {
+    id: `${input.kind}:${input.ownerId}:${relativePath}`,
+    kind: input.kind,
+    ownerId: input.ownerId,
+    filename,
+    originalPath: resolvedPath,
+    relativePath,
+    mimeType,
+    sizeBytes: stats.size,
+    contentBase64: readFileSync(resolvedPath).toString("base64")
+  };
+}
+
+function isImageAttachment(type: string, mimeType: string | null): boolean {
+  return type === "photo" || Boolean(mimeType?.startsWith("image/"));
+}
+
+function toVaultRelativePath(filePath: string): string {
+  return path
+    .relative(ensureVaultDataDirectory(), filePath)
+    .split(path.sep)
+    .join("/");
+}
+
+function getBackupFileRestorePath(file: VaultBackupFile): string {
+  const normalizedRelativePath = path.normalize(
+    file.relativePath.replaceAll("/", path.sep)
+  );
+
+  if (
+    path.isAbsolute(normalizedRelativePath) ||
+    normalizedRelativePath.startsWith("..") ||
+    !normalizedRelativePath.startsWith(`attachments${path.sep}`)
+  ) {
+    throw new Error("Backup contains an unsafe file path.");
+  }
+
+  const targetPath = path.resolve(
+    ensureVaultDataDirectory(),
+    normalizedRelativePath
+  );
+
+  if (!isPathInside(targetPath, ensureVaultDataDirectory())) {
+    throw new Error("Backup contains a file outside the app data folder.");
+  }
+
+  return targetPath;
 }
 
 function parseProjectImageChooseRequest(request: unknown): { projectId: string } {

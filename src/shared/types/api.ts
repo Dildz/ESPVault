@@ -1,6 +1,7 @@
 export interface EspBoardVaultApi {
   backup: {
     open(): Promise<BackupOpenResult>;
+    restoreFiles(content: string): Promise<BackupRestoreFilesResult>;
     save(content: string, defaultFileName: string): Promise<BackupSaveResult>;
   };
   clipboard: {
@@ -31,10 +32,16 @@ export interface EspBoardVaultApi {
 export interface BackupSaveResult {
   canceled: boolean;
   filePath?: string;
+  includedFileCount?: number;
 }
 
 export interface BackupOpenResult extends BackupSaveResult {
   content?: string;
+}
+
+export interface BackupRestoreFilesResult {
+  content: string;
+  restoredFileCount: number;
 }
 
 export interface DatabaseLocation {

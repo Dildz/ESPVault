@@ -11,7 +11,7 @@ import {
 } from "../../shared/types/backup";
 import { repositories } from "../repositories";
 import { useBoardStore } from "../stores/boardStore";
-import { formatDate } from "../utils/boardDisplay";
+import { formatBytes, formatDate } from "../utils/boardDisplay";
 
 const boardStore = useBoardStore();
 const backupRepository = repositories.backups;
@@ -61,7 +61,11 @@ async function exportBackup(): Promise<void> {
     );
 
     if (!result.canceled) {
-      notice.value = "Backup exported.";
+      const fileCount = result.includedFileCount ?? 0;
+      notice.value =
+        fileCount > 0
+          ? `Backup exported with ${fileCount} image file${fileCount === 1 ? "" : "s"}.`
+          : "Backup exported.";
     }
   } catch (caughtError) {
     error.value =
@@ -115,10 +119,17 @@ async function importBackup(): Promise<void> {
   notice.value = null;
 
   try {
-    const summary = await backupRepository.importBackup(pendingImport.value.backup);
+    const restoredBackup = await window.api.backup.restoreFiles(
+      JSON.stringify(pendingImport.value.backup)
+    );
+    const backup = parseVaultBackup(JSON.parse(restoredBackup.content) as unknown);
+    const summary = await backupRepository.importBackup(backup);
     await boardStore.refresh();
     pendingImport.value = null;
-    notice.value = `Backup restored with ${totalRecords(summary)} records.`;
+    notice.value =
+      restoredBackup.restoredFileCount > 0
+        ? `Backup restored with ${totalRecords(summary)} records and ${restoredBackup.restoredFileCount} image file${restoredBackup.restoredFileCount === 1 ? "" : "s"}.`
+        : `Backup restored with ${totalRecords(summary)} records.`;
   } catch (caughtError) {
     error.value =
       caughtError instanceof Error
@@ -293,7 +304,7 @@ onMounted(() => {
         <div>
           <div class="font-weight-medium">Backup</div>
           <div class="text-body-2 muted mt-1">
-            Export or restore the local vault database.
+            Export or restore the local vault database and copied image files.
           </div>
         </div>
         <div class="settings-actions">
@@ -377,6 +388,10 @@ onMounted(() => {
             <v-list-item
               title="Total records"
               :subtitle="String(totalRecords(pendingImport.summary))"
+            />
+            <v-list-item
+              title="Image files"
+              :subtitle="`${pendingImport.summary.fileCount} (${formatBytes(pendingImport.summary.fileSizeBytes)})`"
             />
           </v-list>
         </v-card-text>

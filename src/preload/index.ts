@@ -8,6 +8,11 @@ const api: EspBoardVaultApi = {
       filePath?: string;
       content?: string;
     }>,
+    restoreFiles: (content) =>
+      ipcRenderer.invoke("backup:restore-files", content) as Promise<{
+        content: string;
+        restoredFileCount: number;
+      }>,
     save: (content, defaultFileName) =>
       ipcRenderer.invoke("backup:save", {
         content,
@@ -15,6 +20,7 @@ const api: EspBoardVaultApi = {
       }) as Promise<{
         canceled: boolean;
         filePath?: string;
+        includedFileCount?: number;
       }>
   },
   clipboard: {

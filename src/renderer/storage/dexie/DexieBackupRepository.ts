@@ -44,7 +44,8 @@ export class DexieBackupRepository implements BackupRepository {
         attachments,
         pinAssignments,
         appSettings
-      }
+      },
+      files: []
     };
   }
 
