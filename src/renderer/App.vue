@@ -23,6 +23,14 @@ interface NavItem {
   icon: string;
 }
 
+interface ResourceItem {
+  key: string;
+  title: string;
+  icon: string;
+  url: string | null;
+  subtitle?: string;
+}
+
 const currentView = ref<ViewKey>("dashboard");
 const boardToOpenId = ref<string | null>(null);
 const scanRequestId = ref(0);
@@ -35,6 +43,28 @@ const navItems: NavItem[] = [
   { key: "firmware", title: "Firmware", icon: "mdi-chip" },
   { key: "about", title: "About", icon: "mdi-information-outline" },
   { key: "settings", title: "Settings", icon: "mdi-cog-outline" }
+];
+
+const resourceItems: ResourceItem[] = [
+  {
+    key: "tutorial",
+    title: "Tutorial",
+    icon: "mdi-school-outline",
+    url: null,
+    subtitle: "Coming soon"
+  },
+  {
+    key: "coffee",
+    title: "Buy me a coffee",
+    icon: "mdi-coffee-outline",
+    url: "https://buymeacoffee.com/thelastoutpostworkshop"
+  },
+  {
+    key: "help",
+    title: "Get Help",
+    icon: "mdi-help-circle-outline",
+    url: "https://github.com/thelastoutpostworkshop/ESP-Board-Vault"
+  }
 ];
 
 const viewComponents: Record<ViewKey, Component> = {
@@ -94,6 +124,16 @@ function openBoard(id: string): void {
   boardToOpenId.value = id;
   currentView.value = "boards";
 }
+
+function openResource(item: ResourceItem): void {
+  if (!item.url) {
+    return;
+  }
+
+  void window.api.shell.openExternal(item.url).catch((caughtError: unknown) => {
+    console.error("Resource link could not be opened.", caughtError);
+  });
+}
 </script>
 
 <template>
@@ -115,6 +155,23 @@ function openBoard(id: string): void {
           :title="item.title"
           rounded="sm"
           @click="currentView = item.key"
+        />
+      </v-list>
+
+      <v-divider class="mx-3" />
+
+      <v-list nav density="compact" class="px-3 py-4">
+        <v-list-subheader class="px-2">Resources</v-list-subheader>
+        <v-list-item
+          v-for="item in resourceItems"
+          :key="item.key"
+          :disabled="!item.url"
+          :prepend-icon="item.icon"
+          :append-icon="item.url ? 'mdi-open-in-new' : undefined"
+          :title="item.title"
+          :subtitle="item.subtitle"
+          rounded="sm"
+          @click="openResource(item)"
         />
       </v-list>
     </v-navigation-drawer>
