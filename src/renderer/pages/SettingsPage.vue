@@ -1,34 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import type { DatabaseLocation } from "../../shared/types/api";
-import type {
-  VaultBackup,
-  VaultBackupSummary
-} from "../../shared/types/backup";
-import {
-  parseVaultBackup,
-  summarizeVaultBackup
-} from "../../shared/types/backup";
 import { repositories } from "../repositories";
-import { useBoardStore } from "../stores/boardStore";
-import { formatBytes, formatDate } from "../utils/boardDisplay";
 
-const boardStore = useBoardStore();
 const backupRepository = repositories.backups;
 const resettingWindowSize = ref(false);
-const exportingBackup = ref(false);
-const openingBackup = ref(false);
-const importingBackup = ref(false);
 const copyingDatabaseLocation = ref(false);
 const changingDatabaseLocation = ref(false);
 const confirmingAppDataMove = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const databaseLocation = ref<DatabaseLocation | null>(null);
-const pendingImport = ref<{
-  backup: VaultBackup;
-  summary: VaultBackupSummary;
-} | null>(null);
 
 async function resetWindowSize(): Promise<void> {
   resettingWindowSize.value = true;
@@ -46,107 +28,6 @@ async function resetWindowSize(): Promise<void> {
   } finally {
     resettingWindowSize.value = false;
   }
-}
-
-async function exportBackup(): Promise<void> {
-  exportingBackup.value = true;
-  error.value = null;
-  notice.value = null;
-
-  try {
-    const backup = await backupRepository.exportBackup();
-    const result = await window.api.backup.save(
-      JSON.stringify(backup, null, 2),
-      buildBackupFileName()
-    );
-
-    if (!result.canceled) {
-      const fileCount = result.includedFileCount ?? 0;
-      notice.value =
-        fileCount > 0
-          ? `Backup exported with ${fileCount} image file${fileCount === 1 ? "" : "s"}.`
-          : "Backup exported.";
-    }
-  } catch (caughtError) {
-    error.value =
-      caughtError instanceof Error
-        ? caughtError.message
-        : "The backup could not be exported.";
-  } finally {
-    exportingBackup.value = false;
-  }
-}
-
-async function openBackup(): Promise<void> {
-  openingBackup.value = true;
-  error.value = null;
-  notice.value = null;
-  pendingImport.value = null;
-
-  try {
-    const result = await window.api.backup.open();
-
-    if (result.canceled) {
-      return;
-    }
-
-    if (!result.content) {
-      throw new Error("Backup file was empty.");
-    }
-
-    const backup = parseVaultBackup(JSON.parse(result.content) as unknown);
-    pendingImport.value = {
-      backup,
-      summary: summarizeVaultBackup(backup)
-    };
-  } catch (caughtError) {
-    error.value =
-      caughtError instanceof Error
-        ? caughtError.message
-        : "The backup could not be opened.";
-  } finally {
-    openingBackup.value = false;
-  }
-}
-
-async function importBackup(): Promise<void> {
-  if (!pendingImport.value) {
-    return;
-  }
-
-  importingBackup.value = true;
-  error.value = null;
-  notice.value = null;
-
-  try {
-    const restoredBackup = await window.api.backup.restoreFiles(
-      JSON.stringify(pendingImport.value.backup)
-    );
-    const backup = parseVaultBackup(JSON.parse(restoredBackup.content) as unknown);
-    const summary = await backupRepository.importBackup(backup);
-    await boardStore.refresh();
-    pendingImport.value = null;
-    notice.value =
-      restoredBackup.restoredFileCount > 0
-        ? `Backup restored with ${totalRecords(summary)} records and ${restoredBackup.restoredFileCount} image file${restoredBackup.restoredFileCount === 1 ? "" : "s"}.`
-        : `Backup restored with ${totalRecords(summary)} records.`;
-  } catch (caughtError) {
-    error.value =
-      caughtError instanceof Error
-        ? caughtError.message
-        : "The backup could not be restored.";
-  } finally {
-    importingBackup.value = false;
-  }
-}
-
-function buildBackupFileName(): string {
-  const timestamp = new Date().toISOString().replaceAll(":", "-").slice(0, 19);
-  return `esp-board-vault-backup-${timestamp}.json`;
-}
-
-function totalRecords(summary: VaultBackupSummary): number {
-  return Object.values(summary.counts).reduce((total, count) => total + count, 0);
 }
 
 async function loadDatabaseLocation(): Promise<void> {
@@ -299,33 +180,6 @@ onMounted(() => {
           </v-btn>
         </div>
       </v-card-text>
-      <v-divider />
-      <v-card-text class="settings-row">
-        <div>
-          <div class="font-weight-medium">Backup</div>
-          <div class="text-body-2 muted mt-1">
-            Export or restore the local vault database and copied image files.
-          </div>
-        </div>
-        <div class="settings-actions">
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-database-export-outline"
-            :loading="exportingBackup"
-            @click="exportBackup"
-          >
-            Export backup
-          </v-btn>
-          <v-btn
-            variant="outlined"
-            prepend-icon="mdi-database-import-outline"
-            :loading="openingBackup"
-            @click="openBackup"
-          >
-            Import backup
-          </v-btn>
-        </div>
-      </v-card-text>
     </v-card>
 
     <v-dialog v-model="confirmingAppDataMove" max-width="620" persistent>
@@ -364,57 +218,6 @@ onMounted(() => {
       </v-card>
     </v-dialog>
 
-    <v-dialog :model-value="Boolean(pendingImport)" max-width="540" persistent>
-      <v-card>
-        <v-card-title>Restore backup?</v-card-title>
-        <v-divider />
-        <v-card-text v-if="pendingImport">
-          <p class="mt-0">
-            This will replace the current local vault database.
-          </p>
-          <v-list density="compact" class="backup-summary">
-            <v-list-item
-              title="Exported"
-              :subtitle="formatDate(pendingImport.summary.exportedAt)"
-            />
-            <v-list-item
-              title="App version"
-              :subtitle="pendingImport.summary.appVersion"
-            />
-            <v-list-item
-              title="Boards"
-              :subtitle="String(pendingImport.summary.counts.boards)"
-            />
-            <v-list-item
-              title="Total records"
-              :subtitle="String(totalRecords(pendingImport.summary))"
-            />
-            <v-list-item
-              title="Image files"
-              :subtitle="`${pendingImport.summary.fileCount} (${formatBytes(pendingImport.summary.fileSizeBytes)})`"
-            />
-          </v-list>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            :disabled="importingBackup"
-            @click="pendingImport = null"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-database-import-outline"
-            :loading="importingBackup"
-            @click="importBackup"
-          >
-            Restore backup
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </section>
 </template>
 
@@ -442,10 +245,6 @@ onMounted(() => {
   overflow-wrap: anywhere;
   color: #2f352f;
   font-size: 0.84rem;
-}
-
-.backup-summary {
-  border: 1px solid #e1e4dc;
 }
 
 @media (max-width: 720px) {
