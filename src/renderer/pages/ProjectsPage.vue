@@ -71,6 +71,7 @@ const selectedAssignableBoardId = ref<string | null>(null);
 const coverImageDataUrl = ref<string | null>(null);
 const coverImageError = ref<string | null>(null);
 const coverImageLoading = ref(false);
+const coverImageViewerOpen = ref(false);
 let coverImageLoadToken = 0;
 
 const loading = computed(() => boardsLoading.value || projectsLoading.value);
@@ -270,6 +271,7 @@ async function loadSelectedCoverImage(
   const token = ++coverImageLoadToken;
   coverImageError.value = null;
   coverImageDataUrl.value = null;
+  coverImageViewerOpen.value = false;
 
   if (!localPath) {
     coverImageLoading.value = false;
@@ -367,6 +369,7 @@ async function removeCoverImage(): Promise<void> {
       coverImageSizeBytes: null
     });
     coverImageDataUrl.value = null;
+    coverImageViewerOpen.value = false;
 
     try {
       await window.api.projectImages.deleteCover(previousPath);
@@ -388,6 +391,12 @@ async function removeCoverImage(): Promise<void> {
 
 function selectProject(project: Project): void {
   selectedProjectId.value = project.id;
+}
+
+function openCoverImageViewer(): void {
+  if (coverImageDataUrl.value) {
+    coverImageViewerOpen.value = true;
+  }
 }
 
 function formatAssignableBoardLabel(board: Board): string {
@@ -612,13 +621,20 @@ function getProjectImageError(
 
           <div class="project-cover-panel">
             <div class="project-cover-preview">
-              <v-img
+              <button
                 v-if="coverImageDataUrl"
-                :src="coverImageDataUrl"
-                alt=""
-                cover
-                height="160"
-              />
+                class="project-cover-viewer-trigger"
+                type="button"
+                :aria-label="`View ${selectedRow.project.coverImageFilename || 'project photo'}`"
+                @click="openCoverImageViewer"
+              >
+                <v-img
+                  :src="coverImageDataUrl"
+                  alt=""
+                  cover
+                  height="160"
+                />
+              </button>
               <div v-else class="project-cover-placeholder">
                 <v-icon icon="mdi-image-plus-outline" size="34" color="secondary" />
                 <div class="text-caption muted mt-1">No project photo</div>
@@ -823,6 +839,31 @@ function getProjectImageError(
       </v-card>
     </v-dialog>
 
+    <v-dialog v-model="coverImageViewerOpen" max-width="96vw">
+      <v-card class="cover-viewer-card">
+        <v-card-title class="cover-viewer-title">
+          <span class="text-subtitle-1 font-weight-bold">
+            {{ selectedRow?.project.coverImageFilename || "Project photo" }}
+          </span>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            aria-label="Close photo viewer"
+            @click="coverImageViewerOpen = false"
+          />
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="cover-viewer-body">
+          <img
+            v-if="coverImageDataUrl"
+            class="cover-viewer-image"
+            :src="coverImageDataUrl"
+            :alt="selectedRow?.project.coverImageFilename || 'Project photo'"
+          />
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <v-dialog :model-value="Boolean(deletingProject)" max-width="500" persistent>
       <v-card>
         <v-card-title>Delete project?</v-card-title>
@@ -903,6 +944,21 @@ function getProjectImageError(
   background: #f4f6f1;
 }
 
+.project-cover-viewer-trigger {
+  display: block;
+  width: 100%;
+  min-height: 160px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.project-cover-viewer-trigger:focus-visible {
+  outline: 3px solid rgb(var(--v-theme-primary));
+  outline-offset: -3px;
+}
+
 .project-cover-placeholder {
   display: grid;
   min-height: 160px;
@@ -922,6 +978,35 @@ function getProjectImageError(
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
+}
+
+.cover-viewer-card {
+  width: min-content;
+  max-width: 96vw;
+  max-height: 92vh;
+}
+
+.cover-viewer-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: min(520px, 90vw);
+}
+
+.cover-viewer-body {
+  max-width: 96vw;
+  max-height: 82vh;
+  overflow: auto;
+  padding: 12px;
+}
+
+.cover-viewer-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
 }
 
 .project-facts {
