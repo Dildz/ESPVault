@@ -215,6 +215,7 @@ async function confirmDelete(): Promise<void> {
             <th>Board</th>
             <th>Status</th>
             <th>Chip</th>
+            <th>MAC address</th>
             <th>Flash</th>
             <th>PSRAM</th>
             <th>Location</th>
@@ -241,6 +242,7 @@ async function confirmDelete(): Promise<void> {
               </v-chip>
             </td>
             <td>{{ board.chipModel || "Not set" }}</td>
+            <td class="metadata-mono">{{ board.macAddress || "Not set" }}</td>
             <td>{{ formatFlashSize(board.flashSizeBytes, board.flashSizeLabel) }}</td>
             <td>{{ formatPsramSize(board.psramSizeBytes, board.psramDetected) }}</td>
             <td>{{ board.physicalLocation || "Not set" }}</td>
@@ -292,3 +294,11 @@ async function confirmDelete(): Promise<void> {
     </v-dialog>
   </section>
 </template>
+
+<style scoped>
+.metadata-mono {
+  font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+</style>
