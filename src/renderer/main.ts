@@ -1,8 +1,30 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
+import { parseVaultBackup } from "../shared/types/backup";
 import App from "./App.vue";
 import { vuetify } from "./plugins/vuetify";
+import { repositories } from "./repositories";
 import "./styles.css";
 
-createApp(App).use(createPinia()).use(vuetify).mount("#app");
+async function restorePendingDatabaseMove(): Promise<void> {
+  const pendingMove = await window.api.database.getPendingMove();
+  if (!pendingMove) {
+    return;
+  }
 
+  const backup = parseVaultBackup(JSON.parse(pendingMove.content) as unknown);
+  await repositories.backups.importBackup(backup);
+  await window.api.database.clearPendingMove();
+}
+
+async function bootstrap(): Promise<void> {
+  try {
+    await restorePendingDatabaseMove();
+  } catch (caughtError) {
+    console.error("Pending database move could not be restored.", caughtError);
+  }
+
+  createApp(App).use(createPinia()).use(vuetify).mount("#app");
+}
+
+void bootstrap();

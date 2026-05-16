@@ -22,12 +22,30 @@ const api: EspBoardVaultApi = {
       ipcRenderer.invoke("clipboard:write-text", text) as Promise<void>
   },
   database: {
+    changeLocation: (backupContent) =>
+      ipcRenderer.invoke(
+        "database:change-location",
+        backupContent
+      ) as Promise<{
+        canceled: boolean;
+        indexedDbPath?: string;
+        restartRequired?: boolean;
+        userDataPath?: string;
+      }>,
+    clearPendingMove: () =>
+      ipcRenderer.invoke("database:clear-pending-move") as Promise<void>,
     getLocation: () =>
       ipcRenderer.invoke("database:get-location") as Promise<{
         databaseName: string;
+        defaultUserDataPath: string;
         indexedDbPath: string;
+        isDefaultLocation: boolean;
         userDataPath: string;
-      }>
+      }>,
+    getPendingMove: () =>
+      ipcRenderer.invoke("database:get-pending-move") as Promise<{
+        content: string;
+      } | null>
   },
   serial: {
     getLastSelectionCount: () =>

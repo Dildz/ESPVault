@@ -20,6 +20,8 @@ const exportingBackup = ref(false);
 const openingBackup = ref(false);
 const importingBackup = ref(false);
 const copyingDatabaseLocation = ref(false);
+const changingDatabaseLocation = ref(false);
+const confirmingAppDataMove = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const databaseLocation = ref<DatabaseLocation | null>(null);
@@ -143,7 +145,7 @@ async function loadDatabaseLocation(): Promise<void> {
     error.value =
       caughtError instanceof Error
         ? caughtError.message
-        : "The database location could not be loaded.";
+        : "The app data location could not be loaded.";
   }
 }
 
@@ -157,15 +159,47 @@ async function copyDatabaseLocation(): Promise<void> {
   notice.value = null;
 
   try {
-    await window.api.clipboard.writeText(databaseLocation.value.indexedDbPath);
-    notice.value = "Database location copied.";
+    await window.api.clipboard.writeText(databaseLocation.value.userDataPath);
+    notice.value = "App data location copied.";
   } catch (caughtError) {
     error.value =
       caughtError instanceof Error
         ? caughtError.message
-        : "The database location could not be copied.";
+        : "The app data location could not be copied.";
   } finally {
     copyingDatabaseLocation.value = false;
+  }
+}
+
+async function changeDatabaseLocation(): Promise<void> {
+  changingDatabaseLocation.value = true;
+  confirmingAppDataMove.value = false;
+  error.value = null;
+  notice.value = null;
+
+  try {
+    const backup = await backupRepository.exportBackup();
+    const result = await window.api.database.changeLocation(
+      JSON.stringify(backup, null, 2)
+    );
+
+    if (result.canceled) {
+      return;
+    }
+
+    if (result.restartRequired) {
+      notice.value = "App data location changed. Restarting app...";
+      return;
+    }
+
+    notice.value = "App data is already using that location.";
+  } catch (caughtError) {
+    error.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The app data location could not be changed.";
+  } finally {
+    changingDatabaseLocation.value = false;
   }
 }
 
@@ -217,28 +251,42 @@ onMounted(() => {
 
     <v-card class="mt-4" flat border>
       <v-card-title class="text-subtitle-1 font-weight-bold">
-        Database
+        App data
       </v-card-title>
       <v-divider />
       <v-card-text class="settings-row">
         <div class="settings-detail">
-          <div class="font-weight-medium">Current location</div>
+          <div class="font-weight-medium">Current app data location</div>
           <div class="text-body-2 muted mt-1">
-            {{ databaseLocation?.databaseName ?? "esp-board-vault" }}
+            Contains the local vault database and Electron profile files.
           </div>
           <div class="database-path mono mt-3">
-            {{ databaseLocation?.indexedDbPath ?? "Loading..." }}
+            {{ databaseLocation?.userDataPath ?? "Loading..." }}
+          </div>
+          <div class="text-caption muted mt-2">
+            Vault database folder: {{ databaseLocation?.indexedDbPath ?? "Loading..." }}
           </div>
         </div>
-        <v-btn
-          variant="outlined"
-          prepend-icon="mdi-content-copy"
-          :disabled="!databaseLocation"
-          :loading="copyingDatabaseLocation"
-          @click="copyDatabaseLocation"
-        >
-          Copy location
-        </v-btn>
+        <div class="settings-actions">
+          <v-btn
+            color="primary"
+            variant="outlined"
+            prepend-icon="mdi-folder-move-outline"
+            :loading="changingDatabaseLocation"
+            @click="confirmingAppDataMove = true"
+          >
+            Change app data location
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            prepend-icon="mdi-content-copy"
+            :disabled="!databaseLocation"
+            :loading="copyingDatabaseLocation"
+            @click="copyDatabaseLocation"
+          >
+            Copy app data location
+          </v-btn>
+        </div>
       </v-card-text>
       <v-divider />
       <v-card-text class="settings-row">
@@ -268,6 +316,42 @@ onMounted(() => {
         </div>
       </v-card-text>
     </v-card>
+
+    <v-dialog v-model="confirmingAppDataMove" max-width="620" persistent>
+      <v-card>
+        <v-card-title>Move app data location?</v-card-title>
+        <v-divider />
+        <v-card-text>
+          <p class="mt-0">
+            The selected folder becomes the Electron app data folder for ESP Board Vault.
+          </p>
+          <p>
+            It will contain the vault database plus profile files created by Electron and Chromium, including IndexedDB, Local Storage, Session Storage, Cache, Preferences, GPUCache, and related files.
+          </p>
+          <p class="mb-0">
+            The vault database and current window size are migrated. Cache and profile files are recreated as needed. The app will restart after the new folder is selected.
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="changingDatabaseLocation"
+            @click="confirmingAppDataMove = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-folder-move-outline"
+            :loading="changingDatabaseLocation"
+            @click="changeDatabaseLocation"
+          >
+            Choose folder
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <v-dialog :model-value="Boolean(pendingImport)" max-width="540" persistent>
       <v-card>

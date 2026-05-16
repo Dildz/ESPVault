@@ -7,7 +7,10 @@ export interface EspBoardVaultApi {
     writeText(text: string): Promise<void>;
   };
   database: {
+    changeLocation(backupContent: string): Promise<DatabaseChangeLocationResult>;
+    clearPendingMove(): Promise<void>;
     getLocation(): Promise<DatabaseLocation>;
+    getPendingMove(): Promise<DatabasePendingMove | null>;
   };
   serial: {
     getLastSelectionCount(): Promise<number>;
@@ -28,6 +31,19 @@ export interface BackupOpenResult extends BackupSaveResult {
 
 export interface DatabaseLocation {
   databaseName: string;
+  defaultUserDataPath: string;
   indexedDbPath: string;
+  isDefaultLocation: boolean;
   userDataPath: string;
+}
+
+export interface DatabaseChangeLocationResult {
+  canceled: boolean;
+  indexedDbPath?: string;
+  restartRequired?: boolean;
+  userDataPath?: string;
+}
+
+export interface DatabasePendingMove {
+  content: string;
 }

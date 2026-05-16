@@ -9,8 +9,11 @@ import {
   type OpenDialogOptions
 } from "electron";
 import {
+  existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  unlinkSync,
   writeFileSync
 } from "node:fs";
 import path from "node:path";
@@ -18,7 +21,10 @@ import path from "node:path";
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const SERIAL_SELECTION_COUNT_CHANNEL = "serial:get-last-selection-count";
 const CLIPBOARD_WRITE_TEXT_CHANNEL = "clipboard:write-text";
+const DATABASE_CHANGE_LOCATION_CHANNEL = "database:change-location";
+const DATABASE_CLEAR_PENDING_MOVE_CHANNEL = "database:clear-pending-move";
 const DATABASE_LOCATION_CHANNEL = "database:get-location";
+const DATABASE_PENDING_MOVE_CHANNEL = "database:get-pending-move";
 const WINDOW_RESET_SIZE_CHANNEL = "window:reset-size";
 const BACKUP_SAVE_CHANNEL = "backup:save";
 const BACKUP_OPEN_CHANNEL = "backup:open";
@@ -52,6 +58,7 @@ interface SelectableSerialPort {
 }
 
 app.setName("ESP Board Vault");
+applyConfiguredUserDataPath();
 
 ipcMain.handle(SERIAL_SELECTION_COUNT_CHANNEL, () => lastSerialPortSelectionCount);
 ipcMain.handle(CLIPBOARD_WRITE_TEXT_CHANNEL, (_event, text: unknown) => {
@@ -61,7 +68,51 @@ ipcMain.handle(CLIPBOARD_WRITE_TEXT_CHANNEL, (_event, text: unknown) => {
 
   clipboard.writeText(text);
 });
+ipcMain.handle(DATABASE_CHANGE_LOCATION_CHANNEL, async (event, backupContent) => {
+  if (typeof backupContent !== "string" || !backupContent.trim()) {
+    throw new Error("App data move content is invalid.");
+  }
+
+  const result = await showOpenDialogForSender(event.sender, {
+    title: "Choose app data location",
+    buttonLabel: "Move app data here",
+    properties: ["openDirectory", "createDirectory"]
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { canceled: true };
+  }
+
+  const targetUserDataPath = path.resolve(result.filePaths[0]);
+  const currentUserDataPath = path.resolve(app.getPath("userData"));
+
+  if (isSamePath(targetUserDataPath, currentUserDataPath)) {
+    return {
+      canceled: false,
+      indexedDbPath: path.join(currentUserDataPath, "IndexedDB"),
+      restartRequired: false,
+      userDataPath: currentUserDataPath
+    };
+  }
+
+  assertDatabaseLocationTarget(targetUserDataPath, currentUserDataPath);
+  writePendingDatabaseMove(targetUserDataPath, backupContent);
+  writeWindowSizeForMove(targetUserDataPath);
+  writeDatabaseLocationConfig(targetUserDataPath);
+  scheduleRelaunch();
+
+  return {
+    canceled: false,
+    indexedDbPath: path.join(targetUserDataPath, "IndexedDB"),
+    restartRequired: true,
+    userDataPath: targetUserDataPath
+  };
+});
+ipcMain.handle(DATABASE_CLEAR_PENDING_MOVE_CHANNEL, () => {
+  clearPendingDatabaseMove();
+});
 ipcMain.handle(DATABASE_LOCATION_CHANNEL, () => getDatabaseLocation());
+ipcMain.handle(DATABASE_PENDING_MOVE_CHANNEL, () => readPendingDatabaseMove());
 ipcMain.handle(WINDOW_RESET_SIZE_CHANNEL, (event) => {
   const window = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
 
@@ -243,23 +294,177 @@ function getWindowStateFilePath(): string {
 }
 
 function ensureVaultDataDirectory(): string {
-  const directory = path.join(app.getPath("userData"), "esp-board-vault");
+  return ensureVaultDataDirectoryForUserData(app.getPath("userData"));
+}
+
+function ensureVaultDataDirectoryForUserData(userDataPath: string): string {
+  const directory = path.join(userDataPath, "esp-board-vault");
   mkdirSync(directory, { recursive: true });
   return directory;
 }
 
+function applyConfiguredUserDataPath(): void {
+  const configuredPath = loadConfiguredUserDataPath();
+  if (configuredPath && !isSamePath(configuredPath, getDefaultUserDataPath())) {
+    app.setPath("userData", configuredPath);
+  }
+}
+
+function loadConfiguredUserDataPath(): string | null {
+  try {
+    const rawConfig = readFileSync(getDatabaseLocationConfigFilePath(), "utf8");
+    const parsedConfig = JSON.parse(rawConfig) as Record<string, unknown>;
+    const userDataPath = parsedConfig.userDataPath;
+
+    return typeof userDataPath === "string" && userDataPath.trim()
+      ? path.resolve(userDataPath)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDatabaseLocationConfig(userDataPath: string): void {
+  const config = {
+    userDataPath: path.resolve(userDataPath),
+    updatedAt: new Date().toISOString()
+  };
+
+  mkdirSync(path.dirname(getDatabaseLocationConfigFilePath()), { recursive: true });
+  writeFileSync(
+    getDatabaseLocationConfigFilePath(),
+    `${JSON.stringify(config, null, 2)}\n`,
+    "utf8"
+  );
+}
+
+function getDatabaseLocationConfigFilePath(): string {
+  return path.join(
+    getDefaultUserDataPath(),
+    "esp-board-vault",
+    "database-location.json"
+  );
+}
+
+function getDefaultUserDataPath(): string {
+  return path.join(app.getPath("appData"), app.getName());
+}
+
 function getDatabaseLocation(): {
   databaseName: string;
+  defaultUserDataPath: string;
   indexedDbPath: string;
+  isDefaultLocation: boolean;
   userDataPath: string;
 } {
   const userDataPath = app.getPath("userData");
+  const defaultUserDataPath = getDefaultUserDataPath();
 
   return {
     databaseName: "esp-board-vault",
+    defaultUserDataPath,
     indexedDbPath: path.join(userDataPath, "IndexedDB"),
+    isDefaultLocation: isSamePath(userDataPath, defaultUserDataPath),
     userDataPath
   };
+}
+
+function assertDatabaseLocationTarget(
+  targetUserDataPath: string,
+  currentUserDataPath: string
+): void {
+  if (isPathInside(targetUserDataPath, currentUserDataPath)) {
+    throw new Error("Choose a folder outside the current app data folder.");
+  }
+
+  if (isSamePath(targetUserDataPath, getDefaultUserDataPath())) {
+    return;
+  }
+
+  mkdirSync(targetUserDataPath, { recursive: true });
+
+  const entries = readdirSync(targetUserDataPath);
+  if (entries.length > 0) {
+    throw new Error("Choose an empty folder for the app data location.");
+  }
+}
+
+function writePendingDatabaseMove(
+  targetUserDataPath: string,
+  backupContent: string
+): void {
+  const pendingMovePath = getPendingDatabaseMoveFilePath(targetUserDataPath);
+  mkdirSync(path.dirname(pendingMovePath), { recursive: true });
+  writeFileSync(pendingMovePath, backupContent, "utf8");
+}
+
+function writeWindowSizeForMove(targetUserDataPath: string): void {
+  if (
+    !mainWindow ||
+    mainWindow.isDestroyed() ||
+    mainWindow.isMinimized() ||
+    mainWindow.isFullScreen()
+  ) {
+    return;
+  }
+
+  const bounds = normalizeWindowSize(mainWindow.getBounds());
+  const targetVaultDirectory =
+    ensureVaultDataDirectoryForUserData(targetUserDataPath);
+
+  writeFileSync(
+    path.join(targetVaultDirectory, "window-state.json"),
+    `${JSON.stringify(bounds, null, 2)}\n`,
+    "utf8"
+  );
+}
+
+function readPendingDatabaseMove(): { content: string } | null {
+  const pendingMovePath = getPendingDatabaseMoveFilePath(app.getPath("userData"));
+
+  if (!existsSync(pendingMovePath)) {
+    return null;
+  }
+
+  return {
+    content: readFileSync(pendingMovePath, "utf8")
+  };
+}
+
+function clearPendingDatabaseMove(): void {
+  const pendingMovePath = getPendingDatabaseMoveFilePath(app.getPath("userData"));
+
+  if (existsSync(pendingMovePath)) {
+    unlinkSync(pendingMovePath);
+  }
+}
+
+function getPendingDatabaseMoveFilePath(userDataPath: string): string {
+  return path.join(userDataPath, "esp-board-vault", "pending-database-move.json");
+}
+
+function scheduleRelaunch(): void {
+  setTimeout(() => {
+    app.relaunch();
+    app.exit(0);
+  }, 500);
+}
+
+function isSamePath(left: string, right: string): boolean {
+  return path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase();
+}
+
+function isPathInside(candidatePath: string, parentPath: string): boolean {
+  const relativePath = path.relative(
+    path.resolve(parentPath),
+    path.resolve(candidatePath)
+  );
+
+  return (
+    Boolean(relativePath) &&
+    !relativePath.startsWith("..") &&
+    !path.isAbsolute(relativePath)
+  );
 }
 
 function parseBackupSaveRequest(request: unknown): {
