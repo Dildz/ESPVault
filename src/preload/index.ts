@@ -51,6 +51,10 @@ const api: EspBoardVaultApi = {
     getLastSelectionCount: () =>
       ipcRenderer.invoke("serial:get-last-selection-count") as Promise<number>
   },
+  shell: {
+    openExternal: (url) =>
+      ipcRenderer.invoke("shell:open-external", url) as Promise<void>
+  },
   window: {
     resetSize: () => ipcRenderer.invoke("window:reset-size") as Promise<void>
   }

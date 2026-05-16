@@ -5,6 +5,7 @@ import {
   dialog,
   ipcMain,
   screen,
+  shell,
   type SaveDialogOptions,
   type OpenDialogOptions
 } from "electron";
@@ -28,6 +29,7 @@ const DATABASE_PENDING_MOVE_CHANNEL = "database:get-pending-move";
 const WINDOW_RESET_SIZE_CHANNEL = "window:reset-size";
 const BACKUP_SAVE_CHANNEL = "backup:save";
 const BACKUP_OPEN_CHANNEL = "backup:open";
+const SHELL_OPEN_EXTERNAL_CHANNEL = "shell:open-external";
 
 interface WindowSize {
   width: number;
@@ -160,6 +162,18 @@ ipcMain.handle(BACKUP_OPEN_CHANNEL, async (event) => {
     filePath,
     content: readFileSync(filePath, "utf8")
   };
+});
+ipcMain.handle(SHELL_OPEN_EXTERNAL_CHANNEL, async (_event, url: unknown) => {
+  if (typeof url !== "string") {
+    throw new Error("External URL must be a string.");
+  }
+
+  const parsedUrl = new URL(url);
+  if (!["https:", "http:"].includes(parsedUrl.protocol)) {
+    throw new Error("Only http and https URLs can be opened externally.");
+  }
+
+  await shell.openExternal(parsedUrl.toString());
 });
 
 function createMainWindow(): BrowserWindow {

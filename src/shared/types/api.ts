@@ -15,6 +15,9 @@ export interface EspBoardVaultApi {
   serial: {
     getLastSelectionCount(): Promise<number>;
   };
+  shell: {
+    openExternal(url: string): Promise<void>;
+  };
   window: {
     resetSize(): Promise<void>;
   };

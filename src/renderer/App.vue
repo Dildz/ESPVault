@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, type Component } from "vue";
+import AboutPage from "./pages/AboutPage.vue";
 import BoardsPage from "./pages/BoardsPage.vue";
 import DashboardPage from "./pages/DashboardPage.vue";
 import PlaceholderPage from "./pages/PlaceholderPage.vue";
@@ -13,6 +14,7 @@ type ViewKey =
   | "scan"
   | "projects"
   | "firmware"
+  | "about"
   | "settings";
 
 interface NavItem {
@@ -31,6 +33,7 @@ const navItems: NavItem[] = [
   { key: "scan", title: "Scan board", icon: "mdi-usb-port" },
   { key: "projects", title: "Projects", icon: "mdi-folder-outline" },
   { key: "firmware", title: "Firmware", icon: "mdi-chip" },
+  { key: "about", title: "About", icon: "mdi-information-outline" },
   { key: "settings", title: "Settings", icon: "mdi-cog-outline" }
 ];
 
@@ -40,11 +43,12 @@ const viewComponents: Record<ViewKey, Component> = {
   scan: ScanBoardPage,
   projects: ProjectsPage,
   firmware: PlaceholderPage,
+  about: AboutPage,
   settings: SettingsPage
 };
 
 const placeholderCopy: Record<
-  Exclude<ViewKey, "dashboard" | "boards" | "scan" | "projects" | "settings">,
+  Exclude<ViewKey, "dashboard" | "boards" | "scan" | "projects" | "about" | "settings">,
   { title: string; description: string }
 > = {
   firmware: {
