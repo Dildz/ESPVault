@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from "vue";
+import { computed, onMounted, reactive, watch } from "vue";
+import { storeToRefs } from "pinia";
 import {
   BOARD_STATUSES,
   type Board,
@@ -7,6 +8,7 @@ import {
   type CreateBoardInput
 } from "../../shared/types/board";
 import { BOARD_STATUS_LABELS, formatDate } from "../utils/boardDisplay";
+import { useProjectStore } from "../stores/projectStore";
 
 type OptionalNumericField = number | string | null;
 type OptionalBooleanField = boolean | null;
@@ -64,12 +66,21 @@ const emit = defineEmits<{
 }>();
 
 const form = reactive<BoardForm>(emptyForm());
+const projectStore = useProjectStore();
+const { projects } = storeToRefs(projectStore);
 const isEditing = computed(() => Boolean(props.board));
 const title = computed(() => (isEditing.value ? "Edit board" : "Add board"));
 const statusOptions = BOARD_STATUSES.map((status) => ({
   title: BOARD_STATUS_LABELS[status],
   value: status
 }));
+const projectOptions = computed(() => [
+  { title: "No project", value: "" },
+  ...projects.value.map((project) => ({
+    title: project.name,
+    value: project.id
+  }))
+]);
 const booleanOptions = [
   { title: "Unknown", value: null },
   { title: "Yes", value: true },
@@ -88,6 +99,10 @@ watch(
   },
   { immediate: true }
 );
+
+onMounted(() => {
+  void projectStore.loadProjects();
+});
 
 function emptyForm(): BoardForm {
   return {
@@ -290,6 +305,13 @@ function formatNumberArray(value: number[] | null): string {
                 v-model="form.status"
                 :items="statusOptions"
                 label="Status"
+              />
+            </v-col>
+            <v-col cols="12" md="4">
+              <v-select
+                v-model="form.projectId"
+                :items="projectOptions"
+                label="Project"
               />
             </v-col>
             <v-col cols="12">
@@ -515,9 +537,6 @@ function formatNumberArray(value: number[] | null): string {
             <template v-if="isEditing">
               <v-col cols="12">
                 <div class="section-title">Record</div>
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-text-field v-model="form.projectId" label="Project ID" />
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field v-model="form.lastConnectedAt" label="Last connected at" />

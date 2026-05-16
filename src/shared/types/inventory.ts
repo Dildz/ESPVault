@@ -1,11 +1,28 @@
+export const PROJECT_STATUSES = [
+  "active",
+  "on_hold",
+  "completed",
+  "archived"
+] as const;
+
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
 export interface Project {
   id: string;
   name: string;
   description: string | null;
-  status: string;
+  status: ProjectStatus;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface CreateProjectInput {
+  name: string;
+  description?: string | null;
+  status?: ProjectStatus;
+}
+
+export type UpdateProjectInput = Partial<CreateProjectInput>;
 
 export interface BoardTag {
   id: string;
@@ -55,4 +72,3 @@ export interface AppSetting {
   value: unknown;
   updatedAt: string;
 }
-

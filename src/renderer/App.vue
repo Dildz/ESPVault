@@ -3,6 +3,7 @@ import { computed, ref, type Component } from "vue";
 import BoardsPage from "./pages/BoardsPage.vue";
 import DashboardPage from "./pages/DashboardPage.vue";
 import PlaceholderPage from "./pages/PlaceholderPage.vue";
+import ProjectsPage from "./pages/ProjectsPage.vue";
 import ScanBoardPage from "./pages/ScanBoardPage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 
@@ -37,19 +38,15 @@ const viewComponents: Record<ViewKey, Component> = {
   dashboard: DashboardPage,
   boards: BoardsPage,
   scan: ScanBoardPage,
-  projects: PlaceholderPage,
+  projects: ProjectsPage,
   firmware: PlaceholderPage,
   settings: SettingsPage
 };
 
 const placeholderCopy: Record<
-  Exclude<ViewKey, "dashboard" | "boards" | "scan" | "settings">,
+  Exclude<ViewKey, "dashboard" | "boards" | "scan" | "projects" | "settings">,
   { title: string; description: string }
 > = {
-  projects: {
-    title: "Projects",
-    description: "Project creation and board assignment belong to the next slice."
-  },
   firmware: {
     title: "Firmware",
     description: "Firmware history will be added after board CRUD is stable."
