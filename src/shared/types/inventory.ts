@@ -12,6 +12,10 @@ export interface Project {
   name: string;
   description: string | null;
   status: ProjectStatus;
+  coverImagePath: string | null;
+  coverImageFilename: string | null;
+  coverImageMimeType: string | null;
+  coverImageSizeBytes: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,6 +24,10 @@ export interface CreateProjectInput {
   name: string;
   description?: string | null;
   status?: ProjectStatus;
+  coverImagePath?: string | null;
+  coverImageFilename?: string | null;
+  coverImageMimeType?: string | null;
+  coverImageSizeBytes?: number | null;
 }
 
 export type UpdateProjectInput = Partial<CreateProjectInput>;

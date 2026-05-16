@@ -47,6 +47,26 @@ const api: EspBoardVaultApi = {
         content: string;
       } | null>
   },
+  projectImages: {
+    chooseCover: (projectId) =>
+      ipcRenderer.invoke("project-image:choose-cover", {
+        projectId
+      }) as Promise<{
+        canceled: boolean;
+        dataUrl?: string | null;
+        filename?: string;
+        localPath?: string;
+        mimeType?: string | null;
+        sizeBytes?: number | null;
+      }>,
+    deleteCover: (localPath) =>
+      ipcRenderer.invoke("project-image:delete-cover", localPath) as Promise<void>,
+    readCoverDataUrl: (localPath) =>
+      ipcRenderer.invoke(
+        "project-image:read-cover-data-url",
+        localPath
+      ) as Promise<string | null>
+  },
   serial: {
     getLastSelectionCount: () =>
       ipcRenderer.invoke("serial:get-last-selection-count") as Promise<number>

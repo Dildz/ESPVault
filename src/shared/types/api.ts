@@ -12,6 +12,11 @@ export interface EspBoardVaultApi {
     getLocation(): Promise<DatabaseLocation>;
     getPendingMove(): Promise<DatabasePendingMove | null>;
   };
+  projectImages: {
+    chooseCover(projectId: string): Promise<ProjectCoverImageResult>;
+    deleteCover(localPath: string): Promise<void>;
+    readCoverDataUrl(localPath: string): Promise<string | null>;
+  };
   serial: {
     getLastSelectionCount(): Promise<number>;
   };
@@ -49,4 +54,13 @@ export interface DatabaseChangeLocationResult {
 
 export interface DatabasePendingMove {
   content: string;
+}
+
+export interface ProjectCoverImageResult {
+  canceled: boolean;
+  dataUrl?: string | null;
+  filename?: string;
+  localPath?: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
 }

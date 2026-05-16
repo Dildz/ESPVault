@@ -10,13 +10,16 @@ import {
   type OpenDialogOptions
 } from "electron";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  statSync,
   unlinkSync,
   writeFileSync
 } from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
@@ -30,6 +33,10 @@ const WINDOW_RESET_SIZE_CHANNEL = "window:reset-size";
 const BACKUP_SAVE_CHANNEL = "backup:save";
 const BACKUP_OPEN_CHANNEL = "backup:open";
 const SHELL_OPEN_EXTERNAL_CHANNEL = "shell:open-external";
+const PROJECT_IMAGE_CHOOSE_COVER_CHANNEL = "project-image:choose-cover";
+const PROJECT_IMAGE_DELETE_COVER_CHANNEL = "project-image:delete-cover";
+const PROJECT_IMAGE_READ_COVER_DATA_URL_CHANNEL =
+  "project-image:read-cover-data-url";
 
 interface WindowSize {
   width: number;
@@ -162,6 +169,40 @@ ipcMain.handle(BACKUP_OPEN_CHANNEL, async (event) => {
     filePath,
     content: readFileSync(filePath, "utf8")
   };
+});
+ipcMain.handle(PROJECT_IMAGE_CHOOSE_COVER_CHANNEL, async (event, request) => {
+  const { projectId } = parseProjectImageChooseRequest(request);
+  const result = await showOpenDialogForSender(event.sender, {
+    title: "Choose project photo",
+    buttonLabel: "Use photo",
+    properties: ["openFile"],
+    filters: [
+      {
+        name: "Images",
+        extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"]
+      }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { canceled: true };
+  }
+
+  return copyProjectCoverImage(projectId, result.filePaths[0]);
+});
+ipcMain.handle(PROJECT_IMAGE_DELETE_COVER_CHANNEL, (_event, localPath) => {
+  if (typeof localPath !== "string" || !localPath.trim()) {
+    return;
+  }
+
+  deleteProjectCoverImage(localPath);
+});
+ipcMain.handle(PROJECT_IMAGE_READ_COVER_DATA_URL_CHANNEL, (_event, localPath) => {
+  if (typeof localPath !== "string" || !localPath.trim()) {
+    return null;
+  }
+
+  return readCoverImageDataUrl(localPath);
 });
 ipcMain.handle(SHELL_OPEN_EXTERNAL_CHANNEL, async (_event, url: unknown) => {
   if (typeof url !== "string") {
@@ -500,6 +541,143 @@ function parseBackupSaveRequest(request: unknown): {
   }
 
   return { content, defaultFileName };
+}
+
+function parseProjectImageChooseRequest(request: unknown): { projectId: string } {
+  if (
+    typeof request !== "object" ||
+    request === null ||
+    Array.isArray(request)
+  ) {
+    throw new Error("Project photo request is invalid.");
+  }
+
+  const { projectId } = request as Record<string, unknown>;
+
+  if (typeof projectId !== "string" || !projectId.trim()) {
+    throw new Error("Project photo request is missing a project ID.");
+  }
+
+  return { projectId };
+}
+
+function copyProjectCoverImage(
+  projectId: string,
+  sourcePath: string
+): {
+  canceled: false;
+  dataUrl: string | null;
+  filename: string;
+  localPath: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+} {
+  const resolvedSourcePath = path.resolve(sourcePath);
+  const extension = getSupportedImageExtension(resolvedSourcePath);
+
+  if (!extension) {
+    throw new Error("Choose a JPG, PNG, WebP, GIF, or BMP image.");
+  }
+
+  const targetDirectory = getProjectCoverImageDirectory(projectId);
+  const targetFilename = `cover-${Date.now()}-${randomUUID()}${extension}`;
+  const targetPath = path.join(targetDirectory, targetFilename);
+
+  mkdirSync(targetDirectory, { recursive: true });
+  copyFileSync(resolvedSourcePath, targetPath);
+
+  const stats = statSync(targetPath);
+  const mimeType = getImageMimeType(targetPath);
+
+  return {
+    canceled: false,
+    dataUrl: readCoverImageDataUrl(targetPath),
+    filename: path.basename(resolvedSourcePath),
+    localPath: targetPath,
+    mimeType,
+    sizeBytes: stats.size
+  };
+}
+
+function deleteProjectCoverImage(localPath: string): void {
+  const resolvedPath = path.resolve(localPath);
+  assertPathInProjectImages(resolvedPath);
+
+  if (existsSync(resolvedPath)) {
+    unlinkSync(resolvedPath);
+  }
+}
+
+function readCoverImageDataUrl(localPath: string): string | null {
+  const resolvedPath = path.resolve(localPath);
+  assertPathInProjectImages(resolvedPath);
+
+  if (!existsSync(resolvedPath)) {
+    return null;
+  }
+
+  const mimeType = getImageMimeType(resolvedPath);
+  if (!mimeType) {
+    throw new Error("Project photo format is not supported.");
+  }
+
+  return `data:${mimeType};base64,${readFileSync(resolvedPath).toString("base64")}`;
+}
+
+function getProjectCoverImageDirectory(projectId: string): string {
+  return path.join(
+    getProjectImagesRootDirectory(),
+    sanitizePathSegment(projectId)
+  );
+}
+
+function getProjectImagesRootDirectory(): string {
+  return path.join(ensureVaultDataDirectory(), "attachments", "projects");
+}
+
+function sanitizePathSegment(value: string): string {
+  const segment = value.trim().replaceAll(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
+
+  if (!segment) {
+    throw new Error("Project photo path segment is invalid.");
+  }
+
+  return segment;
+}
+
+function assertPathInProjectImages(filePath: string): void {
+  const projectImagesDirectory = getProjectImagesRootDirectory();
+
+  if (!isPathInside(filePath, projectImagesDirectory)) {
+    throw new Error("Project photo must be stored inside the project images folder.");
+  }
+}
+
+function getSupportedImageExtension(filePath: string): string | null {
+  const extension = path.extname(filePath).toLowerCase();
+  return getImageMimeTypeByExtension(extension) ? extension : null;
+}
+
+function getImageMimeType(filePath: string): string | null {
+  return getImageMimeTypeByExtension(path.extname(filePath).toLowerCase());
+}
+
+function getImageMimeTypeByExtension(extension: string): string | null {
+  switch (extension) {
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    case ".bmp":
+      return "image/bmp";
+    default:
+      return null;
+  }
 }
 
 function showSaveDialogForSender(

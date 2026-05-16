@@ -11,6 +11,7 @@ import {
 import {
   BOARD_STATUS_COLORS,
   BOARD_STATUS_LABELS,
+  formatBytes,
   formatDate,
   formatFlashSize,
   formatPsramSize
@@ -67,6 +68,10 @@ const deletingProject = ref<Project | null>(null);
 const saving = ref(false);
 const selectedProjectId = ref<string | null>(null);
 const selectedAssignableBoardId = ref<string | null>(null);
+const coverImageDataUrl = ref<string | null>(null);
+const coverImageError = ref<string | null>(null);
+const coverImageLoading = ref(false);
+let coverImageLoadToken = 0;
 
 const loading = computed(() => boardsLoading.value || projectsLoading.value);
 const error = computed(() => projectError.value ?? boardError.value);
@@ -165,6 +170,14 @@ watch(selectedProjectId, () => {
   selectedAssignableBoardId.value = null;
 });
 
+watch(
+  () => selectedRow.value?.project.coverImagePath ?? null,
+  (coverImagePath) => {
+    void loadSelectedCoverImage(coverImagePath);
+  },
+  { immediate: true }
+);
+
 function emptyForm(): ProjectForm {
   return {
     name: "",
@@ -251,6 +264,128 @@ async function removeBoardFromProject(board: Board): Promise<void> {
   });
 }
 
+async function loadSelectedCoverImage(
+  localPath: string | null
+): Promise<void> {
+  const token = ++coverImageLoadToken;
+  coverImageError.value = null;
+  coverImageDataUrl.value = null;
+
+  if (!localPath) {
+    coverImageLoading.value = false;
+    return;
+  }
+
+  coverImageLoading.value = true;
+
+  try {
+    const dataUrl = await window.api.projectImages.readCoverDataUrl(localPath);
+
+    if (token === coverImageLoadToken) {
+      coverImageDataUrl.value = dataUrl;
+    }
+  } catch (caughtError) {
+    if (token === coverImageLoadToken) {
+      coverImageError.value = getProjectImageError(
+        caughtError,
+        "The project photo could not be loaded."
+      );
+    }
+  } finally {
+    if (token === coverImageLoadToken) {
+      coverImageLoading.value = false;
+    }
+  }
+}
+
+async function chooseCoverImage(): Promise<void> {
+  const project = selectedRow.value?.project;
+  if (!project) {
+    return;
+  }
+
+  coverImageError.value = null;
+  coverImageLoading.value = true;
+
+  const previousPath = project.coverImagePath;
+  let copiedPath: string | null = null;
+
+  try {
+    const result = await window.api.projectImages.chooseCover(project.id);
+
+    if (result.canceled || !result.localPath) {
+      return;
+    }
+
+    copiedPath = result.localPath;
+    await projectStore.updateProject(project.id, {
+      coverImagePath: result.localPath,
+      coverImageFilename: result.filename ?? null,
+      coverImageMimeType: result.mimeType ?? null,
+      coverImageSizeBytes: result.sizeBytes ?? null
+    });
+    coverImageDataUrl.value =
+      result.dataUrl ??
+      (await window.api.projectImages.readCoverDataUrl(result.localPath));
+
+    if (previousPath && previousPath !== result.localPath) {
+      await window.api.projectImages.deleteCover(previousPath).catch(() => {
+        // The project now points at the new image. A stale old file is non-blocking.
+      });
+    }
+  } catch (caughtError) {
+    if (copiedPath) {
+      await window.api.projectImages.deleteCover(copiedPath).catch(() => {
+        // Cleanup failure should not hide the original save error.
+      });
+    }
+
+    coverImageError.value = getProjectImageError(
+      caughtError,
+      "The project photo could not be saved."
+    );
+  } finally {
+    coverImageLoading.value = false;
+  }
+}
+
+async function removeCoverImage(): Promise<void> {
+  const project = selectedRow.value?.project;
+  if (!project?.coverImagePath) {
+    return;
+  }
+
+  const previousPath = project.coverImagePath;
+  coverImageError.value = null;
+  coverImageLoading.value = true;
+
+  try {
+    await projectStore.updateProject(project.id, {
+      coverImagePath: null,
+      coverImageFilename: null,
+      coverImageMimeType: null,
+      coverImageSizeBytes: null
+    });
+    coverImageDataUrl.value = null;
+
+    try {
+      await window.api.projectImages.deleteCover(previousPath);
+    } catch (caughtError) {
+      coverImageError.value = getProjectImageError(
+        caughtError,
+        "The project photo was removed from the project, but the file could not be deleted."
+      );
+    }
+  } catch (caughtError) {
+    coverImageError.value = getProjectImageError(
+      caughtError,
+      "The project photo could not be removed."
+    );
+  } finally {
+    coverImageLoading.value = false;
+  }
+}
+
 function selectProject(project: Project): void {
   selectedProjectId.value = project.id;
 }
@@ -284,6 +419,13 @@ function projectHealthColor(row: ProjectRow): string {
   }
 
   return row.attentionCount > 0 ? "warning" : "success";
+}
+
+function getProjectImageError(
+  caughtError: unknown,
+  fallbackMessage: string
+): string {
+  return caughtError instanceof Error ? caughtError.message : fallbackMessage;
 }
 </script>
 
@@ -458,6 +600,65 @@ function projectHealthColor(row: ProjectRow): string {
         </v-card-title>
         <v-divider />
         <v-card-text>
+          <v-alert
+            v-if="coverImageError"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+          >
+            {{ coverImageError }}
+          </v-alert>
+
+          <div class="project-cover-panel">
+            <div class="project-cover-preview">
+              <v-img
+                v-if="coverImageDataUrl"
+                :src="coverImageDataUrl"
+                alt=""
+                cover
+                height="160"
+              />
+              <div v-else class="project-cover-placeholder">
+                <v-icon icon="mdi-image-plus-outline" size="34" color="secondary" />
+                <div class="text-caption muted mt-1">No project photo</div>
+              </div>
+            </div>
+            <div class="project-cover-body">
+              <div class="section-title">Project photo</div>
+              <div class="text-body-2 mt-1">
+                {{ selectedRow.project.coverImageFilename || "Add a photo of the build, enclosure, or wiring." }}
+              </div>
+              <div
+                v-if="selectedRow.project.coverImageSizeBytes !== null"
+                class="text-caption muted mt-1"
+              >
+                {{ formatBytes(selectedRow.project.coverImageSizeBytes) }}
+              </div>
+              <div class="project-cover-actions">
+                <v-btn
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-image-plus-outline"
+                  :loading="coverImageLoading"
+                  @click="chooseCoverImage"
+                >
+                  {{ selectedRow.project.coverImagePath ? "Change photo" : "Add photo" }}
+                </v-btn>
+                <v-btn
+                  v-if="selectedRow.project.coverImagePath"
+                  variant="text"
+                  color="error"
+                  prepend-icon="mdi-image-remove-outline"
+                  :disabled="coverImageLoading"
+                  @click="removeCoverImage"
+                >
+                  Remove
+                </v-btn>
+              </div>
+            </div>
+          </div>
+
           <div class="project-facts">
             <div>
               <div class="metric-label">Boards</div>
@@ -686,6 +887,43 @@ function projectHealthColor(row: ProjectRow): string {
   gap: 6px;
 }
 
+.project-cover-panel {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 18px;
+}
+
+.project-cover-preview {
+  min-height: 160px;
+  overflow: hidden;
+  border: 1px solid #dcded8;
+  border-radius: 8px;
+  background: #f4f6f1;
+}
+
+.project-cover-placeholder {
+  display: grid;
+  min-height: 160px;
+  place-items: center;
+  align-content: center;
+}
+
+.project-cover-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.project-cover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 .project-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -737,6 +975,7 @@ function projectHealthColor(row: ProjectRow): string {
 
 @media (max-width: 760px) {
   .project-toolbar,
+  .project-cover-panel,
   .project-facts,
   .assign-board-row {
     grid-template-columns: 1fr;

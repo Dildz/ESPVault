@@ -35,6 +35,10 @@ export class DexieProjectRepository implements ProjectRepository {
       name: this.requireName(input.name),
       description: this.optionalText(input.description),
       status: input.status ?? "active",
+      coverImagePath: this.optionalText(input.coverImagePath),
+      coverImageFilename: this.optionalText(input.coverImageFilename),
+      coverImageMimeType: this.optionalText(input.coverImageMimeType),
+      coverImageSizeBytes: this.optionalNumber(input.coverImageSizeBytes),
       createdAt: now,
       updatedAt: now
     };
@@ -62,6 +66,22 @@ export class DexieProjectRepository implements ProjectRepository {
           ? existing.description
           : this.optionalText(input.description),
       status: input.status ?? existing.status,
+      coverImagePath:
+        input.coverImagePath === undefined
+          ? existing.coverImagePath
+          : this.optionalText(input.coverImagePath),
+      coverImageFilename:
+        input.coverImageFilename === undefined
+          ? existing.coverImageFilename
+          : this.optionalText(input.coverImageFilename),
+      coverImageMimeType:
+        input.coverImageMimeType === undefined
+          ? existing.coverImageMimeType
+          : this.optionalText(input.coverImageMimeType),
+      coverImageSizeBytes:
+        input.coverImageSizeBytes === undefined
+          ? existing.coverImageSizeBytes
+          : this.optionalNumber(input.coverImageSizeBytes),
       updatedAt: new Date().toISOString()
     };
 
@@ -128,7 +148,11 @@ export class DexieProjectRepository implements ProjectRepository {
     return {
       ...project,
       description: project.description ?? null,
-      status
+      status,
+      coverImagePath: project.coverImagePath ?? null,
+      coverImageFilename: project.coverImageFilename ?? null,
+      coverImageMimeType: project.coverImageMimeType ?? null,
+      coverImageSizeBytes: project.coverImageSizeBytes ?? null
     };
   }
 
@@ -144,6 +168,12 @@ export class DexieProjectRepository implements ProjectRepository {
   private optionalText(value: string | null | undefined): string | null {
     const text = value?.trim();
     return text ? text : null;
+  }
+
+  private optionalNumber(value: number | null | undefined): number | null {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0
+      ? Math.round(value)
+      : null;
   }
 
   private assertStatus(value: ProjectStatus): void {
