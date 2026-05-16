@@ -1,27 +1,56 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref } from "vue";
-import type { CreateBoardInput } from "../../shared/types/board";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { storeToRefs } from "pinia";
+import type {
+  Board,
+  CreateBoardInput,
+  UpdateBoardInput
+} from "../../shared/types/board";
 import type { DetectedEspBoard } from "../../shared/types/serial";
 import { scanEspBoards } from "../services/espBoardScanner";
 import { useBoardStore } from "../stores/boardStore";
 import { formatBytes, formatDate, formatFlashSize } from "../utils/boardDisplay";
 
 const boardStore = useBoardStore();
+const { boards } = storeToRefs(boardStore);
+const emit = defineEmits<{
+  "open-board": [id: string];
+}>();
 const detectedBoards = ref<DetectedEspBoard[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+const notice = ref<string | null>(null);
 const scanLogs = ref<string[]>([]);
 const logCopied = ref(false);
 const scanLogElement = ref<HTMLElement | null>(null);
 let copyResetTimeout: number | null = null;
 
+const savedBoardsByMac = computed(() => {
+  const matches = new Map<string, Board>();
+
+  for (const board of boards.value) {
+    const macAddress = normalizeMacAddress(board.macAddress);
+    if (macAddress) {
+      matches.set(macAddress, board);
+    }
+  }
+
+  return matches;
+});
+
+const newDetectedBoards = computed(() =>
+  detectedBoards.value.filter((board) => !getSavedBoard(board))
+);
+
 async function runScan(): Promise<void> {
   loading.value = true;
   error.value = null;
+  notice.value = null;
   scanLogs.value = [];
   detectedBoards.value = [];
 
   try {
+    await boardStore.loadBoards();
     detectedBoards.value = await scanEspBoards((_level, message) => {
       scanLogs.value = [...scanLogs.value.slice(-80), message];
       void scrollScanLogToBottom();
@@ -47,13 +76,64 @@ async function scrollScanLogToBottom(): Promise<void> {
 }
 
 async function addDetectedBoard(board: DetectedEspBoard): Promise<void> {
+  const savedBoard = getSavedBoard(board);
+  if (savedBoard) {
+    notice.value = `${savedBoard.name} is already saved.`;
+    return;
+  }
+
   await boardStore.createBoard(buildBoardInput(board));
+  notice.value = "Board added to the vault.";
 }
 
 async function addDetectedBoards(): Promise<void> {
-  for (const board of detectedBoards.value) {
+  const boardsToAdd = [...newDetectedBoards.value];
+  const skippedCount = detectedBoards.value.length - boardsToAdd.length;
+
+  for (const board of boardsToAdd) {
     await addDetectedBoard(board);
   }
+
+  const addedCount = boardsToAdd.length;
+
+  if (addedCount || skippedCount) {
+    notice.value = [
+      addedCount ? `${addedCount} new board${addedCount === 1 ? "" : "s"} added` : null,
+      skippedCount
+        ? `${skippedCount} already saved board${skippedCount === 1 ? "" : "s"} skipped`
+        : null
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(", ");
+  }
+}
+
+async function updateSavedBoardFromScan(board: DetectedEspBoard): Promise<void> {
+  const savedBoard = getSavedBoard(board);
+  if (!savedBoard) {
+    return;
+  }
+
+  await boardStore.updateBoard(savedBoard.id, buildBoardUpdateInput(board));
+  notice.value = `${savedBoard.name} updated from scan data.`;
+}
+
+function keepSavedBoard(board: DetectedEspBoard): void {
+  const savedBoard = getSavedBoard(board);
+  if (!savedBoard) {
+    return;
+  }
+
+  notice.value = `${savedBoard.name} kept unchanged.`;
+}
+
+function openSavedBoard(board: DetectedEspBoard): void {
+  const savedBoard = getSavedBoard(board);
+  if (!savedBoard) {
+    return;
+  }
+
+  emit("open-board", savedBoard.id);
 }
 
 async function copyScanLog(): Promise<void> {
@@ -119,6 +199,59 @@ function buildBoardInput(board: DetectedEspBoard): CreateBoardInput {
   };
 }
 
+function buildBoardUpdateInput(board: DetectedEspBoard): UpdateBoardInput {
+  return {
+    chipModel: board.chipModel,
+    chipRevision: board.chipRevision,
+    chipVariant: board.chipVariant,
+    chipFamily: board.chipFamily,
+    chipFamilyHex: board.chipFamilyHex,
+    macAddress: board.macAddress,
+    flashSizeBytes: board.flashSizeBytes,
+    flashSizeLabel: board.flashSizeLabel,
+    flashChipId: board.flashChipId,
+    flashChipIdHex: board.flashChipIdHex,
+    flashManufacturerId: board.flashManufacturerId,
+    flashManufacturerIdHex: board.flashManufacturerIdHex,
+    flashManufacturerName: board.flashManufacturerName,
+    flashDeviceId: board.flashDeviceId,
+    flashDeviceIdHex: board.flashDeviceIdHex,
+    psramSizeBytes: board.psramSizeBytes,
+    psramDetected: board.psramDetected,
+    crystalFrequency: board.crystalFrequency,
+    securityFlags: board.securityFlags,
+    securityFlagsHex: board.securityFlagsHex,
+    flashCryptCnt: board.flashCryptCnt,
+    flashCryptCntHex: board.flashCryptCntHex,
+    securityKeyPurposes: board.securityKeyPurposes,
+    securityChipId: board.securityChipId,
+    securityApiVersion: board.securityApiVersion,
+    secureBootEnabled: board.secureBootEnabled,
+    flashEncryptionEnabled: board.flashEncryptionEnabled,
+    bootloaderOffset: board.bootloaderOffset,
+    bootloaderOffsetHex: board.bootloaderOffsetHex,
+    lastConnectedAt: board.detectedAt
+  };
+}
+
+function getSavedBoard(board: DetectedEspBoard): Board | null {
+  const macAddress = normalizeMacAddress(board.macAddress);
+  return macAddress ? savedBoardsByMac.value.get(macAddress) ?? null : null;
+}
+
+function normalizeMacAddress(value: string | null | undefined): string | null {
+  const normalized = value?.trim().replaceAll("-", ":").toUpperCase();
+  if (
+    !normalized ||
+    normalized === "00:00:00:00:00:00" ||
+    normalized === "FF:FF:FF:FF:FF:FF"
+  ) {
+    return null;
+  }
+
+  return normalized;
+}
+
 function formatBoardLabel(board: DetectedEspBoard, index: number): string {
   return board.chipModel ? `${board.chipModel} board` : `Detected board ${index + 1}`;
 }
@@ -177,6 +310,10 @@ onBeforeUnmount(() => {
     window.clearTimeout(copyResetTimeout);
   }
 });
+
+onMounted(() => {
+  void boardStore.loadBoards();
+});
 </script>
 
 <template>
@@ -202,19 +339,23 @@ onBeforeUnmount(() => {
       {{ error }}
     </v-alert>
 
+    <v-alert v-if="notice" type="success" variant="tonal" class="mb-4">
+      {{ notice }}
+    </v-alert>
+
     <v-card v-if="detectedBoards.length" flat border>
       <v-card-title class="detected-board-title">
         <span class="text-subtitle-1 font-weight-bold">
           Detected boards
         </span>
         <v-btn
-          v-if="detectedBoards.length > 1"
+          v-if="detectedBoards.length > 1 && newDetectedBoards.length"
           color="primary"
           size="small"
           prepend-icon="mdi-plus"
           @click="addDetectedBoards"
         >
-          Add all
+          Add all new
         </v-btn>
       </v-card-title>
       <v-divider />
@@ -239,10 +380,14 @@ onBeforeUnmount(() => {
           >
             <td>
               <div class="board-name">
-                {{ formatBoardLabel(detectedBoard, index) }}
+                {{ getSavedBoard(detectedBoard)?.name ?? formatBoardLabel(detectedBoard, index) }}
               </div>
               <div class="text-caption muted">
-                {{ detectedBoard.chipVariant ?? "No variant detected" }}
+                {{
+                  getSavedBoard(detectedBoard)
+                    ? "Already saved"
+                    : detectedBoard.chipVariant ?? "No variant detected"
+                }}
               </div>
             </td>
             <td>{{ formatChipSummary(detectedBoard) }}</td>
@@ -260,7 +405,35 @@ onBeforeUnmount(() => {
             <td>{{ formatSecuritySummary(detectedBoard) }}</td>
             <td>{{ formatDate(detectedBoard.detectedAt) }}</td>
             <td class="text-right">
+              <div v-if="getSavedBoard(detectedBoard)" class="known-board-actions">
+                <v-btn
+                  color="primary"
+                  size="small"
+                  variant="tonal"
+                  prepend-icon="mdi-open-in-new"
+                  @click="openSavedBoard(detectedBoard)"
+                >
+                  Open
+                </v-btn>
+                <v-btn
+                  color="primary"
+                  size="small"
+                  variant="outlined"
+                  prepend-icon="mdi-refresh"
+                  @click="updateSavedBoardFromScan(detectedBoard)"
+                >
+                  Update from scan
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="text"
+                  @click="keepSavedBoard(detectedBoard)"
+                >
+                  Keep saved
+                </v-btn>
+              </div>
               <v-btn
+                v-else
                 color="primary"
                 size="small"
                 variant="tonal"
@@ -339,6 +512,13 @@ onBeforeUnmount(() => {
 .metadata-mono {
   font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
   font-size: 0.8125rem;
+}
+
+.known-board-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .scan-log-title {

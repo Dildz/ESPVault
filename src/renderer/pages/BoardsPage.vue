@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import {
   BOARD_STATUSES,
@@ -25,10 +25,14 @@ interface BoardFilters {
 
 const boardStore = useBoardStore();
 const { boards, chipModels, error, loading } = storeToRefs(boardStore);
+const props = defineProps<{
+  openBoardId?: string | null;
+}>();
 const editorOpen = ref(false);
 const editingBoard = ref<Board | null>(null);
 const deletingBoard = ref<Board | null>(null);
 const saving = ref(false);
+const openedBoardId = ref<string | null>(null);
 
 const filters = reactive<BoardFilters>({
   search: "",
@@ -79,6 +83,19 @@ onMounted(() => {
   void boardStore.loadBoards();
 });
 
+watch(
+  () => props.openBoardId,
+  () => {
+    openedBoardId.value = null;
+    openBoardFromProp();
+  },
+  { immediate: true }
+);
+
+watch(boards, () => {
+  openBoardFromProp();
+});
+
 function openCreateDialog(): void {
   editingBoard.value = null;
   editorOpen.value = true;
@@ -87,6 +104,20 @@ function openCreateDialog(): void {
 function openEditDialog(board: Board): void {
   editingBoard.value = board;
   editorOpen.value = true;
+}
+
+function openBoardFromProp(): void {
+  if (!props.openBoardId || props.openBoardId === openedBoardId.value) {
+    return;
+  }
+
+  const board = boards.value.find((candidate) => candidate.id === props.openBoardId);
+  if (!board) {
+    return;
+  }
+
+  openEditDialog(board);
+  openedBoardId.value = props.openBoardId;
 }
 
 async function saveBoard(input: CreateBoardInput): Promise<void> {

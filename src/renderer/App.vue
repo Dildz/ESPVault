@@ -20,6 +20,7 @@ interface NavItem {
 }
 
 const currentView = ref<ViewKey>("dashboard");
+const boardToOpenId = ref<string | null>(null);
 
 const navItems: NavItem[] = [
   { key: "dashboard", title: "Dashboard", icon: "mdi-view-dashboard-outline" },
@@ -58,11 +59,27 @@ const placeholderCopy: Record<
 };
 
 const activeComponent = computed(() => viewComponents[currentView.value]);
-const activePlaceholderProps = computed(() =>
-  currentView.value in placeholderCopy
-    ? placeholderCopy[currentView.value as keyof typeof placeholderCopy]
-    : {}
-);
+const activeComponentProps = computed(() => {
+  if (currentView.value === "boards") {
+    return { openBoardId: boardToOpenId.value };
+  }
+
+  if (currentView.value in placeholderCopy) {
+    return placeholderCopy[currentView.value as keyof typeof placeholderCopy];
+  }
+
+  return {};
+});
+
+function openBoards(): void {
+  boardToOpenId.value = null;
+  currentView.value = "boards";
+}
+
+function openBoard(id: string): void {
+  boardToOpenId.value = id;
+  currentView.value = "boards";
+}
 </script>
 
 <template>
@@ -95,8 +112,9 @@ const activePlaceholderProps = computed(() =>
     <v-main>
       <component
         :is="activeComponent"
-        v-bind="activePlaceholderProps"
-        @open-boards="currentView = 'boards'"
+        v-bind="activeComponentProps"
+        @open-boards="openBoards"
+        @open-board="openBoard"
       />
     </v-main>
   </v-app>
