@@ -45,6 +45,22 @@ export function formatFlashSize(
   return bytes === null ? label ?? "Not set" : formatBytes(bytes);
 }
 
+export function formatPsramSize(
+  bytes: number | null,
+  detected: boolean | null,
+  unknownLabel = "Not set"
+): string {
+  if (bytes !== null) {
+    return formatBytes(bytes);
+  }
+
+  if (detected === null) {
+    return unknownLabel;
+  }
+
+  return detected ? "Detected" : "Not detected";
+}
+
 export function formatDate(value: string | null): string {
   if (!value) {
     return "Not recorded";

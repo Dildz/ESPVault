@@ -6,6 +6,7 @@ import {
   type Logger
 } from "tasmota-webserial-esptool";
 import type { DetectedEspBoard } from "../../shared/types/serial";
+import { readChipMetadata, type ChipMetadata } from "./chipMetadata";
 
 type ScannerLogLevel = "log" | "debug" | "error";
 
@@ -147,33 +148,37 @@ async function scanEspBoardFromPort(
   try {
     loader = await connectWithPort(port, logger);
     await loader.initialize();
-    const macAddress = readMacAddress(loader, logger);
+    const bootloaderMacAddress = readMacAddress(loader, logger);
 
     const scanLoader = await runStubForFlashMetadata(loader, logger);
     loader = scanLoader;
 
     const chipFamily = readChipFamily(loader, logger);
+    const chipMetadata = await readChipMetadata(loader, chipFamily, logger);
     const flashChipInfo = await readFlashChipInfo(loader, logger);
     const flashSizeInfo = await readFlashSize(
       loader,
       flashChipInfo.flashChipId,
       logger
     );
-    const crystalFrequency = await readCrystalFrequency(loader, chipFamily, logger);
+    const crystalFrequency =
+      chipMetadata.crystalFrequency ??
+      (await readCrystalFrequency(loader, chipFamily, logger));
     const bootloaderOffset = readBootloaderOffset(loader, logger);
     const securityInfo = await readSecurityInfo(loader, logger);
+    logChipMetadata(chipMetadata, logger);
 
     return {
       chipModel: loader.chipName,
       chipRevision: loader.chipRevision,
-      chipVariant: loader.chipVariant,
+      chipVariant: chipMetadata.chipVariant ?? loader.chipVariant,
       chipFamily,
       chipFamilyHex: formatHex(chipFamily, 4),
-      macAddress,
+      macAddress: selectMacAddress(bootloaderMacAddress, chipMetadata.macAddress),
       ...flashSizeInfo,
       ...flashChipInfo,
-      psramSizeBytes: null,
-      psramDetected: null,
+      psramSizeBytes: chipMetadata.psramSizeBytes,
+      psramDetected: chipMetadata.psramDetected,
       crystalFrequency,
       ...securityInfo,
       bootloaderOffset,
@@ -251,11 +256,26 @@ function createLogger(
 
 function readMacAddress(loader: ESPLoader, logger: Logger): string | null {
   try {
-    return formatMacAddr(loader.macAddr().map(Number));
+    const macAddress = formatMacAddr(loader.macAddr().map(Number));
+    if (!isValidMacAddress(macAddress)) {
+      logger.debug(`MAC address read returned invalid value: ${macAddress}`);
+      return null;
+    }
+
+    return macAddress;
   } catch (error) {
     logger.error(`MAC address read failed: ${getErrorMessage(error)}`);
     return null;
   }
+}
+
+function selectMacAddress(
+  bootloaderMacAddress: string | null,
+  efuseMacAddress: string | null
+): string | null {
+  return isValidMacAddress(bootloaderMacAddress)
+    ? bootloaderMacAddress
+    : efuseMacAddress;
 }
 
 function readChipFamily(loader: ESPLoader, logger: Logger): number | null {
@@ -347,6 +367,36 @@ function readBootloaderOffset(loader: ESPLoader, logger: Logger): number | null 
   }
 }
 
+function logChipMetadata(metadata: ChipMetadata, logger: Logger): void {
+  if (metadata.chipVariant) {
+    logger.log(`Chip variant: ${metadata.chipVariant}`);
+  }
+
+  if (metadata.macAddress) {
+    logger.log(`MAC address from eFuse: ${metadata.macAddress}`);
+  }
+
+  if (metadata.embeddedFlashSizeBytes !== null) {
+    logger.log(
+      `Embedded flash from eFuse: ${formatBytes(metadata.embeddedFlashSizeBytes)}${
+        metadata.embeddedFlashVendor ? ` (${metadata.embeddedFlashVendor})` : ""
+      }`
+    );
+  }
+
+  if (metadata.psramDetected === true) {
+    logger.log(
+      `PSRAM from eFuse: ${
+        metadata.psramSizeBytes === null
+          ? "detected"
+          : formatBytes(metadata.psramSizeBytes)
+      }${metadata.psramVendor ? ` (${metadata.psramVendor})` : ""}`
+    );
+  } else if (metadata.psramDetected === false) {
+    logger.log("PSRAM from eFuse: not detected");
+  }
+}
+
 function parseFlashSize(value: string | null): number | null {
   if (!value) {
     return null;
@@ -370,6 +420,29 @@ function parseFlashSize(value: string | null): number | null {
 function normalizeFlashSizeLabel(value: string | null | undefined): string | null {
   const label = value?.trim();
   return label ? label : null;
+}
+
+function formatBytes(value: number): string {
+  if (value < 1024 * 1024) {
+    const kilobytes = value / 1024;
+    return Number.isInteger(kilobytes)
+      ? `${kilobytes} KB`
+      : `${kilobytes.toFixed(1)} KB`;
+  }
+
+  const megabytes = value / 1024 / 1024;
+  return Number.isInteger(megabytes)
+    ? `${megabytes} MB`
+    : `${megabytes.toFixed(1)} MB`;
+}
+
+function isValidMacAddress(value: string | null): boolean {
+  const normalized = value?.trim().toUpperCase();
+  return Boolean(
+    normalized &&
+      normalized !== "00:00:00:00:00:00" &&
+      normalized !== "FF:FF:FF:FF:FF:FF"
+  );
 }
 
 function inferFlashSizeLabelFromFlashId(flashChipId: number | null): string | null {

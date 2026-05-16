@@ -12,9 +12,9 @@ import { useBoardStore } from "../stores/boardStore";
 import {
   BOARD_STATUS_COLORS,
   BOARD_STATUS_LABELS,
-  formatBytes,
   formatFlashSize,
-  formatDate
+  formatDate,
+  formatPsramSize
 } from "../utils/boardDisplay";
 
 interface BoardFilters {
@@ -242,7 +242,7 @@ async function confirmDelete(): Promise<void> {
             </td>
             <td>{{ board.chipModel || "Not set" }}</td>
             <td>{{ formatFlashSize(board.flashSizeBytes, board.flashSizeLabel) }}</td>
-            <td>{{ formatBytes(board.psramSizeBytes) }}</td>
+            <td>{{ formatPsramSize(board.psramSizeBytes, board.psramDetected) }}</td>
             <td>{{ board.physicalLocation || "Not set" }}</td>
             <td>{{ formatDate(board.updatedAt) }}</td>
             <td class="text-right">
