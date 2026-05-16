@@ -33,6 +33,10 @@ const editingBoard = ref<Board | null>(null);
 const deletingBoard = ref<Board | null>(null);
 const saving = ref(false);
 const openedBoardId = ref<string | null>(null);
+const boardCoverError = ref<string | null>(null);
+const boardCoverBusyId = ref<string | null>(null);
+const boardThumbnailUrls = ref<Record<string, string | null>>({});
+let boardThumbnailLoadToken = 0;
 
 const filters = reactive<BoardFilters>({
   search: "",
@@ -79,6 +83,12 @@ const filteredBoards = computed(() => {
   });
 });
 
+const boardCoverPathKey = computed(() =>
+  boards.value
+    .map((board) => `${board.id}:${board.coverImagePath ?? ""}`)
+    .join("|")
+);
+
 onMounted(() => {
   void boardStore.loadBoards();
 });
@@ -95,6 +105,14 @@ watch(
 watch(boards, () => {
   openBoardFromProp();
 });
+
+watch(
+  boardCoverPathKey,
+  () => {
+    void loadBoardCoverThumbnails(boards.value);
+  },
+  { immediate: true }
+);
 
 function openCreateDialog(): void {
   editingBoard.value = null;
@@ -142,8 +160,139 @@ async function confirmDelete(): Promise<void> {
     return;
   }
 
+  const coverImagePath = deletingBoard.value.coverImagePath;
   await boardStore.deleteBoard(deletingBoard.value.id);
+
+  if (coverImagePath) {
+    await window.api.boardImages.deleteCover(coverImagePath).catch(() => {
+      // The board record is gone. A stale old image file is non-blocking.
+    });
+  }
+
   deletingBoard.value = null;
+}
+
+async function loadBoardCoverThumbnails(boardList: Board[]): Promise<void> {
+  const token = ++boardThumbnailLoadToken;
+  const nextThumbnails: Record<string, string | null> = {};
+
+  await Promise.all(
+    boardList.map(async (board) => {
+      if (!board.coverImagePath) {
+        nextThumbnails[board.id] = null;
+        return;
+      }
+
+      try {
+        nextThumbnails[board.id] =
+          await window.api.boardImages.readCoverDataUrl(board.coverImagePath);
+      } catch {
+        nextThumbnails[board.id] = null;
+      }
+    })
+  );
+
+  if (token === boardThumbnailLoadToken) {
+    boardThumbnailUrls.value = nextThumbnails;
+  }
+}
+
+async function chooseBoardCover(board: Board): Promise<void> {
+  boardCoverError.value = null;
+  boardCoverBusyId.value = board.id;
+
+  const previousPath = board.coverImagePath;
+  let copiedPath: string | null = null;
+
+  try {
+    const result = await window.api.boardImages.chooseCover(board.id);
+
+    if (result.canceled || !result.localPath) {
+      return;
+    }
+
+    copiedPath = result.localPath;
+    const updatedBoard = await boardStore.updateBoard(board.id, {
+      coverImagePath: result.localPath,
+      coverImageFilename: result.filename ?? null,
+      coverImageMimeType: result.mimeType ?? null,
+      coverImageSizeBytes: result.sizeBytes ?? null
+    });
+    if (editingBoard.value?.id === updatedBoard.id) {
+      editingBoard.value = updatedBoard;
+    }
+    boardThumbnailUrls.value = {
+      ...boardThumbnailUrls.value,
+      [board.id]:
+        result.dataUrl ??
+        (await window.api.boardImages.readCoverDataUrl(result.localPath))
+    };
+
+    if (previousPath && previousPath !== result.localPath) {
+      await window.api.boardImages.deleteCover(previousPath).catch(() => {
+        // The board now points at the new image. A stale old file is non-blocking.
+      });
+    }
+  } catch (caughtError) {
+    if (copiedPath) {
+      await window.api.boardImages.deleteCover(copiedPath).catch(() => {
+        // Cleanup failure should not hide the original save error.
+      });
+    }
+
+    boardCoverError.value = getBoardCoverError(
+      caughtError,
+      "The board photo could not be saved."
+    );
+  } finally {
+    boardCoverBusyId.value = null;
+  }
+}
+
+async function removeBoardCover(board: Board): Promise<void> {
+  if (!board.coverImagePath) {
+    return;
+  }
+
+  const previousPath = board.coverImagePath;
+  boardCoverError.value = null;
+  boardCoverBusyId.value = board.id;
+
+  try {
+    const updatedBoard = await boardStore.updateBoard(board.id, {
+      coverImagePath: null,
+      coverImageFilename: null,
+      coverImageMimeType: null,
+      coverImageSizeBytes: null
+    });
+    if (editingBoard.value?.id === updatedBoard.id) {
+      editingBoard.value = updatedBoard;
+    }
+    boardThumbnailUrls.value = {
+      ...boardThumbnailUrls.value,
+      [board.id]: null
+    };
+
+    try {
+      await window.api.boardImages.deleteCover(previousPath);
+    } catch (caughtError) {
+      boardCoverError.value = getBoardCoverError(
+        caughtError,
+        "The board photo was removed from the board, but the file could not be deleted."
+      );
+    }
+  } catch (caughtError) {
+    boardCoverError.value = getBoardCoverError(
+      caughtError,
+      "The board photo could not be removed."
+    );
+  } finally {
+    boardCoverBusyId.value = null;
+  }
+}
+
+function getBoardCoverError(caughtError: unknown, fallback: string): string {
+  return caughtError instanceof Error ? caughtError.message : fallback;
 }
 </script>
 
@@ -163,6 +312,9 @@ async function confirmDelete(): Promise<void> {
 
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">
       {{ error }}
+    </v-alert>
+    <v-alert v-if="boardCoverError" type="error" variant="tonal" class="mb-4">
+      {{ boardCoverError }}
     </v-alert>
 
     <div class="toolbar-band">
@@ -226,9 +378,27 @@ async function confirmDelete(): Promise<void> {
         <tbody>
           <tr v-for="board in filteredBoards" :key="board.id">
             <td>
-              <div class="board-name">{{ board.name }}</div>
-              <div class="text-caption muted">
-                {{ board.description || board.notes || "No notes yet" }}
+              <div class="board-list-identity">
+                <div class="board-list-cover" aria-hidden="true">
+                  <img
+                    v-if="boardThumbnailUrls[board.id]"
+                    class="board-list-cover-image"
+                    :src="boardThumbnailUrls[board.id] ?? ''"
+                    alt=""
+                  >
+                  <v-icon
+                    v-else
+                    icon="mdi-image-outline"
+                    size="24"
+                    color="secondary"
+                  />
+                </div>
+                <div class="board-list-copy">
+                  <div class="board-name">{{ board.name }}</div>
+                  <div class="text-caption muted">
+                    {{ board.description || board.notes || "No notes yet" }}
+                  </div>
+                </div>
               </div>
             </td>
             <td>
@@ -248,6 +418,35 @@ async function confirmDelete(): Promise<void> {
             <td>{{ board.physicalLocation || "Not set" }}</td>
             <td>{{ formatDate(board.updatedAt) }}</td>
             <td class="text-right">
+              <v-tooltip
+                :text="board.coverImagePath ? 'Change board photo' : 'Add board photo'"
+              >
+                <template #activator="{ props: tooltipProps }">
+                  <v-btn
+                    v-bind="tooltipProps"
+                    :icon="board.coverImagePath ? 'mdi-image-edit-outline' : 'mdi-image-plus-outline'"
+                    size="small"
+                    variant="text"
+                    :loading="boardCoverBusyId === board.id"
+                    :aria-label="board.coverImagePath ? 'Change board photo' : 'Add board photo'"
+                    @click="chooseBoardCover(board)"
+                  />
+                </template>
+              </v-tooltip>
+              <v-tooltip v-if="board.coverImagePath" text="Remove board photo">
+                <template #activator="{ props: tooltipProps }">
+                  <v-btn
+                    v-bind="tooltipProps"
+                    icon="mdi-image-remove-outline"
+                    size="small"
+                    variant="text"
+                    color="error"
+                    :disabled="boardCoverBusyId === board.id"
+                    aria-label="Remove board photo"
+                    @click="removeBoardCover(board)"
+                  />
+                </template>
+              </v-tooltip>
               <v-btn
                 icon="mdi-pencil"
                 size="small"
@@ -272,6 +471,10 @@ async function confirmDelete(): Promise<void> {
     <BoardEditorDialog
       v-model="editorOpen"
       :board="editingBoard"
+      :cover-image-busy="Boolean(editingBoard && boardCoverBusyId === editingBoard.id)"
+      :cover-image-error="boardCoverError"
+      @choose-cover="chooseBoardCover"
+      @remove-cover="removeBoardCover"
       @save="saveBoard"
     />
 
@@ -300,5 +503,35 @@ async function confirmDelete(): Promise<void> {
   font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
   font-size: 0.8125rem;
   white-space: nowrap;
+}
+
+.board-list-identity {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.board-list-cover {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid #dcded8;
+  border-radius: 8px;
+  background: #f4f6f1;
+}
+
+.board-list-cover-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.board-list-copy {
+  min-width: 0;
 }
 </style>

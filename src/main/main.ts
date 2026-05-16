@@ -40,6 +40,9 @@ const BACKUP_SAVE_CHANNEL = "backup:save";
 const BACKUP_OPEN_CHANNEL = "backup:open";
 const BACKUP_RESTORE_FILES_CHANNEL = "backup:restore-files";
 const SHELL_OPEN_EXTERNAL_CHANNEL = "shell:open-external";
+const BOARD_IMAGE_CHOOSE_COVER_CHANNEL = "board-image:choose-cover";
+const BOARD_IMAGE_DELETE_COVER_CHANNEL = "board-image:delete-cover";
+const BOARD_IMAGE_READ_COVER_DATA_URL_CHANNEL = "board-image:read-cover-data-url";
 const PROJECT_IMAGE_CHOOSE_COVER_CHANNEL = "project-image:choose-cover";
 const PROJECT_IMAGE_DELETE_COVER_CHANNEL = "project-image:delete-cover";
 const PROJECT_IMAGE_READ_COVER_DATA_URL_CHANNEL =
@@ -214,6 +217,40 @@ ipcMain.handle(BACKUP_OPEN_CHANNEL, async (event) => {
 });
 ipcMain.handle(BACKUP_RESTORE_FILES_CHANNEL, (_event, request: unknown) => {
   return restoreBackupFiles(parseBackupRestoreFilesRequest(request));
+});
+ipcMain.handle(BOARD_IMAGE_CHOOSE_COVER_CHANNEL, async (event, request) => {
+  const { boardId } = parseBoardImageChooseRequest(request);
+  const result = await showOpenDialogForSender(event.sender, {
+    title: "Choose board photo",
+    buttonLabel: "Use photo",
+    properties: ["openFile"],
+    filters: [
+      {
+        name: "Images",
+        extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"]
+      }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { canceled: true };
+  }
+
+  return copyBoardCoverImage(boardId, result.filePaths[0]);
+});
+ipcMain.handle(BOARD_IMAGE_DELETE_COVER_CHANNEL, (_event, localPath) => {
+  if (typeof localPath !== "string" || !localPath.trim()) {
+    return;
+  }
+
+  deleteBoardCoverImage(localPath);
+});
+ipcMain.handle(BOARD_IMAGE_READ_COVER_DATA_URL_CHANNEL, (_event, localPath) => {
+  if (typeof localPath !== "string" || !localPath.trim()) {
+    return null;
+  }
+
+  return readBoardCoverImageDataUrl(localPath);
 });
 ipcMain.handle(PROJECT_IMAGE_CHOOSE_COVER_CHANNEL, async (event, request) => {
   const { projectId } = parseProjectImageChooseRequest(request);
@@ -756,6 +793,17 @@ function rewriteLegacyBackupFilePath(
   file: VaultBackupFile,
   targetPath: string
 ): void {
+  if (file.kind === "board_cover") {
+    const board = backup.data.boards.find((item) => item.id === file.ownerId);
+
+    if (board) {
+      board.coverImagePath = targetPath;
+      board.coverImageFilename = file.filename;
+      board.coverImageMimeType = file.mimeType;
+      board.coverImageSizeBytes = file.sizeBytes;
+    }
+  }
+
   if (file.kind === "project_cover") {
     const project = backup.data.projects.find((item) => item.id === file.ownerId);
 
@@ -844,6 +892,20 @@ function collectBackupAttachmentEntries(backup: VaultBackup): Array<{
   }> = [];
   const seen = new Set<string>();
 
+  for (const board of backup.data.boards) {
+    if (!board.coverImagePath) {
+      continue;
+    }
+
+    const entry = createBackupAttachmentEntry(board.coverImagePath);
+
+    if (entry && !seen.has(entry.path)) {
+      seen.add(entry.path);
+      entries.push(entry);
+      board.coverImagePath = entry.path;
+    }
+  }
+
   for (const project of backup.data.projects) {
     if (!project.coverImagePath) {
       continue;
@@ -917,6 +979,12 @@ function toVaultRelativePath(filePath: string): string {
 }
 
 function rewriteBackupAttachmentPaths(backup: VaultBackup): void {
+  for (const board of backup.data.boards) {
+    if (board.coverImagePath) {
+      board.coverImagePath = resolveRestoredAttachmentPath(board.coverImagePath);
+    }
+  }
+
   for (const project of backup.data.projects) {
     if (project.coverImagePath) {
       project.coverImagePath = resolveRestoredAttachmentPath(project.coverImagePath);
@@ -1211,6 +1279,24 @@ function createCrc32Table(): number[] {
   return table;
 }
 
+function parseBoardImageChooseRequest(request: unknown): { boardId: string } {
+  if (
+    typeof request !== "object" ||
+    request === null ||
+    Array.isArray(request)
+  ) {
+    throw new Error("Board photo request is invalid.");
+  }
+
+  const { boardId } = request as Record<string, unknown>;
+
+  if (typeof boardId !== "string" || !boardId.trim()) {
+    throw new Error("Board photo request is missing a board ID.");
+  }
+
+  return { boardId };
+}
+
 function parseProjectImageChooseRequest(request: unknown): { projectId: string } {
   if (
     typeof request !== "object" ||
@@ -1229,9 +1315,49 @@ function parseProjectImageChooseRequest(request: unknown): { projectId: string }
   return { projectId };
 }
 
+function copyBoardCoverImage(
+  boardId: string,
+  sourcePath: string
+): {
+  canceled: false;
+  dataUrl: string | null;
+  filename: string;
+  localPath: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+} {
+  return copyCoverImage(
+    boardId,
+    sourcePath,
+    getBoardCoverImageDirectory,
+    readBoardCoverImageDataUrl
+  );
+}
+
 function copyProjectCoverImage(
   projectId: string,
   sourcePath: string
+): {
+  canceled: false;
+  dataUrl: string | null;
+  filename: string;
+  localPath: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+} {
+  return copyCoverImage(
+    projectId,
+    sourcePath,
+    getProjectCoverImageDirectory,
+    readCoverImageDataUrl
+  );
+}
+
+function copyCoverImage(
+  ownerId: string,
+  sourcePath: string,
+  getTargetDirectory: (ownerId: string) => string,
+  readDataUrl: (localPath: string) => string | null
 ): {
   canceled: false;
   dataUrl: string | null;
@@ -1247,7 +1373,7 @@ function copyProjectCoverImage(
     throw new Error("Choose a JPG, PNG, WebP, GIF, or BMP image.");
   }
 
-  const targetDirectory = getProjectCoverImageDirectory(projectId);
+  const targetDirectory = getTargetDirectory(ownerId);
   const targetFilename = `cover-${Date.now()}-${randomUUID()}${extension}`;
   const targetPath = path.join(targetDirectory, targetFilename);
 
@@ -1259,12 +1385,21 @@ function copyProjectCoverImage(
 
   return {
     canceled: false,
-    dataUrl: readCoverImageDataUrl(targetPath),
+    dataUrl: readDataUrl(targetPath),
     filename: path.basename(resolvedSourcePath),
     localPath: targetPath,
     mimeType,
     sizeBytes: stats.size
   };
+}
+
+function deleteBoardCoverImage(localPath: string): void {
+  const resolvedPath = path.resolve(localPath);
+  assertPathInBoardImages(resolvedPath);
+
+  if (existsSync(resolvedPath)) {
+    unlinkSync(resolvedPath);
+  }
 }
 
 function deleteProjectCoverImage(localPath: string): void {
@@ -1274,6 +1409,22 @@ function deleteProjectCoverImage(localPath: string): void {
   if (existsSync(resolvedPath)) {
     unlinkSync(resolvedPath);
   }
+}
+
+function readBoardCoverImageDataUrl(localPath: string): string | null {
+  const resolvedPath = path.resolve(localPath);
+  assertPathInBoardImages(resolvedPath);
+
+  if (!existsSync(resolvedPath)) {
+    return null;
+  }
+
+  const mimeType = getImageMimeType(resolvedPath);
+  if (!mimeType) {
+    throw new Error("Board photo format is not supported.");
+  }
+
+  return `data:${mimeType};base64,${readFileSync(resolvedPath).toString("base64")}`;
 }
 
 function readCoverImageDataUrl(localPath: string): string | null {
@@ -1292,6 +1443,14 @@ function readCoverImageDataUrl(localPath: string): string | null {
   return `data:${mimeType};base64,${readFileSync(resolvedPath).toString("base64")}`;
 }
 
+function getBoardCoverImageDirectory(boardId: string): string {
+  return path.join(getBoardImagesRootDirectory(), sanitizePathSegment(boardId));
+}
+
+function getBoardImagesRootDirectory(): string {
+  return path.join(ensureVaultDataDirectory(), "attachments", "boards");
+}
+
 function getProjectCoverImageDirectory(projectId: string): string {
   return path.join(
     getProjectImagesRootDirectory(),
@@ -1307,10 +1466,18 @@ function sanitizePathSegment(value: string): string {
   const segment = value.trim().replaceAll(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
 
   if (!segment) {
-    throw new Error("Project photo path segment is invalid.");
+    throw new Error("Photo path segment is invalid.");
   }
 
   return segment;
+}
+
+function assertPathInBoardImages(filePath: string): void {
+  const boardImagesDirectory = getBoardImagesRootDirectory();
+
+  if (!isPathInside(filePath, boardImagesDirectory)) {
+    throw new Error("Board photo must be stored inside the board images folder.");
+  }
 }
 
 function assertPathInProjectImages(filePath: string): void {

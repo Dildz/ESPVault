@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import {
   BOARD_STATUSES,
@@ -7,7 +7,7 @@ import {
   type BoardStatus,
   type CreateBoardInput
 } from "../../shared/types/board";
-import { BOARD_STATUS_LABELS, formatDate } from "../utils/boardDisplay";
+import { BOARD_STATUS_LABELS, formatBytes, formatDate } from "../utils/boardDisplay";
 import { useProjectStore } from "../stores/projectStore";
 
 type OptionalNumericField = number | string | null;
@@ -55,17 +55,27 @@ interface BoardForm {
   notes: string;
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: boolean;
   board: Board | null;
-}>();
+  coverImageBusy?: boolean;
+  coverImageError?: string | null;
+}>(), {
+  coverImageBusy: false,
+  coverImageError: null
+});
 
 const emit = defineEmits<{
   "update:modelValue": [value: boolean];
+  "choose-cover": [board: Board];
+  "remove-cover": [board: Board];
   save: [input: CreateBoardInput];
 }>();
 
 const form = reactive<BoardForm>(emptyForm());
+const coverImageDataUrl = ref<string | null>(null);
+const coverImageLoading = ref(false);
+const coverImageLoadError = ref<string | null>(null);
 const projectStore = useProjectStore();
 const { projects } = storeToRefs(projectStore);
 const isEditing = computed(() => Boolean(props.board));
@@ -89,6 +99,13 @@ const booleanOptions = [
 const recordId = computed(() => props.board?.id ?? "Not saved yet");
 const createdAt = computed(() => formatDate(props.board?.createdAt ?? null));
 const updatedAt = computed(() => formatDate(props.board?.updatedAt ?? null));
+const coverImageActionBusy = computed(
+  () => props.coverImageBusy || coverImageLoading.value
+);
+const displayedCoverImageError = computed(
+  () => props.coverImageError ?? coverImageLoadError.value
+);
+let coverImageLoadToken = 0;
 
 watch(
   () => [props.modelValue, props.board] as const,
@@ -96,6 +113,21 @@ watch(
     if (props.modelValue) {
       resetForm(props.board);
     }
+  },
+  { immediate: true }
+);
+
+watch(
+  () => [props.modelValue, props.board?.coverImagePath ?? null] as const,
+  ([isOpen, coverImagePath]) => {
+    if (isOpen) {
+      void loadCoverImage(coverImagePath);
+      return;
+    }
+
+    coverImageDataUrl.value = null;
+    coverImageLoadError.value = null;
+    coverImageLoading.value = false;
   },
   { immediate: true }
 );
@@ -200,6 +232,50 @@ function close(): void {
   emit("update:modelValue", false);
 }
 
+async function loadCoverImage(localPath: string | null): Promise<void> {
+  const token = ++coverImageLoadToken;
+  coverImageDataUrl.value = null;
+  coverImageLoadError.value = null;
+
+  if (!localPath) {
+    coverImageLoading.value = false;
+    return;
+  }
+
+  coverImageLoading.value = true;
+
+  try {
+    const dataUrl = await window.api.boardImages.readCoverDataUrl(localPath);
+
+    if (token === coverImageLoadToken) {
+      coverImageDataUrl.value = dataUrl;
+    }
+  } catch (caughtError) {
+    if (token === coverImageLoadToken) {
+      coverImageLoadError.value = getCoverImageError(
+        caughtError,
+        "The board photo could not be loaded."
+      );
+    }
+  } finally {
+    if (token === coverImageLoadToken) {
+      coverImageLoading.value = false;
+    }
+  }
+}
+
+function chooseCoverImage(): void {
+  if (props.board) {
+    emit("choose-cover", props.board);
+  }
+}
+
+function removeCoverImage(): void {
+  if (props.board) {
+    emit("remove-cover", props.board);
+  }
+}
+
 function save(): void {
   const input: CreateBoardInput = {
     name: form.name,
@@ -272,6 +348,10 @@ function normalizeNumberArray(value: string): number[] | null {
 function formatNumberArray(value: number[] | null): string {
   return value?.join(", ") ?? "";
 }
+
+function getCoverImageError(caughtError: unknown, fallback: string): string {
+  return caughtError instanceof Error ? caughtError.message : fallback;
+}
 </script>
 
 <template>
@@ -290,6 +370,67 @@ function formatNumberArray(value: number[] | null): string {
       <v-divider />
 
       <v-card-text>
+        <template v-if="isEditing && board">
+          <v-alert
+            v-if="displayedCoverImageError"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+          >
+            {{ displayedCoverImageError }}
+          </v-alert>
+
+          <div class="board-cover-panel">
+            <div class="board-cover-preview">
+              <v-img
+                v-if="coverImageDataUrl"
+                :src="coverImageDataUrl"
+                alt=""
+                cover
+                height="150"
+              />
+              <div v-else class="board-cover-placeholder">
+                <v-icon icon="mdi-image-plus-outline" size="34" color="secondary" />
+                <div class="text-caption muted mt-1">No board photo</div>
+              </div>
+            </div>
+            <div class="board-cover-body">
+              <div class="section-title">Board photo</div>
+              <div class="text-body-2 mt-1">
+                {{ board.coverImageFilename || "Add a photo of the physical board, wiring, or enclosure." }}
+              </div>
+              <div
+                v-if="board.coverImageSizeBytes !== null"
+                class="text-caption muted mt-1"
+              >
+                {{ formatBytes(board.coverImageSizeBytes) }}
+              </div>
+              <div class="board-cover-actions">
+                <v-btn
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-image-plus-outline"
+                  :loading="coverImageActionBusy"
+                  @click="chooseCoverImage"
+                >
+                  {{ board.coverImagePath ? "Change photo" : "Add photo" }}
+                </v-btn>
+                <v-btn
+                  v-if="board.coverImagePath"
+                  variant="text"
+                  color="error"
+                  prepend-icon="mdi-image-remove-outline"
+                  :disabled="coverImageActionBusy"
+                  @click="removeCoverImage"
+                >
+                  Remove
+                </v-btn>
+              </div>
+            </div>
+          </div>
+        </template>
+
         <v-form @submit.prevent="save">
           <v-row>
             <v-col cols="12" md="8">
@@ -579,5 +720,42 @@ function formatNumberArray(value: number[] | null): string {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.board-cover-panel {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 18px;
+}
+
+.board-cover-preview {
+  min-height: 150px;
+  overflow: hidden;
+  border: 1px solid #dcded8;
+  border-radius: 8px;
+  background: #f4f6f1;
+}
+
+.board-cover-placeholder {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  align-content: center;
+}
+
+.board-cover-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.board-cover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
 }
 </style>

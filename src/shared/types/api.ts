@@ -15,8 +15,13 @@ export interface EspBoardVaultApi {
     getLocation(): Promise<DatabaseLocation>;
     getPendingMove(): Promise<DatabasePendingMove | null>;
   };
+  boardImages: {
+    chooseCover(boardId: string): Promise<CoverImageResult>;
+    deleteCover(localPath: string): Promise<void>;
+    readCoverDataUrl(localPath: string): Promise<string | null>;
+  };
   projectImages: {
-    chooseCover(projectId: string): Promise<ProjectCoverImageResult>;
+    chooseCover(projectId: string): Promise<CoverImageResult>;
     deleteCover(localPath: string): Promise<void>;
     readCoverDataUrl(localPath: string): Promise<string | null>;
   };
@@ -72,7 +77,7 @@ export interface DatabasePendingMove {
   filePath?: string;
 }
 
-export interface ProjectCoverImageResult {
+export interface CoverImageResult {
   canceled: boolean;
   dataUrl?: string | null;
   filename?: string;

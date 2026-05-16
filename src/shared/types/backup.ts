@@ -22,7 +22,10 @@ export interface VaultBackupTables {
 }
 
 export type VaultBackupCounts = Record<keyof VaultBackupTables, number>;
-export type VaultBackupFileKind = "project_cover" | "attachment_image";
+export type VaultBackupFileKind =
+  | "board_cover"
+  | "project_cover"
+  | "attachment_image";
 
 export interface VaultBackupFile {
   id: string;
@@ -170,7 +173,11 @@ function readBackupFiles(value: unknown): VaultBackupFile[] {
     }
 
     const kindValue = item.kind;
-    if (kindValue !== "project_cover" && kindValue !== "attachment_image") {
+    if (
+      kindValue !== "board_cover" &&
+      kindValue !== "project_cover" &&
+      kindValue !== "attachment_image"
+    ) {
       throw new Error("Backup contains an unsupported file entry.");
     }
     const kind: VaultBackupFileKind = kindValue;

@@ -13,6 +13,10 @@ export interface Board {
   id: string;
   name: string;
   description: string | null;
+  coverImagePath: string | null;
+  coverImageFilename: string | null;
+  coverImageMimeType: string | null;
+  coverImageSizeBytes: number | null;
   status: BoardStatus;
   chipModel: string | null;
   chipRevision: number | null;
@@ -57,6 +61,10 @@ export interface Board {
 export interface CreateBoardInput {
   name: string;
   description?: string | null;
+  coverImagePath?: string | null;
+  coverImageFilename?: string | null;
+  coverImageMimeType?: string | null;
+  coverImageSizeBytes?: number | null;
   status?: BoardStatus;
   chipModel?: string | null;
   chipRevision?: number | null;

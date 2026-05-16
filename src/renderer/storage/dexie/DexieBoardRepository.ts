@@ -33,6 +33,10 @@ export class DexieBoardRepository implements BoardRepository {
       id: crypto.randomUUID(),
       name: this.requireName(input.name),
       description: this.optionalText(input.description),
+      coverImagePath: this.optionalText(input.coverImagePath),
+      coverImageFilename: this.optionalText(input.coverImageFilename),
+      coverImageMimeType: this.optionalText(input.coverImageMimeType),
+      coverImageSizeBytes: this.optionalNumber(input.coverImageSizeBytes),
       status: input.status ?? "unknown",
       chipModel: this.optionalText(input.chipModel),
       chipRevision: this.optionalNumber(input.chipRevision),
@@ -96,6 +100,22 @@ export class DexieBoardRepository implements BoardRepository {
         input.description === undefined
           ? existing.description
           : this.optionalText(input.description),
+      coverImagePath:
+        input.coverImagePath === undefined
+          ? existing.coverImagePath
+          : this.optionalText(input.coverImagePath),
+      coverImageFilename:
+        input.coverImageFilename === undefined
+          ? existing.coverImageFilename
+          : this.optionalText(input.coverImageFilename),
+      coverImageMimeType:
+        input.coverImageMimeType === undefined
+          ? existing.coverImageMimeType
+          : this.optionalText(input.coverImageMimeType),
+      coverImageSizeBytes:
+        input.coverImageSizeBytes === undefined
+          ? existing.coverImageSizeBytes
+          : this.optionalNumber(input.coverImageSizeBytes),
       status: input.status ?? existing.status,
       chipModel:
         input.chipModel === undefined
@@ -323,6 +343,10 @@ export class DexieBoardRepository implements BoardRepository {
   private normalizeBoard(board: Board): Board {
     return {
       ...board,
+      coverImagePath: board.coverImagePath ?? null,
+      coverImageFilename: board.coverImageFilename ?? null,
+      coverImageMimeType: board.coverImageMimeType ?? null,
+      coverImageSizeBytes: board.coverImageSizeBytes ?? null,
       chipRevision: board.chipRevision ?? null,
       chipVariant: board.chipVariant ?? null,
       chipFamily: board.chipFamily ?? null,

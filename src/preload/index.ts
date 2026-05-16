@@ -55,6 +55,26 @@ const api: EspBoardVaultApi = {
         filePath?: string;
       } | null>
   },
+  boardImages: {
+    chooseCover: (boardId) =>
+      ipcRenderer.invoke("board-image:choose-cover", {
+        boardId
+      }) as Promise<{
+        canceled: boolean;
+        dataUrl?: string | null;
+        filename?: string;
+        localPath?: string;
+        mimeType?: string | null;
+        sizeBytes?: number | null;
+      }>,
+    deleteCover: (localPath) =>
+      ipcRenderer.invoke("board-image:delete-cover", localPath) as Promise<void>,
+    readCoverDataUrl: (localPath) =>
+      ipcRenderer.invoke(
+        "board-image:read-cover-data-url",
+        localPath
+      ) as Promise<string | null>
+  },
   projectImages: {
     chooseCover: (projectId) =>
       ipcRenderer.invoke("project-image:choose-cover", {
