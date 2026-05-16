@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import type {
   Board,
@@ -13,6 +13,9 @@ import { formatBytes, formatDate, formatFlashSize } from "../utils/boardDisplay"
 
 const boardStore = useBoardStore();
 const { boards } = storeToRefs(boardStore);
+const props = defineProps<{
+  scanRequestId?: number;
+}>();
 const emit = defineEmits<{
   "open-board": [id: string];
 }>();
@@ -23,6 +26,7 @@ const notice = ref<string | null>(null);
 const scanLogs = ref<string[]>([]);
 const logCopied = ref(false);
 const scanLogElement = ref<HTMLElement | null>(null);
+const handledScanRequestId = ref(0);
 let copyResetTimeout: number | null = null;
 
 const savedBoardsByMac = computed(() => {
@@ -43,6 +47,10 @@ const newDetectedBoards = computed(() =>
 );
 
 async function runScan(): Promise<void> {
+  if (loading.value) {
+    return;
+  }
+
   loading.value = true;
   error.value = null;
   notice.value = null;
@@ -50,11 +58,12 @@ async function runScan(): Promise<void> {
   detectedBoards.value = [];
 
   try {
-    await boardStore.loadBoards();
-    detectedBoards.value = await scanEspBoards((_level, message) => {
+    const scannedBoards = await scanEspBoards((_level, message) => {
       scanLogs.value = [...scanLogs.value.slice(-80), message];
       void scrollScanLogToBottom();
     });
+    await boardStore.loadBoards();
+    detectedBoards.value = scannedBoards;
   } catch (caughtError) {
     error.value =
       caughtError instanceof Error
@@ -314,6 +323,19 @@ onBeforeUnmount(() => {
 onMounted(() => {
   void boardStore.loadBoards();
 });
+
+watch(
+  () => props.scanRequestId,
+  (scanRequestId) => {
+    if (!scanRequestId || scanRequestId === handledScanRequestId.value) {
+      return;
+    }
+
+    handledScanRequestId.value = scanRequestId;
+    void runScan();
+  },
+  { immediate: true }
+);
 </script>
 
 <template>

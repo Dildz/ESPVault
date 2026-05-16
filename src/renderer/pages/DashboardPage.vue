@@ -12,6 +12,7 @@ const boardStore = useBoardStore();
 const { dashboardStats, error, loading } = storeToRefs(boardStore);
 const emit = defineEmits<{
   "open-boards": [];
+  "scan-boards": [];
 }>();
 
 onMounted(() => {
@@ -28,14 +29,23 @@ onMounted(() => {
           A quick read on the boards currently recorded in this local vault.
         </p>
       </div>
-      <v-btn
-        color="primary"
-        prepend-icon="mdi-refresh"
-        :loading="loading"
-        @click="boardStore.refresh"
-      >
-        Refresh
-      </v-btn>
+      <div class="dashboard-actions">
+        <v-btn
+          color="primary"
+          prepend-icon="mdi-usb-port"
+          @click="emit('scan-boards')"
+        >
+          Scan boards
+        </v-btn>
+        <v-btn
+          variant="outlined"
+          prepend-icon="mdi-refresh"
+          :loading="loading"
+          @click="boardStore.refresh"
+        >
+          Refresh
+        </v-btn>
+      </div>
     </div>
 
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">
@@ -145,3 +155,12 @@ onMounted(() => {
     </v-row>
   </section>
 </template>
+
+<style scoped>
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+</style>

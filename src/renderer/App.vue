@@ -21,6 +21,7 @@ interface NavItem {
 
 const currentView = ref<ViewKey>("dashboard");
 const boardToOpenId = ref<string | null>(null);
+const scanRequestId = ref(0);
 
 const navItems: NavItem[] = [
   { key: "dashboard", title: "Dashboard", icon: "mdi-view-dashboard-outline" },
@@ -64,6 +65,10 @@ const activeComponentProps = computed(() => {
     return { openBoardId: boardToOpenId.value };
   }
 
+  if (currentView.value === "scan") {
+    return { scanRequestId: scanRequestId.value };
+  }
+
   if (currentView.value in placeholderCopy) {
     return placeholderCopy[currentView.value as keyof typeof placeholderCopy];
   }
@@ -74,6 +79,17 @@ const activeComponentProps = computed(() => {
 function openBoards(): void {
   boardToOpenId.value = null;
   currentView.value = "boards";
+}
+
+function openScan(): void {
+  boardToOpenId.value = null;
+  currentView.value = "scan";
+}
+
+function scanBoards(): void {
+  boardToOpenId.value = null;
+  scanRequestId.value += 1;
+  currentView.value = "scan";
 }
 
 function openBoard(id: string): void {
@@ -114,6 +130,8 @@ function openBoard(id: string): void {
         :is="activeComponent"
         v-bind="activeComponentProps"
         @open-boards="openBoards"
+        @open-scan="openScan"
+        @scan-boards="scanBoards"
         @open-board="openBoard"
       />
     </v-main>
