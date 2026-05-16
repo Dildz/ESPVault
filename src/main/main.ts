@@ -1,4 +1,13 @@
-import { app, BrowserWindow, clipboard, ipcMain, screen } from "electron";
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  screen,
+  type SaveDialogOptions,
+  type OpenDialogOptions
+} from "electron";
 import {
   mkdirSync,
   readFileSync,
@@ -10,6 +19,8 @@ const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const SERIAL_SELECTION_COUNT_CHANNEL = "serial:get-last-selection-count";
 const CLIPBOARD_WRITE_TEXT_CHANNEL = "clipboard:write-text";
 const WINDOW_RESET_SIZE_CHANNEL = "window:reset-size";
+const BACKUP_SAVE_CHANNEL = "backup:save";
+const BACKUP_OPEN_CHANNEL = "backup:open";
 
 interface WindowSize {
   width: number;
@@ -57,6 +68,45 @@ ipcMain.handle(WINDOW_RESET_SIZE_CHANNEL, (event) => {
   }
 
   resetWindowSize(window);
+});
+ipcMain.handle(BACKUP_SAVE_CHANNEL, async (event, request: unknown) => {
+  const backupRequest = parseBackupSaveRequest(request);
+  const result = await showSaveDialogForSender(event.sender, {
+    title: "Export backup",
+    defaultPath: backupRequest.defaultFileName,
+    filters: [
+      { name: "ESP Board Vault Backup", extensions: ["json"] },
+      { name: "JSON", extensions: ["json"] }
+    ]
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { canceled: true };
+  }
+
+  writeFileSync(result.filePath, backupRequest.content, "utf8");
+  return { canceled: false, filePath: result.filePath };
+});
+ipcMain.handle(BACKUP_OPEN_CHANNEL, async (event) => {
+  const result = await showOpenDialogForSender(event.sender, {
+    title: "Import backup",
+    properties: ["openFile"],
+    filters: [
+      { name: "ESP Board Vault Backup", extensions: ["json"] },
+      { name: "JSON", extensions: ["json"] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { canceled: true };
+  }
+
+  const filePath = result.filePaths[0];
+  return {
+    canceled: false,
+    filePath,
+    content: readFileSync(filePath, "utf8")
+  };
 });
 
 function createMainWindow(): BrowserWindow {
@@ -194,6 +244,47 @@ function ensureVaultDataDirectory(): string {
   const directory = path.join(app.getPath("userData"), "esp-board-vault");
   mkdirSync(directory, { recursive: true });
   return directory;
+}
+
+function parseBackupSaveRequest(request: unknown): {
+  content: string;
+  defaultFileName: string;
+} {
+  if (
+    typeof request !== "object" ||
+    request === null ||
+    Array.isArray(request)
+  ) {
+    throw new Error("Backup save request is invalid.");
+  }
+
+  const { content, defaultFileName } = request as Record<string, unknown>;
+
+  if (typeof content !== "string" || typeof defaultFileName !== "string") {
+    throw new Error("Backup save request is incomplete.");
+  }
+
+  return { content, defaultFileName };
+}
+
+function showSaveDialogForSender(
+  sender: Electron.WebContents,
+  options: SaveDialogOptions
+): Promise<Electron.SaveDialogReturnValue> {
+  const window = BrowserWindow.fromWebContents(sender);
+  return window
+    ? dialog.showSaveDialog(window, options)
+    : dialog.showSaveDialog(options);
+}
+
+function showOpenDialogForSender(
+  sender: Electron.WebContents,
+  options: OpenDialogOptions
+): Promise<Electron.OpenDialogReturnValue> {
+  const window = BrowserWindow.fromWebContents(sender);
+  return window
+    ? dialog.showOpenDialog(window, options)
+    : dialog.showOpenDialog(options);
 }
 
 function configureWebSerial(window: BrowserWindow): void {
