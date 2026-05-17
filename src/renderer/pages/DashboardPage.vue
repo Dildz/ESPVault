@@ -806,7 +806,7 @@ function chipFamilyColor(index: number): string {
 
 .chip-family-chart-wrap canvas {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: 100% !important;
   height: 100% !important;
 }
@@ -822,7 +822,7 @@ function chipFamilyColor(index: number): string {
 
 .chip-family-chart-center {
   position: absolute;
-  z-index: 2;
+  z-index: 1;
   inset: 29%;
   display: grid;
   place-items: center;
