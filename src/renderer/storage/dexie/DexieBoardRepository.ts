@@ -80,7 +80,8 @@ export class DexieBoardRepository implements BoardRepository {
       notes: this.optionalText(input.notes),
       createdAt: now,
       updatedAt: now,
-      lastConnectedAt: this.optionalText(input.lastConnectedAt)
+      lastConnectedAt: this.optionalText(input.lastConnectedAt),
+      lastScannedAt: this.optionalText(input.lastScannedAt)
     };
 
     this.assertStatus(board.status);
@@ -284,6 +285,10 @@ export class DexieBoardRepository implements BoardRepository {
         input.lastConnectedAt === undefined
           ? existing.lastConnectedAt
           : this.optionalText(input.lastConnectedAt),
+      lastScannedAt:
+        input.lastScannedAt === undefined
+          ? existing.lastScannedAt
+          : this.optionalText(input.lastScannedAt),
       updatedAt: new Date().toISOString()
     };
 
@@ -400,7 +405,8 @@ export class DexieBoardRepository implements BoardRepository {
       partitionTableOffset: board.partitionTableOffset ?? null,
       partitionTableOffsetHex: board.partitionTableOffsetHex ?? null,
       partitionsDetectedAt: board.partitionsDetectedAt ?? null,
-      partitionTableReadError: board.partitionTableReadError ?? null
+      partitionTableReadError: board.partitionTableReadError ?? null,
+      lastScannedAt: board.lastScannedAt ?? null
     };
   }
 

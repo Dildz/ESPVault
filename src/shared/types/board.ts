@@ -63,6 +63,7 @@ export interface Board {
   createdAt: string;
   updatedAt: string;
   lastConnectedAt: string | null;
+  lastScannedAt: string | null;
 }
 
 export interface CreateBoardInput {
@@ -114,6 +115,7 @@ export interface CreateBoardInput {
   projectId?: string | null;
   notes?: string | null;
   lastConnectedAt?: string | null;
+  lastScannedAt?: string | null;
 }
 
 export type UpdateBoardInput = Partial<CreateBoardInput>;

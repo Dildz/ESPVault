@@ -513,6 +513,16 @@ function formatBoardType(board: Board): string {
             <div class="text-body-2 muted">
               {{ selectedBoard.description || selectedBoard.notes || "No notes yet" }}
             </div>
+            <div class="board-detail-timestamps">
+              <span>
+                <v-icon icon="mdi-pencil-circle-outline" size="15" />
+                Updated {{ formatDate(selectedBoard.updatedAt) }}
+              </span>
+              <span v-if="selectedBoard.lastScannedAt">
+                <v-icon icon="mdi-radar" size="15" />
+                Scan updated {{ formatDate(selectedBoard.lastScannedAt) }}
+              </span>
+            </div>
           </div>
           <div class="board-detail-actions">
             <v-chip
@@ -675,6 +685,10 @@ function formatBoardType(board: Board): string {
               <div class="board-detail-row">
                 <span>Last connected</span>
                 <strong>{{ formatDate(selectedBoard.lastConnectedAt) }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Last scan update</span>
+                <strong>{{ formatDate(selectedBoard.lastScannedAt) }}</strong>
               </div>
               <div class="board-detail-row">
                 <span>Updated</span>
@@ -940,6 +954,21 @@ function formatBoardType(board: Board): string {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.board-detail-timestamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 8px;
+  color: var(--vault-muted);
+  font-size: 0.8rem;
+}
+
+.board-detail-timestamps span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .board-cover-panel {
