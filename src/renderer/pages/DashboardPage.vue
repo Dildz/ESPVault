@@ -18,7 +18,6 @@ const { boards, dashboardStats, error, loading } = storeToRefs(boardStore);
 const { projects, loading: projectsLoading } = storeToRefs(projectStore);
 const emit = defineEmits<{
   "open-boards": [];
-  "open-backup": [];
   "scan-boards": [];
 }>();
 const totalBoards = computed(() => dashboardStats.value?.totalBoards ?? boards.value.length);
@@ -158,6 +157,14 @@ function chipFamilyPercent(count: number): number {
         </p>
         <div class="dashboard-actions">
           <v-btn
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="emit('open-boards')"
+          >
+            Add board
+          </v-btn>
+          <v-btn
+            variant="tonal"
             color="primary"
             prepend-icon="mdi-usb-port"
             @click="emit('scan-boards')"
@@ -365,45 +372,6 @@ function chipFamilyPercent(count: number): number {
               Add board
             </v-btn>
           </div>
-      </v-card>
-
-      <v-card class="panel-card dashboard-panel quick-actions-card" flat>
-        <v-card-title class="text-subtitle-1 font-weight-bold">
-          <v-icon class="mr-2" color="primary" icon="mdi-lightning-bolt-outline" />
-          Quick actions
-        </v-card-title>
-        <v-divider />
-        <v-card-text class="quick-actions-grid">
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-plus"
-            @click="emit('open-boards')"
-          >
-            Add board
-          </v-btn>
-          <v-btn
-            variant="tonal"
-            color="primary"
-            prepend-icon="mdi-usb-port"
-            @click="emit('scan-boards')"
-          >
-            Scan board
-          </v-btn>
-          <v-btn
-            variant="outlined"
-            prepend-icon="mdi-label-multiple-outline"
-            disabled
-          >
-            Print labels
-          </v-btn>
-          <v-btn
-            variant="outlined"
-            prepend-icon="mdi-database-import-outline"
-            @click="emit('open-backup')"
-          >
-            Import inventory
-          </v-btn>
-        </v-card-text>
       </v-card>
     </div>
   </section>
@@ -674,7 +642,7 @@ function chipFamilyPercent(count: number): number {
 
 .dashboard-main-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 0.85fr) minmax(460px, 1.15fr) minmax(240px, 0.58fr);
+  grid-template-columns: minmax(360px, 0.85fr) minmax(520px, 1.15fr);
   gap: 16px;
   align-items: start;
 }
@@ -722,19 +690,6 @@ function chipFamilyPercent(count: number): number {
   border: 1px solid var(--vault-soft-border);
   border-radius: 8px;
   background: rgba(var(--v-theme-surface-variant), 0.32);
-}
-
-.quick-actions-card {
-  min-height: 0;
-}
-
-.quick-actions-grid {
-  display: grid;
-  gap: 10px;
-}
-
-.quick-actions-grid :deep(.v-btn) {
-  justify-content: flex-start;
 }
 
 @media (max-width: 720px) {
