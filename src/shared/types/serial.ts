@@ -1,3 +1,5 @@
+import type { BoardPartition } from "./partition";
+
 export interface DetectedEspBoard {
   chipModel: string | null;
   chipRevision: number | null;
@@ -28,6 +30,11 @@ export interface DetectedEspBoard {
   flashEncryptionEnabled: boolean | null;
   bootloaderOffset: number | null;
   bootloaderOffsetHex: string | null;
+  partitions: BoardPartition[] | null;
+  partitionTableOffset: number | null;
+  partitionTableOffsetHex: string | null;
+  partitionsDetectedAt: string | null;
+  partitionTableReadError: string | null;
   detectedAt: string;
   logs: string[];
 }

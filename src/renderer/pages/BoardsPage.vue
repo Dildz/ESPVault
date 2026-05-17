@@ -19,6 +19,17 @@ import {
   formatDate,
   formatPsramSize
 } from "../utils/boardDisplay";
+import {
+  buildPartitionMapSegments,
+  formatPartitionEndHex,
+  formatPartitionFilesystem,
+  formatPartitionFlags,
+  formatPartitionLabel,
+  formatPartitionSubtypeLabel,
+  formatPartitionSummary,
+  formatPartitionTypeLabel,
+  getPartitionColor
+} from "../utils/partitionDisplay";
 
 interface BoardFilters {
   search: string;
@@ -99,6 +110,11 @@ const selectedBoard = computed(() => {
     filteredBoards.value[0]
   );
 });
+
+const selectedPartitionRows = computed(() => selectedBoard.value?.partitions ?? []);
+const selectedPartitionSegments = computed(() =>
+  selectedBoard.value ? buildPartitionMapSegments(selectedBoard.value) : []
+);
 
 const boardCoverPathKey = computed(() =>
   boards.value
@@ -674,6 +690,134 @@ function formatBoardType(board: Board): string {
               </div>
             </div>
           </div>
+
+          <div class="partitions-panel">
+            <div class="partitions-header">
+              <div>
+                <div class="section-title">Partitions</div>
+                <div class="text-body-2 muted mt-1">
+                  {{ formatPartitionSummary(selectedBoard) }}
+                </div>
+              </div>
+              <v-chip
+                color="primary"
+                prepend-icon="mdi-table"
+                size="small"
+                variant="tonal"
+              >
+                {{ selectedPartitionRows.length }} recorded
+              </v-chip>
+            </div>
+
+            <v-alert
+              v-if="selectedBoard.partitionTableReadError"
+              class="mt-4"
+              type="warning"
+              variant="tonal"
+            >
+              {{ selectedBoard.partitionTableReadError }}
+            </v-alert>
+
+            <template v-if="selectedPartitionRows.length">
+              <div class="partition-map" aria-label="Board flash partition map">
+                <v-tooltip
+                  v-for="segment in selectedPartitionSegments"
+                  :key="segment.key"
+                  location="top"
+                >
+                  <template #activator="{ props: tooltipProps }">
+                    <div
+                      v-bind="tooltipProps"
+                      class="partition-map-segment"
+                      :class="{
+                        'partition-map-segment--unused': segment.isUnused,
+                        'partition-map-segment--reserved': segment.isReserved
+                      }"
+                      :style="{
+                        width: segment.width,
+                        flexBasis: segment.width,
+                        backgroundColor: segment.color,
+                        backgroundImage: segment.backgroundImage || undefined
+                      }"
+                    >
+                      <span v-if="segment.showLabel" class="partition-segment-label">
+                        {{ segment.label }}
+                      </span>
+                      <span v-if="segment.showMeta" class="partition-segment-meta">
+                        {{ segment.sizeText }}
+                      </span>
+                    </div>
+                  </template>
+                  <div class="partition-tooltip">
+                    <strong>{{ segment.label }}</strong>
+                    <span
+                      v-for="line in segment.tooltipLines"
+                      :key="line"
+                    >
+                      {{ line }}
+                    </span>
+                  </div>
+                </v-tooltip>
+              </div>
+
+              <v-table class="partition-table mt-4" density="compact">
+                <thead>
+                  <tr>
+                    <th>Partition</th>
+                    <th>Type</th>
+                    <th>Offset</th>
+                    <th>Size</th>
+                    <th>Filesystem</th>
+                    <th>Flags</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(partition, index) in selectedPartitionRows"
+                    :key="`${partition.offsetHex}-${partition.label}-${index}`"
+                  >
+                    <td>
+                      <div class="partition-name-cell">
+                        <span
+                          class="partition-color-dot"
+                          :style="{ backgroundColor: getPartitionColor(partition, index) }"
+                        />
+                        <div>
+                          <div class="font-weight-bold">
+                            {{ formatPartitionLabel(partition) }}
+                          </div>
+                          <div class="text-caption muted">
+                            {{ formatPartitionSubtypeLabel(partition.type, partition.subtype) }}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{{ formatPartitionTypeLabel(partition.type) }}</td>
+                    <td class="metadata-mono">
+                      {{ partition.offsetHex }}
+                      <span class="muted">to</span>
+                      {{ formatPartitionEndHex(partition) }}
+                    </td>
+                    <td>{{ formatBytes(partition.sizeBytes) }}</td>
+                    <td>{{ formatPartitionFilesystem(partition) }}</td>
+                    <td class="metadata-mono">{{ formatPartitionFlags(partition) }}</td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </template>
+
+            <div v-else class="partition-empty">
+              <v-icon icon="mdi-table-search" size="34" color="primary" />
+              <div>
+                <div class="text-subtitle-2 font-weight-bold">
+                  No partition table recorded
+                </div>
+                <div class="text-body-2 muted">
+                  Scan this board to read and save the ESP32 flash partition table.
+                </div>
+              </div>
+            </div>
+          </div>
         </v-card-text>
       </v-card>
     </div>
@@ -863,6 +1007,127 @@ function formatBoardType(board: Board): string {
   gap: 14px;
 }
 
+.partitions-panel {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), transparent 44%),
+    rgba(var(--v-theme-surface-variant), 0.28);
+}
+
+.partitions-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.partition-map {
+  display: flex;
+  width: 100%;
+  min-height: 104px;
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--vault-border);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface), 0.6);
+}
+
+.partition-map-segment {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 8px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.24);
+  color: rgba(255, 255, 255, 0.96);
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.38);
+}
+
+.partition-map-segment:first-child {
+  border-left: 0;
+}
+
+.partition-map-segment--unused {
+  color: rgba(255, 255, 255, 0.78);
+  background-repeat: repeat;
+  background-size: 24px 24px;
+}
+
+.partition-map-segment--reserved {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.partition-segment-label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.partition-segment-meta {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.7rem;
+  opacity: 0.86;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.partition-tooltip {
+  display: flex;
+  min-width: 180px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.partition-table {
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.partition-table :deep(td),
+.partition-table :deep(th) {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+.partition-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.partition-color-dot {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.08);
+}
+
+.partition-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px dashed var(--vault-border);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface), 0.42);
+}
+
 .board-detail-row {
   display: flex;
   justify-content: space-between;
@@ -900,6 +1165,20 @@ function formatBoardType(board: Board): string {
   .board-facts,
   .board-info-grid {
     grid-template-columns: 1fr;
+  }
+
+  .partitions-header,
+  .partition-empty {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .partition-map {
+    min-height: 90px;
+  }
+
+  .partition-table {
+    overflow-x: auto;
   }
 
   .board-detail-title {

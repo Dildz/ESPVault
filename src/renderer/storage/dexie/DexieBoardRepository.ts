@@ -67,6 +67,11 @@ export class DexieBoardRepository implements BoardRepository {
       flashEncryptionEnabled: this.optionalBoolean(input.flashEncryptionEnabled),
       bootloaderOffset: this.optionalNumber(input.bootloaderOffset),
       bootloaderOffsetHex: this.optionalText(input.bootloaderOffsetHex),
+      partitions: this.optionalPartitionArray(input.partitions),
+      partitionTableOffset: this.optionalNumber(input.partitionTableOffset),
+      partitionTableOffsetHex: this.optionalText(input.partitionTableOffsetHex),
+      partitionsDetectedAt: this.optionalText(input.partitionsDetectedAt),
+      partitionTableReadError: this.optionalText(input.partitionTableReadError),
       boardType: this.optionalText(input.boardType),
       manufacturer: this.optionalText(input.manufacturer),
       purchaseUrl: this.optionalText(input.purchaseUrl),
@@ -233,6 +238,26 @@ export class DexieBoardRepository implements BoardRepository {
         input.bootloaderOffsetHex === undefined
           ? existing.bootloaderOffsetHex
           : this.optionalText(input.bootloaderOffsetHex),
+      partitions:
+        input.partitions === undefined
+          ? existing.partitions
+          : this.optionalPartitionArray(input.partitions),
+      partitionTableOffset:
+        input.partitionTableOffset === undefined
+          ? existing.partitionTableOffset
+          : this.optionalNumber(input.partitionTableOffset),
+      partitionTableOffsetHex:
+        input.partitionTableOffsetHex === undefined
+          ? existing.partitionTableOffsetHex
+          : this.optionalText(input.partitionTableOffsetHex),
+      partitionsDetectedAt:
+        input.partitionsDetectedAt === undefined
+          ? existing.partitionsDetectedAt
+          : this.optionalText(input.partitionsDetectedAt),
+      partitionTableReadError:
+        input.partitionTableReadError === undefined
+          ? existing.partitionTableReadError
+          : this.optionalText(input.partitionTableReadError),
       boardType:
         input.boardType === undefined
           ? existing.boardType
@@ -370,7 +395,12 @@ export class DexieBoardRepository implements BoardRepository {
       secureBootEnabled: board.secureBootEnabled ?? null,
       flashEncryptionEnabled: board.flashEncryptionEnabled ?? null,
       bootloaderOffset: board.bootloaderOffset ?? null,
-      bootloaderOffsetHex: board.bootloaderOffsetHex ?? null
+      bootloaderOffsetHex: board.bootloaderOffsetHex ?? null,
+      partitions: this.optionalPartitionArray(board.partitions),
+      partitionTableOffset: board.partitionTableOffset ?? null,
+      partitionTableOffsetHex: board.partitionTableOffsetHex ?? null,
+      partitionsDetectedAt: board.partitionsDetectedAt ?? null,
+      partitionTableReadError: board.partitionTableReadError ?? null
     };
   }
 
@@ -417,6 +447,33 @@ export class DexieBoardRepository implements BoardRepository {
     }
 
     return value.map((item) => Math.trunc(item));
+  }
+
+  private optionalPartitionArray(
+    value: Board["partitions"] | null | undefined
+  ): Board["partitions"] {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (!Array.isArray(value)) {
+      throw new Error("Board partitions must be an array.");
+    }
+
+    return value.map((partition) => ({
+      label: this.optionalText(partition.label) ?? "Unnamed",
+      type: this.optionalNumber(partition.type) ?? 0,
+      typeHex: this.optionalText(partition.typeHex) ?? "0x00",
+      subtype: this.optionalNumber(partition.subtype) ?? 0,
+      subtypeHex: this.optionalText(partition.subtypeHex) ?? "0x00",
+      offset: this.optionalNumber(partition.offset) ?? 0,
+      offsetHex: this.optionalText(partition.offsetHex) ?? "0x00000000",
+      sizeBytes: this.optionalNumber(partition.sizeBytes) ?? 0,
+      sizeHex: this.optionalText(partition.sizeHex) ?? "0x00000000",
+      flags: this.optionalNumber(partition.flags) ?? 0,
+      flagsHex: this.optionalText(partition.flagsHex) ?? "0x00000000",
+      filesystem: partition.filesystem ?? null
+    }));
   }
 
   private assertStatus(value: BoardStatus): void {

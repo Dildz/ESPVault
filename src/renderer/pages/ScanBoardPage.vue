@@ -203,6 +203,11 @@ function buildBoardInput(board: DetectedEspBoard): CreateBoardInput {
     flashEncryptionEnabled: board.flashEncryptionEnabled,
     bootloaderOffset: board.bootloaderOffset,
     bootloaderOffsetHex: board.bootloaderOffsetHex,
+    partitions: board.partitions,
+    partitionTableOffset: board.partitionTableOffset,
+    partitionTableOffsetHex: board.partitionTableOffsetHex,
+    partitionsDetectedAt: board.partitionsDetectedAt,
+    partitionTableReadError: board.partitionTableReadError,
     lastConnectedAt: board.detectedAt,
     notes: "Created from tasmota-webserial-esptool scan data."
   };
@@ -239,6 +244,11 @@ function buildBoardUpdateInput(board: DetectedEspBoard): UpdateBoardInput {
     flashEncryptionEnabled: board.flashEncryptionEnabled,
     bootloaderOffset: board.bootloaderOffset,
     bootloaderOffsetHex: board.bootloaderOffsetHex,
+    partitions: board.partitions,
+    partitionTableOffset: board.partitionTableOffset,
+    partitionTableOffsetHex: board.partitionTableOffsetHex,
+    partitionsDetectedAt: board.partitionsDetectedAt,
+    partitionTableReadError: board.partitionTableReadError,
     lastConnectedAt: board.detectedAt
   };
 }
@@ -281,6 +291,16 @@ function formatFlashChipSummary(board: DetectedEspBoard): string {
   }
 
   return board.flashChipIdHex ?? board.flashManufacturerName ?? "Unknown";
+}
+
+function formatPartitionSummary(board: DetectedEspBoard): string {
+  if (board.partitions?.length) {
+    return `${board.partitions.length} partition${
+      board.partitions.length === 1 ? "" : "s"
+    }`;
+  }
+
+  return board.partitionTableReadError ? "Read failed" : "None found";
 }
 
 function formatPsramSummary(board: DetectedEspBoard): string {
@@ -389,6 +409,7 @@ watch(
             <th>Chip</th>
             <th>MAC address</th>
             <th>Flash</th>
+            <th>Partitions</th>
             <th>Flash chip</th>
             <th>PSRAM</th>
             <th>Security</th>
@@ -417,6 +438,12 @@ watch(
             <td class="metadata-mono">{{ detectedBoard.macAddress ?? "Unknown" }}</td>
             <td>
               {{ formatFlashSize(detectedBoard.flashSizeBytes, detectedBoard.flashSizeLabel) }}
+            </td>
+            <td>
+              <div>{{ formatPartitionSummary(detectedBoard) }}</div>
+              <div class="text-caption muted">
+                {{ detectedBoard.partitionTableOffsetHex ?? "No table offset" }}
+              </div>
             </td>
             <td>
               <div>{{ formatFlashChipSummary(detectedBoard) }}</div>

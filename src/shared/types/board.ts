@@ -1,3 +1,5 @@
+import type { BoardPartition } from "./partition";
+
 export const BOARD_STATUSES = [
   "available",
   "in_use",
@@ -47,6 +49,11 @@ export interface Board {
   flashEncryptionEnabled: boolean | null;
   bootloaderOffset: number | null;
   bootloaderOffsetHex: string | null;
+  partitions: BoardPartition[] | null;
+  partitionTableOffset: number | null;
+  partitionTableOffsetHex: string | null;
+  partitionsDetectedAt: string | null;
+  partitionTableReadError: string | null;
   boardType: string | null;
   manufacturer: string | null;
   purchaseUrl: string | null;
@@ -95,6 +102,11 @@ export interface CreateBoardInput {
   flashEncryptionEnabled?: boolean | null;
   bootloaderOffset?: number | null;
   bootloaderOffsetHex?: string | null;
+  partitions?: BoardPartition[] | null;
+  partitionTableOffset?: number | null;
+  partitionTableOffsetHex?: string | null;
+  partitionsDetectedAt?: string | null;
+  partitionTableReadError?: string | null;
   boardType?: string | null;
   manufacturer?: string | null;
   purchaseUrl?: string | null;

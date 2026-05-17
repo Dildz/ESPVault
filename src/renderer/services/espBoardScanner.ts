@@ -7,6 +7,7 @@ import {
 } from "tasmota-webserial-esptool";
 import type { DetectedEspBoard } from "../../shared/types/serial";
 import { readChipMetadata, type ChipMetadata } from "./chipMetadata";
+import { readBoardPartitionTable } from "./espPartitionScanner";
 
 type ScannerLogLevel = "log" | "debug" | "error";
 
@@ -166,6 +167,7 @@ async function scanEspBoardFromPort(
       (await readCrystalFrequency(loader, chipFamily, logger));
     const bootloaderOffset = readBootloaderOffset(loader, logger);
     const securityInfo = await readSecurityInfo(loader, logger);
+    const partitionTableInfo = await readBoardPartitionTable(loader, logger);
     logChipMetadata(chipMetadata, logger);
 
     return {
@@ -183,6 +185,7 @@ async function scanEspBoardFromPort(
       ...securityInfo,
       bootloaderOffset,
       bootloaderOffsetHex: formatHex(bootloaderOffset, 4),
+      ...partitionTableInfo,
       detectedAt: new Date().toISOString(),
       logs
     };
