@@ -8,6 +8,7 @@ import ProjectsPage from "./pages/ProjectsPage.vue";
 import ScanBoardPage from "./pages/ScanBoardPage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 import ToolsPage from "./pages/ToolsPage.vue";
+import brandLogo from "./assets/esp-board-vault-logo.png";
 import { useVaultTheme } from "./composables/useVaultTheme";
 
 type ViewKey =
@@ -146,13 +147,11 @@ function openResource(item: ResourceItem): void {
   <v-app>
     <v-navigation-drawer class="vault-drawer" permanent width="264">
       <div class="brand-block px-5 py-5">
-        <div class="brand-mark" aria-hidden="true">
-          <v-icon icon="mdi-chip" size="26" />
-        </div>
-        <div>
-          <div class="text-h6 font-weight-bold">ESP Board Vault</div>
-          <div class="text-body-2 muted mt-1">Local ESP32 inventory</div>
-        </div>
+        <img
+          class="brand-logo"
+          :src="brandLogo"
+          alt="ESP Board Vault"
+        >
       </div>
 
       <v-divider />
@@ -236,22 +235,19 @@ function openResource(item: ResourceItem): void {
 }
 
 .brand-block {
-  display: flex;
+  display: grid;
+  min-height: 96px;
   align-items: center;
-  gap: 12px;
 }
 
-.brand-mark {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border: 1px solid rgba(var(--v-theme-primary), 0.22);
+.brand-logo {
+  display: block;
+  width: 100%;
+  max-height: 78px;
+  object-fit: contain;
+  object-position: left center;
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.18), rgba(var(--v-theme-accent), 0.18)),
-    rgba(var(--v-theme-surface), 0.75);
-  color: rgb(var(--v-theme-primary));
+  filter: drop-shadow(0 10px 24px rgba(var(--v-theme-primary), 0.14));
 }
 
 .nav-list :deep(.v-list-item) {
