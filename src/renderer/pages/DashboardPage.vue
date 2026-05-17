@@ -241,13 +241,19 @@ function chipFamilyPercent(count: number): number {
       <div class="snapshot-panel">
         <div class="metric-label">Known memory</div>
         <div class="snapshot-values">
-          <div>
-            <strong>{{ formatBytes(totalFlashBytes) }}</strong>
-            <span>Flash recorded on {{ formatRecordedCount(boardsWithKnownFlash) }}</span>
+          <div class="memory-row">
+            <div>
+              <strong>{{ formatBytes(totalFlashBytes) }}</strong>
+              <span class="memory-type">Flash memory</span>
+            </div>
+            <span>{{ formatRecordedCount(boardsWithKnownFlash) }}</span>
           </div>
-          <div>
-            <strong>{{ formatBytes(totalPsramBytes) }}</strong>
-            <span>PSRAM recorded on {{ formatRecordedCount(boardsWithKnownPsram) }}</span>
+          <div class="memory-row">
+            <div>
+              <strong>{{ formatBytes(totalPsramBytes) }}</strong>
+              <span class="memory-type">PSRAM memory</span>
+            </div>
+            <span>{{ formatRecordedCount(boardsWithKnownPsram) }}</span>
           </div>
         </div>
       </div>
@@ -620,11 +626,27 @@ function chipFamilyPercent(count: number): number {
   gap: 14px;
 }
 
+.snapshot-values .memory-row {
+  align-items: flex-start;
+}
+
+.memory-row > div {
+  display: grid;
+  gap: 4px;
+}
+
 .snapshot-values strong {
   min-width: 0;
   color: var(--vault-text);
   font-size: 1.22rem;
   overflow-wrap: anywhere;
+}
+
+.memory-type {
+  color: var(--vault-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-transform: uppercase;
 }
 
 .snapshot-values span {
