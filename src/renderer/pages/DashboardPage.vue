@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
+import { ArcElement, Chart, DoughnutController, Tooltip } from "chart.js";
 import type { Board } from "../../shared/types/board";
 import { useBoardStore } from "../stores/boardStore";
 import { useProjectStore } from "../stores/projectStore";
@@ -12,6 +13,8 @@ import {
   formatDate
 } from "../utils/boardDisplay";
 
+Chart.register(ArcElement, DoughnutController, Tooltip);
+
 const boardStore = useBoardStore();
 const projectStore = useProjectStore();
 const { boards, dashboardStats, error, loading } = storeToRefs(boardStore);
@@ -20,6 +23,19 @@ const emit = defineEmits<{
   "open-boards": [];
   "scan-boards": [];
 }>();
+const chipFamilyChartCanvas = ref<HTMLCanvasElement | null>(null);
+let chipFamilyChart: Chart<"doughnut"> | null = null;
+
+const chipFamilyPalette = [
+  "#2dd4bf",
+  "#22c55e",
+  "#38bdf8",
+  "#a78bfa",
+  "#f59e0b",
+  "#fb7185",
+  "#84cc16"
+];
+
 const totalBoards = computed(() => dashboardStats.value?.totalBoards ?? boards.value.length);
 const availableBoards = computed(() => dashboardStats.value?.availableBoards ?? 0);
 const inUseBoards = computed(() => dashboardStats.value?.inUseBoards ?? 0);
@@ -57,10 +73,9 @@ const chipFamilyMetrics = computed(() => {
     (left, right) => right.count - left.count || left.label.localeCompare(right.label)
   );
 });
-const largestChipFamilyCount = computed(
-  () => chipFamilyMetrics.value[0]?.count ?? 0
-);
+const chipFamilyChartMetrics = computed(() => chipFamilyMetrics.value.slice(0, 7));
 const dominantChipFamily = computed(() => chipFamilyMetrics.value[0]?.label ?? "No chip data");
+const chipFamilyCount = computed(() => chipFamilyMetrics.value.length);
 const readinessPercent = computed(() => {
   if (totalBoards.value === 0) {
     return 0;
@@ -117,7 +132,77 @@ const recentActivity = computed(() => {
 
 onMounted(() => {
   void refreshDashboard();
+  void nextTick(renderChipFamilyChart);
 });
+
+onBeforeUnmount(() => {
+  chipFamilyChart?.destroy();
+  chipFamilyChart = null;
+});
+
+watch(
+  chipFamilyChartMetrics,
+  () => {
+    void nextTick(renderChipFamilyChart);
+  },
+  { deep: true }
+);
+
+function renderChipFamilyChart(): void {
+  const canvas = chipFamilyChartCanvas.value;
+  const metrics = chipFamilyChartMetrics.value;
+
+  chipFamilyChart?.destroy();
+  chipFamilyChart = null;
+
+  if (!canvas || !metrics.length) {
+    return;
+  }
+
+  chipFamilyChart = new Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels: metrics.map((metric) => metric.label),
+      datasets: [
+        {
+          data: metrics.map((metric) => metric.count),
+          backgroundColor: metrics.map(
+            (_metric, index) => chipFamilyPalette[index % chipFamilyPalette.length]
+          ),
+          borderColor: "rgba(7, 18, 17, 0.94)",
+          borderRadius: 3,
+          borderWidth: 4,
+          spacing: 2,
+          hoverBorderColor: "rgba(255, 255, 255, 0.78)",
+          hoverOffset: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "66%",
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: "rgba(2, 6, 23, 0.92)",
+          borderColor: "rgba(45, 212, 191, 0.35)",
+          borderWidth: 1,
+          displayColors: true,
+          callbacks: {
+            label: (context) => {
+              const label = context.label || "Unknown";
+              const value = Number(context.parsed) || 0;
+              return `${label}: ${value} board${value === 1 ? "" : "s"}`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
 
 async function refreshDashboard(): Promise<void> {
   await Promise.all([boardStore.refresh(), projectStore.loadProjects()]);
@@ -132,10 +217,8 @@ function formatChipFamily(board: Board): string {
   return board.chipModel?.trim() || board.chipFamilyHex || "Unknown";
 }
 
-function chipFamilyPercent(count: number): number {
-  return largestChipFamilyCount.value > 0
-    ? Math.round((count / largestChipFamilyCount.value) * 100)
-    : 0;
+function chipFamilyColor(index: number): string {
+  return chipFamilyPalette[index % chipFamilyPalette.length];
 }
 </script>
 
@@ -287,34 +370,53 @@ function chipFamilyPercent(count: number): number {
     </div>
 
     <div class="dashboard-main-grid">
-      <v-card class="panel-card dashboard-panel" flat>
-          <v-card-title class="text-subtitle-1 font-weight-bold">
-            <v-icon class="mr-2" color="primary" icon="mdi-chart-bar" />
+      <v-card class="panel-card dashboard-panel chip-family-panel" flat>
+          <v-card-title class="text-subtitle-1 font-weight-bold chip-family-title">
+            <v-icon class="mr-2" color="primary" icon="mdi-chart-donut" />
             Boards by chip family
           </v-card-title>
           <v-divider />
-          <v-list v-if="chipFamilyMetrics.length" density="compact">
-            <v-list-item
-              v-for="chipFamily in chipFamilyMetrics"
-              :key="chipFamily.label"
-            >
-              <div class="chip-family-row">
+          <div v-if="chipFamilyMetrics.length" class="chip-family-chart-card">
+            <div class="chip-family-chart-wrap">
+              <canvas ref="chipFamilyChartCanvas" aria-label="Boards by chip family chart" />
+              <div class="chip-family-chart-center">
+                <strong>{{ totalBoards }}</strong>
+                <span>Total</span>
+              </div>
+            </div>
+
+            <div class="chip-family-chart-content">
+              <div class="chip-family-summary-row">
                 <div>
-                  <div class="font-weight-medium">{{ chipFamily.label }}</div>
-                  <div class="text-caption muted">
-                    {{ chipFamily.count }} board{{ chipFamily.count === 1 ? "" : "s" }}
+                  <div class="metric-label">Chip mix</div>
+                  <div class="chip-family-summary">
+                    {{ chipFamilyCount }} famil{{ chipFamilyCount === 1 ? "y" : "ies" }}
                   </div>
                 </div>
-                <v-progress-linear
-                  class="chip-family-bar"
-                  color="primary"
-                  height="8"
-                  rounded
-                  :model-value="chipFamilyPercent(chipFamily.count)"
-                />
+                <v-chip color="primary" size="small" variant="tonal">
+                  {{ dominantChipFamily }}
+                </v-chip>
               </div>
-            </v-list-item>
-          </v-list>
+
+              <div class="chip-family-legend">
+                <div
+                  v-for="(chipFamily, index) in chipFamilyChartMetrics"
+                  :key="chipFamily.label"
+                  class="chip-family-legend-item"
+                >
+                  <span
+                    class="chip-family-dot"
+                    :style="{ backgroundColor: chipFamilyColor(index) }"
+                  />
+                  <div class="chip-family-legend-copy">
+                    <span>{{ chipFamily.label }}</span>
+                    <small>{{ chipFamily.count }} board{{ chipFamily.count === 1 ? "" : "s" }}</small>
+                  </div>
+                  <strong>{{ chipFamily.count }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
           <div v-else class="empty-state ma-4">
             <v-icon icon="mdi-chip" size="34" color="primary" />
             <div class="text-subtitle-1 font-weight-bold mt-2">No chip data yet.</div>
@@ -673,16 +775,147 @@ function chipFamilyPercent(count: number): number {
   min-height: 180px;
 }
 
-.chip-family-row {
-  display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(120px, 42%);
-  gap: 12px;
-  align-items: center;
-  width: 100%;
+.chip-family-panel {
+  overflow: hidden;
 }
 
-.chip-family-bar {
+.chip-family-title {
+  background:
+    radial-gradient(circle at 12% 12%, rgba(var(--v-theme-primary), 0.16), transparent 34%),
+    rgba(var(--v-theme-surface), 0.38);
+}
+
+.chip-family-chart-card {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 28% 42%, rgba(var(--v-theme-primary), 0.16), transparent 34%),
+    radial-gradient(circle at 84% 12%, rgba(var(--v-theme-accent), 0.1), transparent 28%),
+    linear-gradient(135deg, rgba(var(--v-theme-surface), 0.76), rgba(var(--v-theme-background), 0.18));
+}
+
+.chip-family-chart-wrap {
+  position: relative;
+  width: min(210px, 52vw);
+  aspect-ratio: 1;
+  justify-self: center;
+}
+
+.chip-family-chart-wrap canvas {
+  position: relative;
+  z-index: 1;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.chip-family-chart-wrap::before {
+  position: absolute;
+  inset: 10%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(var(--v-theme-primary), 0.12), transparent 62%);
+  box-shadow: 0 0 42px rgba(var(--v-theme-primary), 0.16);
+  content: "";
+}
+
+.chip-family-chart-center {
+  position: absolute;
+  z-index: 2;
+  inset: 29%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  border: 1px solid rgba(var(--v-theme-primary), 0.18);
+  border-radius: 999px;
+  background:
+    linear-gradient(145deg, rgba(var(--v-theme-surface), 0.96), rgba(var(--v-theme-background), 0.78));
+  box-shadow: inset 0 0 24px rgba(var(--v-theme-primary), 0.1);
+  pointer-events: none;
+}
+
+.chip-family-chart-center strong {
+  color: var(--vault-text);
+  font-size: 1.55rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.chip-family-chart-center span {
+  margin-top: 4px;
+  color: var(--vault-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.chip-family-chart-content {
+  display: grid;
+  gap: 16px;
   min-width: 0;
+}
+
+.chip-family-summary-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chip-family-summary {
+  margin-top: 4px;
+  color: var(--vault-text);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.chip-family-legend {
+  display: grid;
+  gap: 9px;
+}
+
+.chip-family-legend-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(var(--v-theme-surface), 0.4);
+}
+
+.chip-family-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 4px rgba(var(--v-theme-primary), 0.08);
+}
+
+.chip-family-legend-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.chip-family-legend-copy span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--vault-text);
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-family-legend-copy small {
+  color: var(--vault-muted);
+  font-size: 0.75rem;
+}
+
+.chip-family-legend-item strong {
+  color: var(--vault-text);
+  font-weight: 850;
 }
 
 .activity-list :deep(.v-list-item) {
@@ -715,8 +948,13 @@ function chipFamilyPercent(count: number): number {
 }
 
 @media (max-width: 720px) {
-  .chip-family-row {
+  .chip-family-chart-card {
     grid-template-columns: 1fr;
+  }
+
+  .chip-family-summary-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
