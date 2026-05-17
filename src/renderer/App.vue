@@ -44,10 +44,13 @@ const navItems: NavItem[] = [
   { key: "boards", title: "Boards", icon: "mdi-developer-board" },
   { key: "scan", title: "Scan board", icon: "mdi-usb-port" },
   { key: "projects", title: "Projects", icon: "mdi-folder-outline" },
-  { key: "tools", title: "Tools", icon: "mdi-tools" },
   { key: "backup", title: "Backup & Restore", icon: "mdi-database-sync-outline" },
   { key: "settings", title: "Settings", icon: "mdi-cog-outline" },
   { key: "about", title: "About", icon: "mdi-information-outline" }
+];
+
+const resourceNavItems: NavItem[] = [
+  { key: "tools", title: "Tools", icon: "mdi-tools" }
 ];
 
 const resourceItems: ResourceItem[] = [
@@ -84,6 +87,11 @@ const viewComponents: Record<ViewKey, Component> = {
 };
 
 const activeComponent = computed(() => viewComponents[currentView.value]);
+const activeTitle = computed(
+  () =>
+    [...navItems, ...resourceNavItems].find((item) => item.key === currentView.value)
+      ?.title
+);
 const themeToggleIcon = computed(() =>
   isDarkTheme.value ? "mdi-weather-sunny" : "mdi-weather-night"
 );
@@ -166,6 +174,15 @@ function openResource(item: ResourceItem): void {
       <v-list nav density="compact" class="nav-list px-3 py-4">
         <v-list-subheader class="px-2">Resources</v-list-subheader>
         <v-list-item
+          v-for="item in resourceNavItems"
+          :key="item.key"
+          :active="currentView === item.key"
+          :prepend-icon="item.icon"
+          :title="item.title"
+          rounded="lg"
+          @click="currentView = item.key"
+        />
+        <v-list-item
           v-for="item in resourceItems"
           :key="item.key"
           :disabled="!item.url"
@@ -180,7 +197,7 @@ function openResource(item: ResourceItem): void {
     </v-navigation-drawer>
 
     <v-app-bar class="vault-app-bar" flat color="surface">
-      <v-app-bar-title>{{ navItems.find((item) => item.key === currentView)?.title }}</v-app-bar-title>
+      <v-app-bar-title>{{ activeTitle }}</v-app-bar-title>
       <v-spacer />
       <v-tooltip :text="themeToggleLabel">
         <template #activator="{ props: tooltipProps }">

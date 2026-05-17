@@ -19,7 +19,8 @@ const toolItems: ToolItem[] = [
     title: "ESPConnect",
     icon: "mdi-connection",
     url: "https://thelastoutpostworkshop.github.io/ESPConnect/",
-    description: "Connect to ESP devices from the browser for serial workflows and maker diagnostics.",
+    description:
+      "ESPConnect is a browser-based utility for working with ESP devices over a serial connection. It is useful when you need a quick way to connect, inspect, and interact with a board without setting up a full local toolchain first. Keep it nearby for maker bench workflows where fast device access matters.",
     sourceUrl: "https://github.com/thelastoutpostworkshop/ESPConnect",
     sourceLabel: "thelastoutpostworkshop/ESPConnect"
   },
@@ -28,7 +29,8 @@ const toolItems: ToolItem[] = [
     title: "ESP32 Partition Builder",
     icon: "mdi-table-cog",
     url: "https://thelastoutpostworkshop.github.io/ESP32PartitionBuilder/",
-    description: "Build and inspect ESP32 partition tables for firmware projects.",
+    description:
+      "ESP32 Partition Builder helps plan and review ESP32 flash partition layouts for firmware projects. Use it when a project needs a clear split between app slots, storage, OTA space, SPIFFS, LittleFS, or other data regions. It is a practical companion when documenting how a board is configured and how firmware should be reproduced later.",
     sourceUrl: "https://github.com/thelastoutpostworkshop/ESP32PartitionBuilder",
     sourceLabel: "thelastoutpostworkshop/ESP32PartitionBuilder"
   },
@@ -37,7 +39,8 @@ const toolItems: ToolItem[] = [
     title: "Video Conversion Studio",
     icon: "mdi-movie-cog-outline",
     url: "https://thelastoutpostworkshop.github.io/video_conversion/",
-    description: "Convert video assets for embedded displays, maker projects, and web workflows.",
+    description:
+      "Video Conversion Studio converts video assets for embedded displays, maker interfaces, and web-friendly output formats. It is useful when preparing media for ESP32 display projects, dashboard demos, or device UI experiments where resolution, format, and file size need to be controlled. Use it as a focused workspace for turning source video into project-ready assets.",
     sourceUrl: "https://github.com/thelastoutpostworkshop/video_conversion",
     sourceLabel: "thelastoutpostworkshop/video_conversion"
   },
@@ -46,7 +49,8 @@ const toolItems: ToolItem[] = [
     title: "Arduino Maker Workshop",
     icon: "mdi-microsoft-visual-studio-code",
     url: "https://marketplace.visualstudio.com/items?itemName=TheLastOutpostWorkshop.arduino-maker-workshop",
-    description: "VS Code extension for Arduino maker workflows from The Last Outpost Workshop.",
+    description:
+      "Arduino Maker Workshop is a VS Code extension for Arduino-centered maker development. It gives makers a more focused editor workflow for sketch-driven projects, board-oriented iteration, and workshop-style development. It belongs here as a companion tool for moving from inventory notes into hands-on firmware work.",
     sourceLabel: "VS Code Marketplace extension"
   }
 ];
