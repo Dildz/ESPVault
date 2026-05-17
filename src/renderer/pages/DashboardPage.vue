@@ -18,6 +18,7 @@ const { boards, dashboardStats, error, loading } = storeToRefs(boardStore);
 const { projects, loading: projectsLoading } = storeToRefs(projectStore);
 const emit = defineEmits<{
   "open-boards": [];
+  "open-backup": [];
   "scan-boards": [];
 }>();
 const totalBoards = computed(() => dashboardStats.value?.totalBoards ?? boards.value.length);
@@ -72,10 +73,12 @@ const readinessPercent = computed(() => {
 });
 const readinessLabel = computed(() => {
   if (totalBoards.value === 0) {
-    return "Start your vault";
+    return "Add inventory";
   }
 
-  return boardsNeedingAttention.value > 0 ? "Needs review" : "Vault ready";
+  return boardsNeedingAttention.value > 0
+    ? "Inventory needs review"
+    : "Inventory healthy";
 });
 const readinessColor = computed(() =>
   totalBoards.value === 0 || boardsNeedingAttention.value > 0
@@ -89,14 +92,18 @@ const recentActivity = computed(() => {
   const activity = [
     ...(dashboardStats.value?.recentlyConnectedBoards ?? []).map((board) => ({
       board,
-      kind: "Connected",
+      kind: "Connection",
+      label: "Connected",
       icon: "mdi-usb-port",
+      color: "info",
       date: board.lastConnectedAt
     })),
     ...(dashboardStats.value?.recentlyUpdatedBoards ?? []).map((board) => ({
       board,
-      kind: "Updated",
-      icon: "mdi-pencil-outline",
+      kind: "Record update",
+      label: "Updated",
+      icon: "mdi-pencil-circle-outline",
+      color: "primary",
       date: board.updatedAt
     }))
   ];
@@ -117,9 +124,9 @@ async function refreshDashboard(): Promise<void> {
   await Promise.all([boardStore.refresh(), projectStore.loadProjects()]);
 }
 
-function formatKnownCount(count: number): string {
+function formatRecordedCount(count: number): string {
   const total = boards.value.length;
-  return total === 0 ? "No boards" : `Known on ${count} of ${total}`;
+  return total === 0 ? "No boards recorded" : `${count}/${total} boards recorded`;
 }
 
 function formatChipFamily(board: Board): string {
@@ -172,7 +179,7 @@ function chipFamilyPercent(count: number): number {
         <div class="readiness-ring" :style="readinessStyle">
           <div class="readiness-ring-inner">
             <div class="readiness-percent">{{ readinessPercent }}%</div>
-            <div class="readiness-caption">Ready</div>
+            <div class="readiness-caption">Inventory health</div>
           </div>
         </div>
         <div class="readiness-copy">
@@ -185,36 +192,36 @@ function chipFamilyPercent(count: number): number {
             {{ readinessLabel }}
           </v-chip>
           <div class="readiness-summary">
-            {{ totalBoards }} board{{ totalBoards === 1 ? "" : "s" }} tracked across
-            {{ projects.length }} project{{ projects.length === 1 ? "" : "s" }}.
+            {{ boardsNeedingAttention }} board{{ boardsNeedingAttention === 1 ? "" : "s" }}
+            need review out of {{ totalBoards }} tracked.
           </div>
         </div>
       </div>
     </section>
 
     <div class="dashboard-insights">
-      <div class="insight-card insight-card--primary">
+      <div class="insight-card insight-card--boards">
         <v-icon icon="mdi-developer-board" />
         <div>
           <div class="insight-value">{{ totalBoards }}</div>
           <div class="insight-label">Boards tracked</div>
         </div>
       </div>
-      <div class="insight-card">
+      <div class="insight-card insight-card--projects">
         <v-icon icon="mdi-folder-multiple-outline" />
         <div>
           <div class="insight-value">{{ projects.length }}</div>
           <div class="insight-label">Projects</div>
         </div>
       </div>
-      <div class="insight-card">
+      <div class="insight-card insight-card--available">
         <v-icon icon="mdi-check-circle-outline" />
         <div>
           <div class="insight-value">{{ availableBoards }}</div>
           <div class="insight-label">Available</div>
         </div>
       </div>
-      <div class="insight-card">
+      <div class="insight-card insight-card--attention">
         <v-icon icon="mdi-alert-outline" />
         <div>
           <div class="insight-value">{{ boardsNeedingAttention }}</div>
@@ -225,15 +232,15 @@ function chipFamilyPercent(count: number): number {
 
     <div class="dashboard-snapshot">
       <div class="snapshot-panel">
-        <div class="metric-label">Memory cataloged</div>
+        <div class="metric-label">Known memory</div>
         <div class="snapshot-values">
           <div>
             <strong>{{ formatBytes(totalFlashBytes) }}</strong>
-            <span>Flash, {{ formatKnownCount(boardsWithKnownFlash).toLowerCase() }}</span>
+            <span>Flash recorded on {{ formatRecordedCount(boardsWithKnownFlash) }}</span>
           </div>
           <div>
             <strong>{{ formatBytes(totalPsramBytes) }}</strong>
-            <span>PSRAM, {{ formatKnownCount(boardsWithKnownPsram).toLowerCase() }}</span>
+            <span>PSRAM recorded on {{ formatRecordedCount(boardsWithKnownPsram) }}</span>
           </div>
         </div>
       </div>
@@ -314,10 +321,22 @@ function chipFamilyPercent(count: number): number {
             <v-list-item
               v-for="(activity, index) in recentActivity"
               :key="`${activity.kind}-${activity.board.id}-${index}`"
-              :prepend-icon="activity.icon"
               :title="activity.board.name"
-              :subtitle="`${activity.kind} / ${formatDate(activity.date)}`"
+              :subtitle="formatDate(activity.date)"
             >
+              <template #prepend>
+                <div class="activity-event-icon">
+                  <v-icon :color="activity.color" :icon="activity.icon" size="22" />
+                </div>
+              </template>
+              <template #title>
+                <div class="activity-title-row">
+                  <span>{{ activity.board.name }}</span>
+                  <v-chip :color="activity.color" size="x-small" variant="tonal">
+                    {{ activity.label }}
+                  </v-chip>
+                </div>
+              </template>
               <template #append>
                 <v-chip
                   class="status-chip"
@@ -347,6 +366,45 @@ function chipFamilyPercent(count: number): number {
             </v-btn>
           </div>
       </v-card>
+
+      <v-card class="panel-card dashboard-panel quick-actions-card" flat>
+        <v-card-title class="text-subtitle-1 font-weight-bold">
+          <v-icon class="mr-2" color="primary" icon="mdi-lightning-bolt-outline" />
+          Quick actions
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="quick-actions-grid">
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="emit('open-boards')"
+          >
+            Add board
+          </v-btn>
+          <v-btn
+            variant="tonal"
+            color="primary"
+            prepend-icon="mdi-usb-port"
+            @click="emit('scan-boards')"
+          >
+            Scan board
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            prepend-icon="mdi-label-multiple-outline"
+            disabled
+          >
+            Print labels
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            prepend-icon="mdi-database-import-outline"
+            @click="emit('open-backup')"
+          >
+            Import inventory
+          </v-btn>
+        </v-card-text>
+      </v-card>
     </div>
   </section>
 </template>
@@ -362,12 +420,12 @@ function chipFamilyPercent(count: number): number {
   position: relative;
   display: grid;
   overflow: hidden;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 20px;
   align-items: stretch;
   border: 1px solid rgba(var(--v-theme-primary), 0.18);
   border-radius: 8px;
-  padding: clamp(24px, 3vw, 36px);
+  padding: clamp(20px, 2.2vw, 28px);
   background:
     radial-gradient(circle at 14% 12%, rgba(var(--v-theme-primary), 0.26), transparent 30%),
     radial-gradient(circle at 82% 22%, rgba(var(--v-theme-accent), 0.22), transparent 28%),
@@ -389,7 +447,7 @@ function chipFamilyPercent(count: number): number {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 250px;
+  min-height: 190px;
 }
 
 .dashboard-eyebrow {
@@ -409,18 +467,18 @@ function chipFamilyPercent(count: number): number {
 
 .dashboard-title {
   max-width: 760px;
-  margin: 18px 0 0;
+  margin: 14px 0 0;
   color: var(--vault-text);
-  font-size: clamp(2.2rem, 4vw, 4.4rem);
+  font-size: clamp(2rem, 3.1vw, 3.45rem);
   font-weight: 850;
   line-height: 0.98;
 }
 
 .dashboard-subtitle {
   max-width: 640px;
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   color: var(--vault-muted);
-  font-size: 1.05rem;
+  font-size: 1rem;
   line-height: 1.55;
 }
 
@@ -428,7 +486,7 @@ function chipFamilyPercent(count: number): number {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 24px;
+  margin-top: 18px;
 }
 
 .readiness-panel {
@@ -439,13 +497,13 @@ function chipFamilyPercent(count: number): number {
   justify-items: center;
   border: 1px solid var(--vault-soft-border);
   border-radius: 8px;
-  padding: 24px;
+  padding: 18px;
   background: rgba(var(--v-theme-background), 0.34);
 }
 
 .readiness-ring {
   display: grid;
-  width: min(240px, 52vw);
+  width: min(178px, 48vw);
   aspect-ratio: 1;
   place-items: center;
   border-radius: 50%;
@@ -468,7 +526,7 @@ function chipFamilyPercent(count: number): number {
 
 .readiness-percent {
   color: var(--vault-text);
-  font-size: 2.6rem;
+  font-size: 2.25rem;
   font-weight: 850;
   line-height: 1;
 }
@@ -476,7 +534,7 @@ function chipFamilyPercent(count: number): number {
 .readiness-caption {
   margin-top: 6px;
   color: var(--vault-muted);
-  font-size: 0.82rem;
+  font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -485,7 +543,7 @@ function chipFamilyPercent(count: number): number {
   display: grid;
   justify-items: center;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 14px;
   text-align: center;
 }
 
@@ -502,14 +560,27 @@ function chipFamilyPercent(count: number): number {
 }
 
 .insight-card {
+  --insight-rgb: var(--v-theme-primary);
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
+  overflow: hidden;
   border: 1px solid var(--vault-border);
   border-radius: 8px;
   padding: 16px;
-  background: rgba(var(--v-theme-surface), 0.82);
+  background:
+    linear-gradient(135deg, rgba(var(--insight-rgb), 0.12), rgba(var(--v-theme-surface), 0.84)),
+    rgb(var(--v-theme-surface));
   box-shadow: var(--vault-card-shadow);
+}
+
+.insight-card::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: rgba(var(--insight-rgb), 0.78);
+  content: "";
 }
 
 .insight-card :deep(.v-icon) {
@@ -518,16 +589,26 @@ function chipFamilyPercent(count: number): number {
   width: 42px;
   height: 42px;
   place-items: center;
-  border: 1px solid rgba(var(--v-theme-primary), 0.2);
+  border: 1px solid rgba(var(--insight-rgb), 0.24);
   border-radius: 8px;
-  background: rgba(var(--v-theme-primary), 0.1);
-  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--insight-rgb), 0.12);
+  color: rgb(var(--insight-rgb));
 }
 
-.insight-card--primary {
-  background:
-    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.16), rgba(var(--v-theme-surface), 0.86)),
-    rgb(var(--v-theme-surface));
+.insight-card--boards {
+  --insight-rgb: var(--v-theme-primary);
+}
+
+.insight-card--projects {
+  --insight-rgb: var(--v-theme-accent);
+}
+
+.insight-card--available {
+  --insight-rgb: var(--v-theme-success);
+}
+
+.insight-card--attention {
+  --insight-rgb: var(--v-theme-warning);
 }
 
 .insight-value {
@@ -593,7 +674,7 @@ function chipFamilyPercent(count: number): number {
 
 .dashboard-main-grid {
   display: grid;
-  grid-template-columns: minmax(360px, 0.85fr) minmax(520px, 1.15fr);
+  grid-template-columns: minmax(320px, 0.85fr) minmax(460px, 1.15fr) minmax(240px, 0.58fr);
   gap: 16px;
   align-items: start;
 }
@@ -616,6 +697,44 @@ function chipFamilyPercent(count: number): number {
 
 .activity-list :deep(.v-list-item) {
   min-height: 66px;
+}
+
+.activity-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.activity-title-row span {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-event-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface-variant), 0.32);
+}
+
+.quick-actions-card {
+  min-height: 0;
+}
+
+.quick-actions-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.quick-actions-grid :deep(.v-btn) {
+  justify-content: flex-start;
 }
 
 @media (max-width: 720px) {

@@ -120,6 +120,11 @@ function openScan(): void {
   currentView.value = "scan";
 }
 
+function openBackup(): void {
+  boardToOpenId.value = null;
+  currentView.value = "backup";
+}
+
 function scanBoards(): void {
   boardToOpenId.value = null;
   scanRequestId.value += 1;
@@ -219,6 +224,7 @@ function openResource(item: ResourceItem): void {
         :is="activeComponent"
         v-bind="activeComponentProps"
         @open-boards="openBoards"
+        @open-backup="openBackup"
         @open-scan="openScan"
         @scan-boards="scanBoards"
         @open-board="openBoard"
