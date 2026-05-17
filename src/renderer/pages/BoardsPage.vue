@@ -9,10 +9,12 @@ import {
 } from "../../shared/types/board";
 import BoardEditorDialog from "../components/BoardEditorDialog.vue";
 import { useBoardStore } from "../stores/boardStore";
+import { useProjectStore } from "../stores/projectStore";
 import {
   BOARD_STATUS_COLORS,
   BOARD_STATUS_ICONS,
   BOARD_STATUS_LABELS,
+  formatBytes,
   formatFlashSize,
   formatDate,
   formatPsramSize
@@ -26,6 +28,8 @@ interface BoardFilters {
 
 const boardStore = useBoardStore();
 const { boards, chipModels, error, loading } = storeToRefs(boardStore);
+const projectStore = useProjectStore();
+const { projects } = storeToRefs(projectStore);
 const props = defineProps<{
   openBoardId?: string | null;
 }>();
@@ -34,6 +38,7 @@ const editingBoard = ref<Board | null>(null);
 const deletingBoard = ref<Board | null>(null);
 const saving = ref(false);
 const openedBoardId = ref<string | null>(null);
+const selectedBoardId = ref<string | null>(null);
 const boardCoverError = ref<string | null>(null);
 const boardCoverBusyId = ref<string | null>(null);
 const boardThumbnailUrls = ref<Record<string, string | null>>({});
@@ -84,6 +89,17 @@ const filteredBoards = computed(() => {
   });
 });
 
+const selectedBoard = computed(() => {
+  if (!filteredBoards.value.length) {
+    return null;
+  }
+
+  return (
+    filteredBoards.value.find((board) => board.id === selectedBoardId.value) ??
+    filteredBoards.value[0]
+  );
+});
+
 const boardCoverPathKey = computed(() =>
   boards.value
     .map((board) => `${board.id}:${board.coverImagePath ?? ""}`)
@@ -91,8 +107,23 @@ const boardCoverPathKey = computed(() =>
 );
 
 onMounted(() => {
-  void boardStore.loadBoards();
+  void Promise.all([boardStore.loadBoards(), projectStore.loadProjects()]);
 });
+
+watch(
+  filteredBoards,
+  (nextBoards) => {
+    if (!nextBoards.length) {
+      selectedBoardId.value = null;
+      return;
+    }
+
+    if (!nextBoards.some((board) => board.id === selectedBoardId.value)) {
+      selectedBoardId.value = nextBoards[0].id;
+    }
+  },
+  { immediate: true }
+);
 
 watch(
   () => props.openBoardId,
@@ -125,6 +156,10 @@ function openEditDialog(board: Board): void {
   editorOpen.value = true;
 }
 
+function selectBoard(board: Board): void {
+  selectedBoardId.value = board.id;
+}
+
 function openBoardFromProp(): void {
   if (!props.openBoardId || props.openBoardId === openedBoardId.value) {
     return;
@@ -135,7 +170,7 @@ function openBoardFromProp(): void {
     return;
   }
 
-  openEditDialog(board);
+  selectBoard(board);
   openedBoardId.value = props.openBoardId;
 }
 
@@ -144,9 +179,11 @@ async function saveBoard(input: CreateBoardInput): Promise<void> {
 
   try {
     if (editingBoard.value) {
-      await boardStore.updateBoard(editingBoard.value.id, input);
+      const updatedBoard = await boardStore.updateBoard(editingBoard.value.id, input);
+      selectedBoardId.value = updatedBoard.id;
     } else {
-      await boardStore.createBoard(input);
+      const createdBoard = await boardStore.createBoard(input);
+      selectedBoardId.value = createdBoard.id;
     }
 
     editorOpen.value = false;
@@ -162,12 +199,17 @@ async function confirmDelete(): Promise<void> {
   }
 
   const coverImagePath = deletingBoard.value.coverImagePath;
+  const deletedBoardId = deletingBoard.value.id;
   await boardStore.deleteBoard(deletingBoard.value.id);
 
   if (coverImagePath) {
     await window.api.boardImages.deleteCover(coverImagePath).catch(() => {
       // The board record is gone. A stale old image file is non-blocking.
     });
+  }
+
+  if (selectedBoardId.value === deletedBoardId) {
+    selectedBoardId.value = filteredBoards.value[0]?.id ?? null;
   }
 
   deletingBoard.value = null;
@@ -295,6 +337,29 @@ async function removeBoardCover(board: Board): Promise<void> {
 function getBoardCoverError(caughtError: unknown, fallback: string): string {
   return caughtError instanceof Error ? caughtError.message : fallback;
 }
+
+function formatProjectName(board: Board): string {
+  if (!board.projectId) {
+    return "No project";
+  }
+
+  return (
+    projects.value.find((project) => project.id === board.projectId)?.name ??
+    "Project not found"
+  );
+}
+
+function formatEnabledState(value: boolean | null): string {
+  if (value === null) {
+    return "Unknown";
+  }
+
+  return value ? "Enabled" : "Disabled";
+}
+
+function formatBoardType(board: Board): string {
+  return board.boardType || board.manufacturer || "Not set";
+}
 </script>
 
 <template>
@@ -361,114 +426,257 @@ function getBoardCoverError(caughtError: unknown, fallback: string): string {
       </v-btn>
     </div>
 
-    <v-card v-else class="vault-table-card" flat>
-      <v-table class="vault-data-table boards-table">
-        <thead>
-          <tr>
-            <th>Board</th>
-            <th>Status</th>
-            <th>Chip</th>
-            <th>MAC address</th>
-            <th>Flash</th>
-            <th>PSRAM</th>
-            <th>Location</th>
-            <th>Updated</th>
-            <th class="text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="board in filteredBoards" :key="board.id">
-            <td>
-              <div class="board-list-identity">
-                <div class="board-list-cover" aria-hidden="true">
-                  <img
-                    v-if="boardThumbnailUrls[board.id]"
-                    class="board-list-cover-image"
-                    :src="boardThumbnailUrls[board.id] ?? ''"
-                    alt=""
-                  >
-                  <v-icon
-                    v-else
-                    icon="mdi-image-outline"
-                    size="24"
-                    color="secondary"
-                  />
-                </div>
-                <div class="board-list-copy">
-                  <div class="board-name">{{ board.name }}</div>
-                  <div class="text-caption muted">
-                    {{ board.description || board.notes || "No notes yet" }}
+    <div v-else class="boards-layout">
+      <v-card class="vault-table-card" flat>
+        <v-card-title class="text-subtitle-1 font-weight-bold">
+          <v-icon class="mr-2" color="primary" icon="mdi-developer-board" />
+          Board list
+        </v-card-title>
+        <v-divider />
+        <v-table class="vault-data-table boards-table">
+          <thead>
+            <tr>
+              <th>Board</th>
+              <th>Status</th>
+              <th>Chip</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="board in filteredBoards"
+              :key="board.id"
+              class="board-row"
+              :class="{ 'board-row--selected': selectedBoard?.id === board.id }"
+              @click="selectBoard(board)"
+            >
+              <td>
+                <div class="board-list-identity">
+                  <div class="board-list-cover" aria-hidden="true">
+                    <img
+                      v-if="boardThumbnailUrls[board.id]"
+                      class="board-list-cover-image"
+                      :src="boardThumbnailUrls[board.id] ?? ''"
+                      alt=""
+                    >
+                    <v-icon
+                      v-else
+                      icon="mdi-image-outline"
+                      size="24"
+                      color="secondary"
+                    />
+                  </div>
+                  <div class="board-list-copy">
+                    <div class="board-name">{{ board.name }}</div>
+                    <div class="text-caption muted">
+                      {{ board.physicalLocation || board.description || "No location set" }}
+                    </div>
                   </div>
                 </div>
+              </td>
+              <td>
+                <v-chip
+                  class="status-chip"
+                  :color="BOARD_STATUS_COLORS[board.status]"
+                  :prepend-icon="BOARD_STATUS_ICONS[board.status]"
+                  size="small"
+                  variant="tonal"
+                >
+                  {{ BOARD_STATUS_LABELS[board.status] }}
+                </v-chip>
+              </td>
+              <td>{{ board.chipModel || "Not set" }}</td>
+            </tr>
+          </tbody>
+        </v-table>
+      </v-card>
+
+      <v-card v-if="selectedBoard" class="panel-card board-detail-card" flat>
+        <v-card-title class="board-detail-title">
+          <div>
+            <div class="text-h6">{{ selectedBoard.name }}</div>
+            <div class="text-body-2 muted">
+              {{ selectedBoard.description || selectedBoard.notes || "No notes yet" }}
+            </div>
+          </div>
+          <div class="board-detail-actions">
+            <v-chip
+              class="status-chip"
+              :color="BOARD_STATUS_COLORS[selectedBoard.status]"
+              :prepend-icon="BOARD_STATUS_ICONS[selectedBoard.status]"
+              size="small"
+              variant="tonal"
+            >
+              {{ BOARD_STATUS_LABELS[selectedBoard.status] }}
+            </v-chip>
+            <v-btn
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              aria-label="Edit board"
+              @click="openEditDialog(selectedBoard)"
+            />
+            <v-btn
+              icon="mdi-delete-outline"
+              size="small"
+              variant="text"
+              color="error"
+              aria-label="Delete board"
+              @click="deletingBoard = selectedBoard"
+            />
+          </div>
+        </v-card-title>
+        <v-divider />
+        <v-card-text>
+          <div class="board-cover-panel">
+            <div class="board-cover-preview">
+              <v-img
+                v-if="boardThumbnailUrls[selectedBoard.id]"
+                :src="boardThumbnailUrls[selectedBoard.id] ?? ''"
+                alt=""
+                cover
+                height="180"
+              />
+              <div v-else class="board-cover-placeholder">
+                <v-icon icon="mdi-image-plus-outline" size="34" color="primary" />
+                <div class="text-caption muted mt-1">No board photo</div>
               </div>
-            </td>
-            <td>
-              <v-chip
-                class="status-chip"
-                :color="BOARD_STATUS_COLORS[board.status]"
-                :prepend-icon="BOARD_STATUS_ICONS[board.status]"
-                size="small"
-                variant="tonal"
+            </div>
+            <div class="board-cover-body">
+              <div class="section-title">Board photo</div>
+              <div class="text-body-2 mt-1">
+                {{ selectedBoard.coverImageFilename || "Add a photo of the board, wiring, or enclosure." }}
+              </div>
+              <div
+                v-if="selectedBoard.coverImageSizeBytes !== null"
+                class="text-caption muted mt-1"
               >
-                {{ BOARD_STATUS_LABELS[board.status] }}
-              </v-chip>
-            </td>
-            <td>{{ board.chipModel || "Not set" }}</td>
-            <td class="metadata-mono">{{ board.macAddress || "Not set" }}</td>
-            <td>{{ formatFlashSize(board.flashSizeBytes, board.flashSizeLabel) }}</td>
-            <td>{{ formatPsramSize(board.psramSizeBytes, board.psramDetected) }}</td>
-            <td>{{ board.physicalLocation || "Not set" }}</td>
-            <td>{{ formatDate(board.updatedAt) }}</td>
-            <td class="text-right">
-              <v-tooltip
-                :text="board.coverImagePath ? 'Change board photo' : 'Add board photo'"
-              >
-                <template #activator="{ props: tooltipProps }">
-                  <v-btn
-                    v-bind="tooltipProps"
-                    :icon="board.coverImagePath ? 'mdi-image-edit-outline' : 'mdi-image-plus-outline'"
-                    size="small"
-                    variant="text"
-                    :loading="boardCoverBusyId === board.id"
-                    :aria-label="board.coverImagePath ? 'Change board photo' : 'Add board photo'"
-                    @click="chooseBoardCover(board)"
-                  />
-                </template>
-              </v-tooltip>
-              <v-tooltip v-if="board.coverImagePath" text="Remove board photo">
-                <template #activator="{ props: tooltipProps }">
-                  <v-btn
-                    v-bind="tooltipProps"
-                    icon="mdi-image-remove-outline"
-                    size="small"
-                    variant="text"
-                    color="error"
-                    :disabled="boardCoverBusyId === board.id"
-                    aria-label="Remove board photo"
-                    @click="removeBoardCover(board)"
-                  />
-                </template>
-              </v-tooltip>
-              <v-btn
-                icon="mdi-pencil"
-                size="small"
-                variant="text"
-                aria-label="Edit board"
-                @click="openEditDialog(board)"
-              />
-              <v-btn
-                icon="mdi-delete-outline"
-                size="small"
-                variant="text"
-                color="error"
-                aria-label="Delete board"
-                @click="deletingBoard = board"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
-    </v-card>
+                {{ formatBytes(selectedBoard.coverImageSizeBytes) }}
+              </div>
+              <div class="board-cover-actions">
+                <v-btn
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-image-plus-outline"
+                  :loading="boardCoverBusyId === selectedBoard.id"
+                  @click="chooseBoardCover(selectedBoard)"
+                >
+                  {{ selectedBoard.coverImagePath ? "Change photo" : "Add photo" }}
+                </v-btn>
+                <v-btn
+                  v-if="selectedBoard.coverImagePath"
+                  variant="text"
+                  color="error"
+                  prepend-icon="mdi-image-remove-outline"
+                  :disabled="boardCoverBusyId === selectedBoard.id"
+                  @click="removeBoardCover(selectedBoard)"
+                >
+                  Remove
+                </v-btn>
+              </div>
+            </div>
+          </div>
+
+          <div class="board-facts">
+            <div>
+              <div class="metric-label">Chip</div>
+              <div class="board-fact-value">{{ selectedBoard.chipModel || "Not set" }}</div>
+            </div>
+            <div>
+              <div class="metric-label">Flash</div>
+              <div class="board-fact-value">
+                {{ formatFlashSize(selectedBoard.flashSizeBytes, selectedBoard.flashSizeLabel) }}
+              </div>
+            </div>
+            <div>
+              <div class="metric-label">Project</div>
+              <div class="board-fact-value">{{ formatProjectName(selectedBoard) }}</div>
+            </div>
+          </div>
+
+          <div class="board-info-grid mt-5">
+            <div class="board-info-panel">
+              <div class="section-title">Hardware</div>
+              <div class="board-detail-row">
+                <span>Board type</span>
+                <strong>{{ formatBoardType(selectedBoard) }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>MAC address</span>
+                <strong class="metadata-mono">{{ selectedBoard.macAddress || "Not set" }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>PSRAM</span>
+                <strong>{{ formatPsramSize(selectedBoard.psramSizeBytes, selectedBoard.psramDetected) }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Location</span>
+                <strong>{{ selectedBoard.physicalLocation || "Not set" }}</strong>
+              </div>
+            </div>
+
+            <div class="board-info-panel">
+              <div class="section-title">Scan metadata</div>
+              <div class="board-detail-row">
+                <span>Chip revision</span>
+                <strong>{{ selectedBoard.chipRevision ?? "Not set" }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Variant</span>
+                <strong>{{ selectedBoard.chipVariant || "Not set" }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Crystal</span>
+                <strong>{{ selectedBoard.crystalFrequency || "Not set" }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Flash chip</span>
+                <strong>{{ selectedBoard.flashManufacturerName || selectedBoard.flashChipIdHex || "Not set" }}</strong>
+              </div>
+            </div>
+
+            <div class="board-info-panel">
+              <div class="section-title">Security</div>
+              <div class="board-detail-row">
+                <span>Secure boot</span>
+                <strong>{{ formatEnabledState(selectedBoard.secureBootEnabled) }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Flash encryption</span>
+                <strong>{{ formatEnabledState(selectedBoard.flashEncryptionEnabled) }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Security flags</span>
+                <strong>{{ selectedBoard.securityFlagsHex || "Not set" }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Bootloader offset</span>
+                <strong>{{ selectedBoard.bootloaderOffsetHex || "Not set" }}</strong>
+              </div>
+            </div>
+
+            <div class="board-info-panel">
+              <div class="section-title">Record</div>
+              <div class="board-detail-row">
+                <span>Last connected</span>
+                <strong>{{ formatDate(selectedBoard.lastConnectedAt) }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Updated</span>
+                <strong>{{ formatDate(selectedBoard.updatedAt) }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Created</span>
+                <strong>{{ formatDate(selectedBoard.createdAt) }}</strong>
+              </div>
+              <div class="board-detail-row">
+                <span>Board ID</span>
+                <strong class="metadata-mono">{{ selectedBoard.id }}</strong>
+              </div>
+            </div>
+          </div>
+        </v-card-text>
+      </v-card>
+    </div>
 
     <BoardEditorDialog
       v-model="editorOpen"
@@ -507,6 +715,22 @@ function getBoardCoverError(caughtError: unknown, fallback: string): string {
   white-space: nowrap;
 }
 
+.boards-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.85fr) minmax(560px, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.board-row {
+  cursor: pointer;
+}
+
+.board-row--selected {
+  background: rgba(var(--v-theme-primary), 0.1);
+  box-shadow: inset 4px 0 0 rgb(var(--v-theme-primary));
+}
+
 .board-list-identity {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
@@ -539,6 +763,13 @@ function getBoardCoverError(caughtError: unknown, fallback: string): string {
   min-width: 0;
 }
 
+.board-list-copy .text-caption {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .boards-table :deep(td),
 .boards-table :deep(th) {
   padding: 12px 14px;
@@ -551,5 +782,137 @@ function getBoardCoverError(caughtError: unknown, fallback: string): string {
 
 .boards-table :deep(td:first-child) {
   min-width: 260px;
+}
+
+.board-detail-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.board-detail-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.board-cover-panel {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 18px;
+}
+
+.board-cover-preview {
+  min-height: 180px;
+  overflow: hidden;
+  border: 1px solid var(--vault-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-accent), 0.08)),
+    var(--vault-cover-bg);
+}
+
+.board-cover-placeholder {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  align-content: center;
+}
+
+.board-cover-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.board-cover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.board-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.board-facts > div,
+.board-info-panel {
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(var(--v-theme-surface-variant), 0.34);
+}
+
+.board-fact-value {
+  margin-top: 4px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.board-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.board-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 10px;
+}
+
+.board-detail-row span {
+  color: var(--vault-muted);
+}
+
+.board-detail-row strong {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.section-title {
+  color: var(--vault-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1200px) {
+  .boards-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .board-detail-title,
+  .board-cover-panel,
+  .board-facts,
+  .board-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .board-detail-title {
+    flex-direction: column;
+  }
+
+  .board-detail-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .board-detail-row strong {
+    text-align: left;
+  }
 }
 </style>
