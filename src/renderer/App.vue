@@ -11,7 +11,8 @@ import ProjectsPage from "./pages/ProjectsPage.vue";
 import ScanBoardPage from "./pages/ScanBoardPage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 import ToolsPage from "./pages/ToolsPage.vue";
-import brandLogo from "./assets/esp-board-vault-logo-transparent.png";
+import darkBrandLogo from "./assets/esp-board-vault-logo-dark.png";
+import lightBrandLogo from "./assets/esp-board-vault-logo-light.png";
 import { useVaultTheme } from "./composables/useVaultTheme";
 import { useBoardStore } from "./stores/boardStore";
 import { useProjectStore } from "./stores/projectStore";
@@ -118,6 +119,9 @@ const themeToggleIcon = computed(() =>
 );
 const themeToggleLabel = computed(() =>
   isDarkTheme.value ? "Switch to light mode" : "Switch to dark mode"
+);
+const brandLogo = computed(() =>
+  isDarkTheme.value ? darkBrandLogo : lightBrandLogo
 );
 const appBarBusy = computed(() => boardsLoading.value || projectsLoading.value);
 const searchItems = computed<SearchItem[]>(() => [
