@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, type Component } from "vue";
+import { computed, onMounted, ref, type Component } from "vue";
+import { storeToRefs } from "pinia";
+import type { Board } from "../shared/types/board";
+import type { Project } from "../shared/types/inventory";
 import AboutPage from "./pages/AboutPage.vue";
 import BackupRestorePage from "./pages/BackupRestorePage.vue";
 import BoardsPage from "./pages/BoardsPage.vue";
@@ -8,8 +11,10 @@ import ProjectsPage from "./pages/ProjectsPage.vue";
 import ScanBoardPage from "./pages/ScanBoardPage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 import ToolsPage from "./pages/ToolsPage.vue";
-import brandLogo from "./assets/esp-board-vault-logo.png";
+import brandLogo from "./assets/esp-board-vault-logo-transparent.png";
 import { useVaultTheme } from "./composables/useVaultTheme";
+import { useBoardStore } from "./stores/boardStore";
+import { useProjectStore } from "./stores/projectStore";
 
 type ViewKey =
   | "dashboard"
@@ -35,10 +40,25 @@ interface ResourceItem {
   subtitle?: string;
 }
 
+interface SearchItem {
+  id: string;
+  type: "board" | "project";
+  title: string;
+  subtitle: string;
+  icon: string;
+}
+
 const currentView = ref<ViewKey>("dashboard");
 const boardToOpenId = ref<string | null>(null);
+const projectToOpenId = ref<string | null>(null);
 const scanRequestId = ref(0);
+const searchSelection = ref<SearchItem | null>(null);
+const searchQuery = ref("");
 const { isDarkTheme, toggleTheme } = useVaultTheme();
+const boardStore = useBoardStore();
+const projectStore = useProjectStore();
+const { boards, loading: boardsLoading } = storeToRefs(boardStore);
+const { projects, loading: projectsLoading } = storeToRefs(projectStore);
 
 const navItems: NavItem[] = [
   { key: "dashboard", title: "Dashboard", icon: "mdi-view-dashboard-outline" },
@@ -99,9 +119,43 @@ const themeToggleIcon = computed(() =>
 const themeToggleLabel = computed(() =>
   isDarkTheme.value ? "Switch to light mode" : "Switch to dark mode"
 );
+const appBarBusy = computed(() => boardsLoading.value || projectsLoading.value);
+const searchItems = computed<SearchItem[]>(() => [
+  ...boards.value.map((board) => ({
+    id: board.id,
+    type: "board" as const,
+    title: board.name,
+    subtitle: formatBoardSearchSubtitle(board),
+    icon: "mdi-developer-board"
+  })),
+  ...projects.value.map((project) => ({
+    id: project.id,
+    type: "project" as const,
+    title: project.name,
+    subtitle: formatProjectSearchSubtitle(project),
+    icon: "mdi-folder-outline"
+  }))
+]);
+const filteredSearchItems = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  const matches = query
+    ? searchItems.value.filter((item) =>
+        [item.title, item.subtitle, item.type]
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      )
+    : searchItems.value;
+
+  return matches.slice(0, 8);
+});
 const activeComponentProps = computed(() => {
   if (currentView.value === "boards") {
     return { openBoardId: boardToOpenId.value };
+  }
+
+  if (currentView.value === "projects") {
+    return { openProjectId: projectToOpenId.value };
   }
 
   if (currentView.value === "scan") {
@@ -111,25 +165,75 @@ const activeComponentProps = computed(() => {
   return {};
 });
 
+onMounted(() => {
+  void refreshAppData();
+});
+
 function openBoards(): void {
   boardToOpenId.value = null;
+  projectToOpenId.value = null;
   currentView.value = "boards";
 }
 
 function openScan(): void {
   boardToOpenId.value = null;
+  projectToOpenId.value = null;
   currentView.value = "scan";
 }
 
 function scanBoards(): void {
   boardToOpenId.value = null;
+  projectToOpenId.value = null;
   scanRequestId.value += 1;
   currentView.value = "scan";
 }
 
 function openBoard(id: string): void {
   boardToOpenId.value = id;
+  projectToOpenId.value = null;
   currentView.value = "boards";
+}
+
+function openProject(id: string): void {
+  boardToOpenId.value = null;
+  projectToOpenId.value = id;
+  currentView.value = "projects";
+}
+
+function selectSearchResult(item: SearchItem | null): void {
+  if (!item) {
+    return;
+  }
+
+  if (item.type === "board") {
+    openBoard(item.id);
+  } else {
+    openProject(item.id);
+  }
+
+  searchSelection.value = null;
+  searchQuery.value = "";
+}
+
+async function refreshAppData(): Promise<void> {
+  await Promise.all([boardStore.refresh(), projectStore.loadProjects()]);
+}
+
+function formatBoardSearchSubtitle(board: Board): string {
+  return [
+    "Board",
+    board.chipModel,
+    board.physicalLocation,
+    board.macAddress
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" / ");
+}
+
+function formatProjectSearchSubtitle(project: Project): string {
+  return ["Project", project.status.replace("_", " ")]
+    .filter(Boolean)
+    .join(" / ");
 }
 
 function openResource(item: ResourceItem): void {
@@ -196,13 +300,66 @@ function openResource(item: ResourceItem): void {
     </v-navigation-drawer>
 
     <v-app-bar class="vault-app-bar" flat color="surface">
-      <v-app-bar-title>{{ activeTitle }}</v-app-bar-title>
+      <v-app-bar-title class="app-bar-title">{{ activeTitle }}</v-app-bar-title>
       <v-spacer />
+      <v-autocomplete
+        v-model="searchSelection"
+        v-model:search="searchQuery"
+        class="global-search"
+        clearable
+        density="compact"
+        hide-details
+        item-title="title"
+        no-filter
+        placeholder="Search boards or projects..."
+        prepend-inner-icon="mdi-magnify"
+        return-object
+        :items="filteredSearchItems"
+        variant="outlined"
+        @update:model-value="selectSearchResult"
+      >
+        <template #item="{ props: itemProps, item }">
+          <v-list-item
+            v-bind="itemProps"
+            :prepend-icon="item.icon"
+            :subtitle="item.subtitle"
+            :title="item.title"
+          />
+        </template>
+        <template #no-data>
+          <div class="px-4 py-3 text-body-2 muted">No matching boards or projects.</div>
+        </template>
+      </v-autocomplete>
+      <div class="app-bar-actions">
+        <v-btn
+          color="primary"
+          prepend-icon="mdi-plus"
+          variant="tonal"
+          @click="openBoards"
+        >
+          Add board
+        </v-btn>
+        <v-btn
+          color="primary"
+          prepend-icon="mdi-usb-port"
+          variant="tonal"
+          @click="scanBoards"
+        >
+          Scan boards
+        </v-btn>
+        <v-btn
+          prepend-icon="mdi-refresh"
+          variant="outlined"
+          :loading="appBarBusy"
+          @click="refreshAppData"
+        >
+          Refresh
+        </v-btn>
+      </div>
       <v-tooltip :text="themeToggleLabel">
         <template #activator="{ props: tooltipProps }">
           <v-btn
             v-bind="tooltipProps"
-            class="mr-3"
             :icon="themeToggleIcon"
             variant="tonal"
             color="primary"
@@ -236,17 +393,16 @@ function openResource(item: ResourceItem): void {
 
 .brand-block {
   display: grid;
-  min-height: 96px;
+  min-height: 86px;
   align-items: center;
 }
 
 .brand-logo {
   display: block;
   width: 100%;
-  max-height: 78px;
+  max-height: 70px;
   object-fit: contain;
   object-position: left center;
-  border-radius: 8px;
   filter: drop-shadow(0 10px 24px rgba(var(--v-theme-primary), 0.14));
 }
 
@@ -267,6 +423,44 @@ function openResource(item: ResourceItem): void {
 }
 
 .vault-app-bar :deep(.v-toolbar__content) {
-  padding-inline: 20px;
+  gap: 12px;
+  padding-inline: 18px;
+}
+
+.app-bar-title {
+  min-width: max-content;
+}
+
+.global-search {
+  width: min(420px, 32vw);
+  flex: 0 1 420px;
+}
+
+.global-search :deep(.v-field) {
+  border-radius: 8px;
+  background: rgba(var(--v-theme-background), 0.28);
+}
+
+.app-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 1180px) {
+  .app-bar-title {
+    display: none;
+  }
+
+  .global-search {
+    width: auto;
+    flex: 1 1 260px;
+  }
+}
+
+@media (max-width: 880px) {
+  .app-bar-actions :deep(.v-btn__content) {
+    display: none;
+  }
 }
 </style>

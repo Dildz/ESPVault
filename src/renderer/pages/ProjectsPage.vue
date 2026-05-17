@@ -44,6 +44,9 @@ interface ProjectRow {
 const emit = defineEmits<{
   "open-board": [id: string];
 }>();
+const props = defineProps<{
+  openProjectId?: string | null;
+}>();
 
 const boardStore = useBoardStore();
 const projectStore = useProjectStore();
@@ -68,6 +71,7 @@ const editingProject = ref<Project | null>(null);
 const deletingProject = ref<Project | null>(null);
 const saving = ref(false);
 const selectedProjectId = ref<string | null>(null);
+const openedProjectId = ref<string | null>(null);
 const selectedAssignableBoardId = ref<string | null>(null);
 const coverImageDataUrl = ref<string | null>(null);
 const coverImageError = ref<string | null>(null);
@@ -181,6 +185,19 @@ watch(
   { immediate: true }
 );
 
+watch(
+  () => props.openProjectId,
+  () => {
+    openedProjectId.value = null;
+    openProjectFromProp();
+  },
+  { immediate: true }
+);
+
+watch(projects, () => {
+  openProjectFromProp();
+});
+
 watch(selectedProjectId, () => {
   selectedAssignableBoardId.value = null;
 });
@@ -223,6 +240,22 @@ function openEditDialog(project: Project): void {
     status: project.status
   });
   editorOpen.value = true;
+}
+
+function openProjectFromProp(): void {
+  if (!props.openProjectId || props.openProjectId === openedProjectId.value) {
+    return;
+  }
+
+  const project = projects.value.find(
+    (candidate) => candidate.id === props.openProjectId
+  );
+  if (!project) {
+    return;
+  }
+
+  selectProject(project);
+  openedProjectId.value = props.openProjectId;
 }
 
 function closeEditor(): void {
