@@ -6,6 +6,7 @@ import { useBoardStore } from "../stores/boardStore";
 import { useProjectStore } from "../stores/projectStore";
 import {
   BOARD_STATUS_COLORS,
+  BOARD_STATUS_ICONS,
   BOARD_STATUS_LABELS,
   formatBytes,
   formatDate
@@ -114,42 +115,77 @@ function chipFamilyPercent(count: number): number {
 
     <v-row>
       <v-col cols="12" sm="6" lg>
-        <v-card class="metric-card" flat>
+        <v-card class="metric-card metric-card--blue" flat>
           <v-card-text>
-            <div class="metric-label">Total boards</div>
-            <div class="metric-value">{{ dashboardStats?.totalBoards ?? 0 }}</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Total boards</div>
+                <div class="metric-value">{{ dashboardStats?.totalBoards ?? 0 }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-developer-board" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" lg>
-        <v-card class="metric-card" flat>
+        <v-card class="metric-card metric-card--amber" flat>
           <v-card-text>
-            <div class="metric-label">Projects</div>
-            <div class="metric-value">{{ projects.length }}</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Projects</div>
+                <div class="metric-value">{{ projects.length }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-folder-multiple-outline" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" lg>
-        <v-card class="metric-card" flat>
+        <v-card class="metric-card metric-card--green" flat>
           <v-card-text>
-            <div class="metric-label">Available</div>
-            <div class="metric-value">{{ dashboardStats?.availableBoards ?? 0 }}</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Available</div>
+                <div class="metric-value">{{ dashboardStats?.availableBoards ?? 0 }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-check-circle-outline" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" lg>
-        <v-card class="metric-card" flat>
+        <v-card class="metric-card metric-card--blue" flat>
           <v-card-text>
-            <div class="metric-label">In use</div>
-            <div class="metric-value">{{ dashboardStats?.inUseBoards ?? 0 }}</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">In use</div>
+                <div class="metric-value">{{ dashboardStats?.inUseBoards ?? 0 }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-play-circle-outline" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" lg>
-        <v-card class="metric-card" flat>
+        <v-card class="metric-card metric-card--red" flat>
           <v-card-text>
-            <div class="metric-label">Broken</div>
-            <div class="metric-value">{{ dashboardStats?.brokenBoards ?? 0 }}</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Broken</div>
+                <div class="metric-value">{{ dashboardStats?.brokenBoards ?? 0 }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-alert-octagon-outline" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -157,38 +193,66 @@ function chipFamilyPercent(count: number): number {
 
     <v-row class="mt-2">
       <v-col cols="12" sm="6" lg="3">
-        <v-card class="metric-card" flat>
+        <v-card class="metric-card metric-card--amber" flat>
           <v-card-text>
-            <div class="metric-label">Total flash</div>
-            <div class="metric-value">{{ formatBytes(totalFlashBytes) }}</div>
-            <div class="metric-note">{{ formatKnownCount(boardsWithKnownFlash) }}</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Total flash</div>
+                <div class="metric-value">{{ formatBytes(totalFlashBytes) }}</div>
+                <div class="metric-note">{{ formatKnownCount(boardsWithKnownFlash) }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-memory" />
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" sm="6" lg="3">
+        <v-card class="metric-card metric-card--blue" flat>
+          <v-card-text>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Total PSRAM</div>
+                <div class="metric-value">{{ formatBytes(totalPsramBytes) }}</div>
+                <div class="metric-note">{{ formatKnownCount(boardsWithKnownPsram) }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-chip" />
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" sm="6" lg="3">
+        <v-card class="metric-card metric-card--orange" flat>
+          <v-card-text>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Needs attention</div>
+                <div class="metric-value">{{ boardsNeedingAttention }}</div>
+                <div class="metric-note">Broken, needs flashing, or unknown</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-alert-outline" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" sm="6" lg="3">
         <v-card class="metric-card" flat>
           <v-card-text>
-            <div class="metric-label">Total PSRAM</div>
-            <div class="metric-value">{{ formatBytes(totalPsramBytes) }}</div>
-            <div class="metric-note">{{ formatKnownCount(boardsWithKnownPsram) }}</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      <v-col cols="12" sm="6" lg="3">
-        <v-card class="metric-card" flat>
-          <v-card-text>
-            <div class="metric-label">Needs attention</div>
-            <div class="metric-value">{{ boardsNeedingAttention }}</div>
-            <div class="metric-note">Broken, needs flashing, or unknown</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      <v-col cols="12" sm="6" lg="3">
-        <v-card class="metric-card" flat>
-          <v-card-text>
-            <div class="metric-label">Unassigned boards</div>
-            <div class="metric-value">{{ unassignedBoards }}</div>
-            <div class="metric-note">Not linked to a project</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Unassigned boards</div>
+                <div class="metric-value">{{ unassignedBoards }}</div>
+                <div class="metric-note">Not linked to a project</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-link-variant-off" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -196,8 +260,9 @@ function chipFamilyPercent(count: number): number {
 
     <v-row class="mt-2">
       <v-col cols="12" lg="5">
-        <v-card flat border>
+        <v-card class="panel-card" flat>
           <v-card-title class="text-subtitle-1 font-weight-bold">
+            <v-icon class="mr-2" color="primary" icon="mdi-chart-bar" />
             Boards by chip family
           </v-card-title>
           <v-divider />
@@ -224,15 +289,17 @@ function chipFamilyPercent(count: number): number {
             </v-list-item>
           </v-list>
           <div v-else class="empty-state ma-4">
-            <div class="text-subtitle-1 font-weight-bold">No chip data yet.</div>
+            <v-icon icon="mdi-chip" size="34" color="primary" />
+            <div class="text-subtitle-1 font-weight-bold mt-2">No chip data yet.</div>
             <div class="text-body-2 muted mt-1">
               Scan boards to populate chip family counts.
             </div>
           </div>
         </v-card>
 
-        <v-card class="mt-4" flat border>
+        <v-card class="panel-card mt-4" flat>
           <v-card-title class="text-subtitle-1 font-weight-bold">
+            <v-icon class="mr-2" color="primary" icon="mdi-access-point" />
             Recently connected
           </v-card-title>
           <v-divider />
@@ -240,12 +307,14 @@ function chipFamilyPercent(count: number): number {
             <v-list-item
               v-for="board in dashboardStats.recentlyConnectedBoards"
               :key="board.id"
+              prepend-icon="mdi-usb-port"
               :title="board.name"
               :subtitle="formatDate(board.lastConnectedAt)"
             />
           </v-list>
           <div v-else class="empty-state ma-4">
-            <div class="text-subtitle-1 font-weight-bold">No connections recorded.</div>
+            <v-icon icon="mdi-usb-port" size="34" color="primary" />
+            <div class="text-subtitle-1 font-weight-bold mt-2">No connections recorded.</div>
             <div class="text-body-2 muted mt-1">
               Serial detection is represented by a mock scan in this slice.
             </div>
@@ -254,8 +323,9 @@ function chipFamilyPercent(count: number): number {
       </v-col>
 
       <v-col cols="12" lg="7">
-        <v-card flat border>
+        <v-card class="panel-card" flat>
           <v-card-title class="text-subtitle-1 font-weight-bold">
+            <v-icon class="mr-2" color="primary" icon="mdi-history" />
             Recently updated boards
           </v-card-title>
           <v-divider />
@@ -268,18 +338,20 @@ function chipFamilyPercent(count: number): number {
             >
               <template #append>
                 <v-chip
-                  class="status-chip"
-                  :color="BOARD_STATUS_COLORS[board.status]"
-                  size="small"
-                  variant="tonal"
-                >
+                class="status-chip"
+                :color="BOARD_STATUS_COLORS[board.status]"
+                :prepend-icon="BOARD_STATUS_ICONS[board.status]"
+                size="small"
+                variant="tonal"
+              >
                   {{ BOARD_STATUS_LABELS[board.status] }}
                 </v-chip>
               </template>
             </v-list-item>
           </v-list>
           <div v-else class="empty-state ma-4">
-            <div class="text-subtitle-1 font-weight-bold">No boards yet.</div>
+            <v-icon icon="mdi-developer-board" size="34" color="primary" />
+            <div class="text-subtitle-1 font-weight-bold mt-2">No boards yet.</div>
             <div class="text-body-2 muted mt-1">
               Add a board manually to start building your inventory.
             </div>

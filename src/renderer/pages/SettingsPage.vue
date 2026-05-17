@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import type { DatabaseLocation } from "../../shared/types/api";
+import {
+  useVaultTheme,
+  type VaultThemeName
+} from "../composables/useVaultTheme";
 import { repositories } from "../repositories";
 
 const backupRepository = repositories.backups;
+const { currentTheme, isDarkTheme, setTheme, themeLabel } = useVaultTheme();
 const resettingWindowSize = ref(false);
 const copyingDatabaseLocation = ref(false);
 const changingDatabaseLocation = ref(false);
@@ -11,6 +16,14 @@ const confirmingAppDataMove = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const databaseLocation = ref<DatabaseLocation | null>(null);
+const themeOptions: {
+  title: string;
+  value: VaultThemeName;
+  icon: string;
+}[] = [
+  { title: "Light", value: "vaultLight", icon: "mdi-weather-sunny" },
+  { title: "Dark", value: "vaultDark", icon: "mdi-weather-night" }
+];
 
 async function resetWindowSize(): Promise<void> {
   resettingWindowSize.value = true;
@@ -38,6 +51,12 @@ async function loadDatabaseLocation(): Promise<void> {
       caughtError instanceof Error
         ? caughtError.message
         : "The app data location could not be loaded.";
+  }
+}
+
+function updateTheme(themeName: unknown): void {
+  if (themeName === "vaultLight" || themeName === "vaultDark") {
+    setTheme(themeName);
   }
 }
 
@@ -117,7 +136,48 @@ onMounted(() => {
       {{ notice }}
     </v-alert>
 
-    <v-card flat border>
+    <v-card class="panel-card" flat>
+      <v-card-title class="text-subtitle-1 font-weight-bold">
+        Appearance
+      </v-card-title>
+      <v-divider />
+      <v-card-text class="settings-row">
+        <div class="settings-detail">
+          <div class="settings-detail-heading">
+            <v-icon
+              :icon="isDarkTheme ? 'mdi-weather-night' : 'mdi-weather-sunny'"
+              color="primary"
+            />
+            <div>
+              <div class="font-weight-medium">{{ themeLabel }}</div>
+              <div class="text-body-2 muted mt-1">
+                Choose the color mode for the vault interface.
+              </div>
+            </div>
+          </div>
+        </div>
+        <v-btn-toggle
+          class="theme-toggle"
+          :model-value="currentTheme"
+          mandatory
+          divided
+          color="primary"
+          variant="outlined"
+          @update:model-value="updateTheme"
+        >
+          <v-btn
+            v-for="option in themeOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            <v-icon :icon="option.icon" class="mr-2" />
+            {{ option.title }}
+          </v-btn>
+        </v-btn-toggle>
+      </v-card-text>
+    </v-card>
+
+    <v-card class="panel-card mt-4" flat>
       <v-card-title class="text-subtitle-1 font-weight-bold">
         Window
       </v-card-title>
@@ -141,7 +201,7 @@ onMounted(() => {
       </v-card-text>
     </v-card>
 
-    <v-card class="mt-4" flat border>
+    <v-card class="panel-card mt-4" flat>
       <v-card-title class="text-subtitle-1 font-weight-bold">
         App data
       </v-card-title>
@@ -240,11 +300,21 @@ onMounted(() => {
   min-width: 0;
 }
 
+.settings-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .database-path {
   max-width: 100%;
   overflow-wrap: anywhere;
-  color: #2f352f;
+  color: var(--vault-text);
   font-size: 0.84rem;
+}
+
+.theme-toggle {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 720px) {
@@ -255,6 +325,14 @@ onMounted(() => {
 
   .settings-actions {
     justify-content: stretch;
+  }
+
+  .theme-toggle {
+    width: 100%;
+  }
+
+  .theme-toggle :deep(.v-btn) {
+    flex: 1 1 0;
   }
 }
 </style>

@@ -35,7 +35,7 @@ async function openChannel(): Promise<void> {
     </v-alert>
 
     <div class="about-layout">
-      <v-card flat border>
+      <v-card class="panel-card" flat>
         <v-card-text class="about-intro">
           <div class="about-label">Provided by</div>
           <h2 class="about-provider">thelastoutpostworkshop</h2>
@@ -54,8 +54,9 @@ async function openChannel(): Promise<void> {
         </v-card-text>
       </v-card>
 
-      <v-card flat border>
+      <v-card class="panel-card" flat>
         <v-card-title class="text-subtitle-1 font-weight-bold">
+          <v-icon class="mr-2" color="primary" icon="mdi-shield-home-outline" />
           Local-first by design
         </v-card-title>
         <v-divider />
@@ -94,7 +95,7 @@ async function openChannel(): Promise<void> {
 }
 
 .about-label {
-  color: #667063;
+  color: var(--vault-muted);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0;
@@ -103,7 +104,7 @@ async function openChannel(): Promise<void> {
 
 .about-provider {
   margin: 6px 0 12px;
-  color: #202420;
+  color: var(--vault-text);
   font-size: 1.65rem;
   line-height: 1.2;
 }
@@ -111,7 +112,7 @@ async function openChannel(): Promise<void> {
 .about-copy {
   max-width: 620px;
   margin: 0 0 20px;
-  color: #4f574f;
+  color: var(--vault-muted);
   line-height: 1.55;
 }
 

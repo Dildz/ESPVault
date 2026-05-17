@@ -18,6 +18,15 @@ export const BOARD_STATUS_COLORS: Record<BoardStatus, string> = {
   unknown: "secondary"
 };
 
+export const BOARD_STATUS_ICONS: Record<BoardStatus, string> = {
+  available: "mdi-check-circle-outline",
+  in_use: "mdi-play-circle-outline",
+  needs_flashing: "mdi-flash-alert-outline",
+  broken: "mdi-alert-octagon-outline",
+  archived: "mdi-archive-outline",
+  unknown: "mdi-help-circle-outline"
+};
+
 export function formatBytes(value: number | null): string {
   if (value === null) {
     return "Not set";

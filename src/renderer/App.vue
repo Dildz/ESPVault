@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage.vue";
 import ProjectsPage from "./pages/ProjectsPage.vue";
 import ScanBoardPage from "./pages/ScanBoardPage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
+import { useVaultTheme } from "./composables/useVaultTheme";
 
 type ViewKey =
   | "dashboard"
@@ -34,6 +35,7 @@ interface ResourceItem {
 const currentView = ref<ViewKey>("dashboard");
 const boardToOpenId = ref<string | null>(null);
 const scanRequestId = ref(0);
+const { isDarkTheme, toggleTheme } = useVaultTheme();
 
 const navItems: NavItem[] = [
   { key: "dashboard", title: "Dashboard", icon: "mdi-view-dashboard-outline" },
@@ -78,6 +80,12 @@ const viewComponents: Record<ViewKey, Component> = {
 };
 
 const activeComponent = computed(() => viewComponents[currentView.value]);
+const themeToggleIcon = computed(() =>
+  isDarkTheme.value ? "mdi-weather-sunny" : "mdi-weather-night"
+);
+const themeToggleLabel = computed(() =>
+  isDarkTheme.value ? "Switch to light mode" : "Switch to dark mode"
+);
 const activeComponentProps = computed(() => {
   if (currentView.value === "boards") {
     return { openBoardId: boardToOpenId.value };
@@ -124,29 +132,34 @@ function openResource(item: ResourceItem): void {
 
 <template>
   <v-app>
-    <v-navigation-drawer permanent width="248">
-      <div class="px-5 py-5">
-        <div class="text-h6 font-weight-bold">ESP Board Vault</div>
-        <div class="text-body-2 muted mt-1">Local ESP32 inventory</div>
+    <v-navigation-drawer class="vault-drawer" permanent width="264">
+      <div class="brand-block px-5 py-5">
+        <div class="brand-mark" aria-hidden="true">
+          <v-icon icon="mdi-chip" size="26" />
+        </div>
+        <div>
+          <div class="text-h6 font-weight-bold">ESP Board Vault</div>
+          <div class="text-body-2 muted mt-1">Local ESP32 inventory</div>
+        </div>
       </div>
 
       <v-divider />
 
-      <v-list nav density="compact" class="px-3 py-4">
+      <v-list nav density="compact" class="nav-list px-3 py-4">
         <v-list-item
           v-for="item in navItems"
           :key="item.key"
           :active="currentView === item.key"
           :prepend-icon="item.icon"
           :title="item.title"
-          rounded="sm"
+          rounded="lg"
           @click="currentView = item.key"
         />
       </v-list>
 
       <v-divider class="mx-3" />
 
-      <v-list nav density="compact" class="px-3 py-4">
+      <v-list nav density="compact" class="nav-list px-3 py-4">
         <v-list-subheader class="px-2">Resources</v-list-subheader>
         <v-list-item
           v-for="item in resourceItems"
@@ -156,14 +169,28 @@ function openResource(item: ResourceItem): void {
           :append-icon="item.url ? 'mdi-open-in-new' : undefined"
           :title="item.title"
           :subtitle="item.subtitle"
-          rounded="sm"
+          rounded="lg"
           @click="openResource(item)"
         />
       </v-list>
     </v-navigation-drawer>
 
-    <v-app-bar flat border color="surface">
+    <v-app-bar class="vault-app-bar" flat color="surface">
       <v-app-bar-title>{{ navItems.find((item) => item.key === currentView)?.title }}</v-app-bar-title>
+      <v-spacer />
+      <v-tooltip :text="themeToggleLabel">
+        <template #activator="{ props: tooltipProps }">
+          <v-btn
+            v-bind="tooltipProps"
+            class="mr-3"
+            :icon="themeToggleIcon"
+            variant="tonal"
+            color="primary"
+            :aria-label="themeToggleLabel"
+            @click="toggleTheme"
+          />
+        </template>
+      </v-tooltip>
     </v-app-bar>
 
     <v-main>
@@ -178,3 +205,51 @@ function openResource(item: ResourceItem): void {
     </v-main>
   </v-app>
 </template>
+
+<style scoped>
+.vault-drawer {
+  border-right: 1px solid var(--vault-border);
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface-variant), 0.42)),
+    rgb(var(--v-theme-surface));
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(var(--v-theme-primary), 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.18), rgba(var(--v-theme-accent), 0.18)),
+    rgba(var(--v-theme-surface), 0.75);
+  color: rgb(var(--v-theme-primary));
+}
+
+.nav-list :deep(.v-list-item) {
+  margin-bottom: 4px;
+}
+
+.nav-list :deep(.v-list-item--active) {
+  border: 1px solid rgba(var(--v-theme-primary), 0.24);
+  background: rgba(var(--v-theme-primary), 0.12);
+  color: rgb(var(--v-theme-primary));
+}
+
+.vault-app-bar {
+  border-bottom: 1px solid var(--vault-border);
+  background: rgba(var(--v-theme-surface), 0.9) !important;
+  backdrop-filter: blur(14px);
+}
+
+.vault-app-bar :deep(.v-toolbar__content) {
+  padding-inline: 20px;
+}
+</style>

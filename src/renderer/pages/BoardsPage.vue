@@ -11,6 +11,7 @@ import BoardEditorDialog from "../components/BoardEditorDialog.vue";
 import { useBoardStore } from "../stores/boardStore";
 import {
   BOARD_STATUS_COLORS,
+  BOARD_STATUS_ICONS,
   BOARD_STATUS_LABELS,
   formatFlashSize,
   formatDate,
@@ -350,7 +351,7 @@ function getBoardCoverError(caughtError: unknown, fallback: string): string {
     <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-3" />
 
     <div v-if="!filteredBoards.length && !loading" class="empty-state">
-      <v-icon icon="mdi-developer-board" size="40" color="secondary" />
+      <v-icon icon="mdi-developer-board" size="40" color="primary" />
       <div class="text-subtitle-1 font-weight-bold mt-3">No boards yet.</div>
       <div class="text-body-2 muted mt-1">
         Add an ESP32 board manually to start building your inventory.
@@ -360,8 +361,8 @@ function getBoardCoverError(caughtError: unknown, fallback: string): string {
       </v-btn>
     </div>
 
-    <v-card v-else flat border>
-      <v-table>
+    <v-card v-else class="vault-table-card" flat>
+      <v-table class="vault-data-table boards-table">
         <thead>
           <tr>
             <th>Board</th>
@@ -405,6 +406,7 @@ function getBoardCoverError(caughtError: unknown, fallback: string): string {
               <v-chip
                 class="status-chip"
                 :color="BOARD_STATUS_COLORS[board.status]"
+                :prepend-icon="BOARD_STATUS_ICONS[board.status]"
                 size="small"
                 variant="tonal"
               >
@@ -519,9 +521,11 @@ function getBoardCoverError(caughtError: unknown, fallback: string): string {
   height: 52px;
   overflow: hidden;
   place-items: center;
-  border: 1px solid #dcded8;
+  border: 1px solid var(--vault-border);
   border-radius: 8px;
-  background: #f4f6f1;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-accent), 0.08)),
+    var(--vault-cover-bg);
 }
 
 .board-list-cover-image {
@@ -533,5 +537,19 @@ function getBoardCoverError(caughtError: unknown, fallback: string): string {
 
 .board-list-copy {
   min-width: 0;
+}
+
+.boards-table :deep(td),
+.boards-table :deep(th) {
+  padding: 12px 14px;
+  vertical-align: middle;
+}
+
+.boards-table :deep(th) {
+  white-space: nowrap;
+}
+
+.boards-table :deep(td:first-child) {
+  min-width: 260px;
 }
 </style>

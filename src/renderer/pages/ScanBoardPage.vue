@@ -365,9 +365,10 @@ watch(
       {{ notice }}
     </v-alert>
 
-    <v-card v-if="detectedBoards.length" flat border>
+    <v-card v-if="detectedBoards.length" class="vault-table-card" flat>
       <v-card-title class="detected-board-title">
         <span class="text-subtitle-1 font-weight-bold">
+          <v-icon class="mr-2" color="primary" icon="mdi-radar" />
           Detected boards
         </span>
         <v-btn
@@ -381,7 +382,7 @@ watch(
         </v-btn>
       </v-card-title>
       <v-divider />
-      <v-table class="detected-board-table">
+      <v-table class="vault-data-table detected-board-table">
         <thead>
           <tr>
             <th>Board</th>
@@ -471,16 +472,19 @@ watch(
     </v-card>
 
     <div v-else class="empty-state">
-      <v-icon icon="mdi-usb-port" size="40" color="secondary" />
+      <v-icon icon="mdi-usb-port" size="40" color="primary" />
       <div class="text-subtitle-1 font-weight-bold mt-3">No board scanned yet</div>
       <div class="text-body-2 muted mt-1">
         The app will ask for serial ports, reset into the ESP bootloader, and read chip details.
       </div>
     </div>
 
-    <v-card v-if="scanLogs.length" class="mt-4" flat border>
+    <v-card v-if="scanLogs.length" class="panel-card mt-4" flat>
       <v-card-title class="scan-log-title">
-        <span class="text-subtitle-1 font-weight-bold">Scan log</span>
+        <span class="text-subtitle-1 font-weight-bold">
+          <v-icon class="mr-2" color="primary" icon="mdi-console-line" />
+          Scan log
+        </span>
         <v-btn
           size="small"
           variant="text"

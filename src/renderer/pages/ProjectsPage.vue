@@ -10,6 +10,7 @@ import {
 } from "../../shared/types/inventory";
 import {
   BOARD_STATUS_COLORS,
+  BOARD_STATUS_ICONS,
   BOARD_STATUS_LABELS,
   formatBytes,
   formatDate,
@@ -85,6 +86,12 @@ const statusOptions = [
     value: status
   }))
 ];
+const PROJECT_STATUS_ICONS: Record<ProjectStatus, string> = {
+  active: "mdi-play-circle-outline",
+  on_hold: "mdi-pause-circle-outline",
+  completed: "mdi-check-circle-outline",
+  archived: "mdi-archive-outline"
+};
 
 const projectRows = computed<ProjectRow[]>(() =>
   projects.value.map((project) => {
@@ -472,6 +479,14 @@ function projectHealthColor(row: ProjectRow): string {
   return row.attentionCount > 0 ? "warning" : "success";
 }
 
+function projectHealthIcon(row: ProjectRow): string {
+  if (!row.assignedBoards.length) {
+    return "mdi-progress-question";
+  }
+
+  return row.attentionCount > 0 ? "mdi-alert-outline" : "mdi-check-circle-outline";
+}
+
 function getProjectImageError(
   caughtError: unknown,
   fallbackMessage: string
@@ -500,26 +515,47 @@ function getProjectImageError(
 
     <v-row class="mb-4" dense>
       <v-col cols="12" md="4">
-        <v-card class="metric-card" flat>
+        <v-card class="metric-card metric-card--amber" flat>
           <v-card-text>
-            <div class="metric-label">Projects</div>
-            <div class="metric-value">{{ projects.length }}</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Projects</div>
+                <div class="metric-value">{{ projects.length }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-folder-multiple-outline" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" md="4">
-        <v-card class="metric-card" flat>
+        <v-card class="metric-card metric-card--green" flat>
           <v-card-text>
-            <div class="metric-label">Assigned boards</div>
-            <div class="metric-value">{{ assignedBoardCount }}</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Assigned boards</div>
+                <div class="metric-value">{{ assignedBoardCount }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-link-variant" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
       <v-col cols="12" md="4">
-        <v-card class="metric-card" flat>
+        <v-card class="metric-card metric-card--blue" flat>
           <v-card-text>
-            <div class="metric-label">Unassigned boards</div>
-            <div class="metric-value">{{ unassignedBoardCount }}</div>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Unassigned boards</div>
+                <div class="metric-value">{{ unassignedBoardCount }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-link-variant-off" />
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -552,7 +588,7 @@ function getProjectImageError(
     <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-3" />
 
     <div v-if="!filteredRows.length && !loading" class="empty-state">
-      <v-icon icon="mdi-folder-outline" size="40" color="secondary" />
+      <v-icon icon="mdi-folder-outline" size="40" color="primary" />
       <div class="text-subtitle-1 font-weight-bold mt-3">No projects yet.</div>
       <div class="text-body-2 muted mt-1">
         Create a project to group boards, firmware notes, and recovery details.
@@ -568,12 +604,13 @@ function getProjectImageError(
     </div>
 
     <div v-else class="projects-layout">
-      <v-card flat border>
+      <v-card class="vault-table-card" flat>
         <v-card-title class="text-subtitle-1 font-weight-bold">
+          <v-icon class="mr-2" color="primary" icon="mdi-folder-table-outline" />
           Project list
         </v-card-title>
         <v-divider />
-        <v-table class="projects-table">
+        <v-table class="vault-data-table projects-table">
           <thead>
             <tr>
               <th>Project</th>
@@ -616,7 +653,9 @@ function getProjectImageError(
               </td>
               <td>
                 <v-chip
+                  class="status-chip"
                   :color="PROJECT_STATUS_COLORS[row.project.status]"
+                  :prepend-icon="PROJECT_STATUS_ICONS[row.project.status]"
                   size="small"
                   variant="tonal"
                 >
@@ -625,7 +664,12 @@ function getProjectImageError(
               </td>
               <td>{{ row.assignedBoards.length }}</td>
               <td>
-                <v-chip :color="projectHealthColor(row)" size="small" variant="tonal">
+                <v-chip
+                  :color="projectHealthColor(row)"
+                  :prepend-icon="projectHealthIcon(row)"
+                  size="small"
+                  variant="tonal"
+                >
                   {{ formatProjectHealth(row) }}
                 </v-chip>
               </td>
@@ -634,7 +678,7 @@ function getProjectImageError(
         </v-table>
       </v-card>
 
-      <v-card v-if="selectedRow" flat border>
+      <v-card v-if="selectedRow" class="panel-card project-detail-card" flat>
         <v-card-title class="project-detail-title">
           <div>
             <div class="text-h6">{{ selectedRow.project.name }}</div>
@@ -644,7 +688,9 @@ function getProjectImageError(
           </div>
           <div class="project-detail-actions">
             <v-chip
+              class="status-chip"
               :color="PROJECT_STATUS_COLORS[selectedRow.project.status]"
+              :prepend-icon="PROJECT_STATUS_ICONS[selectedRow.project.status]"
               size="small"
               variant="tonal"
             >
@@ -696,7 +742,7 @@ function getProjectImageError(
                 />
               </button>
               <div v-else class="project-cover-placeholder">
-                <v-icon icon="mdi-image-plus-outline" size="34" color="secondary" />
+                <v-icon icon="mdi-image-plus-outline" size="34" color="primary" />
                 <div class="text-caption muted mt-1">No project photo</div>
               </div>
             </div>
@@ -777,7 +823,10 @@ function getProjectImageError(
           </div>
 
           <div class="section-title mt-5 mb-2">Assigned boards</div>
-          <v-table v-if="selectedRow.assignedBoards.length" class="assigned-board-table">
+          <v-table
+            v-if="selectedRow.assignedBoards.length"
+            class="vault-data-table assigned-board-table"
+          >
             <thead>
               <tr>
                 <th>Board</th>
@@ -800,7 +849,9 @@ function getProjectImageError(
                 </td>
                 <td>
                   <v-chip
+                    class="status-chip"
                     :color="BOARD_STATUS_COLORS[board.status]"
+                    :prepend-icon="BOARD_STATUS_ICONS[board.status]"
                     size="small"
                     variant="tonal"
                   >
@@ -837,7 +888,7 @@ function getProjectImageError(
             </tbody>
           </v-table>
           <div v-else class="empty-state project-empty-state">
-            <v-icon icon="mdi-developer-board" size="32" color="secondary" />
+            <v-icon icon="mdi-developer-board" size="32" color="primary" />
             <div class="text-subtitle-2 font-weight-bold mt-2">No boards assigned</div>
           </div>
         </v-card-text>
@@ -972,7 +1023,8 @@ function getProjectImageError(
 }
 
 .project-row--selected {
-  background: #eef4ed;
+  background: rgba(var(--v-theme-primary), 0.1);
+  box-shadow: inset 4px 0 0 rgb(var(--v-theme-primary));
 }
 
 .project-list-identity {
@@ -989,9 +1041,11 @@ function getProjectImageError(
   height: 52px;
   overflow: hidden;
   place-items: center;
-  border: 1px solid #dcded8;
+  border: 1px solid var(--vault-border);
   border-radius: 8px;
-  background: #f4f6f1;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-accent), 0.08)),
+    var(--vault-cover-bg);
 }
 
 .project-list-cover-image {
@@ -1010,6 +1064,7 @@ function getProjectImageError(
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  padding: 18px 20px;
 }
 
 .project-detail-actions {
@@ -1029,9 +1084,11 @@ function getProjectImageError(
 .project-cover-preview {
   min-height: 160px;
   overflow: hidden;
-  border: 1px solid #dcded8;
+  border: 1px solid var(--vault-border);
   border-radius: 8px;
-  background: #f4f6f1;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-accent), 0.08)),
+    var(--vault-cover-bg);
 }
 
 .project-cover-viewer-trigger {
@@ -1105,6 +1162,13 @@ function getProjectImageError(
   gap: 16px;
 }
 
+.project-facts > div {
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(var(--v-theme-surface-variant), 0.34);
+}
+
 .assign-board-row {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) auto;
@@ -1125,7 +1189,7 @@ function getProjectImageError(
 }
 
 .section-title {
-  color: rgb(var(--v-theme-secondary));
+  color: var(--vault-muted);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0;

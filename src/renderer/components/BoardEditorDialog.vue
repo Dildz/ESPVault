@@ -755,10 +755,10 @@ function getCoverImageError(caughtError: unknown, fallback: string): string {
 
 <style scoped>
 .section-title {
-  color: rgb(var(--v-theme-secondary));
+  color: var(--vault-muted);
   font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -773,9 +773,11 @@ function getCoverImageError(caughtError: unknown, fallback: string): string {
 .board-cover-preview {
   min-height: 150px;
   overflow: hidden;
-  border: 1px solid #dcded8;
+  border: 1px solid var(--vault-border);
   border-radius: 8px;
-  background: #f4f6f1;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-accent), 0.08)),
+    var(--vault-cover-bg);
 }
 
 .board-cover-viewer-trigger {

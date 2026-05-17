@@ -158,8 +158,9 @@ function totalRecords(summary: VaultBackupSummary): number {
     </v-alert>
 
     <div class="backup-grid">
-      <v-card flat border>
+      <v-card class="panel-card" flat>
         <v-card-title class="text-subtitle-1 font-weight-bold">
+          <v-icon class="mr-2" color="primary" icon="mdi-database-export-outline" />
           Export backup
         </v-card-title>
         <v-divider />
@@ -181,8 +182,9 @@ function totalRecords(summary: VaultBackupSummary): number {
         </v-card-text>
       </v-card>
 
-      <v-card flat border>
+      <v-card class="panel-card" flat>
         <v-card-title class="text-subtitle-1 font-weight-bold">
+          <v-icon class="mr-2" color="primary" icon="mdi-database-import-outline" />
           Import backup
         </v-card-title>
         <v-divider />
@@ -274,7 +276,8 @@ function totalRecords(summary: VaultBackupSummary): number {
 }
 
 .backup-summary {
-  border: 1px solid #e1e4dc;
+  border: 1px solid var(--vault-border);
+  border-radius: 8px;
 }
 
 @media (max-width: 900px) {

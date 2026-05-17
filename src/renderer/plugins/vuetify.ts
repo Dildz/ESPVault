@@ -21,25 +21,43 @@ export const vuetify = createVuetify({
       vaultLight: {
         dark: false,
         colors: {
-          background: "#f7f8f5",
+          background: "#f3f7f4",
           surface: "#ffffff",
-          primary: "#226f54",
-          secondary: "#425466",
-          accent: "#c46d2d",
-          error: "#b3261e",
-          warning: "#a75d12",
-          info: "#36618e",
-          success: "#2f7d32"
+          "surface-bright": "#ffffff",
+          "surface-variant": "#e7eee8",
+          primary: "#08745e",
+          secondary: "#3f5667",
+          accent: "#d5751f",
+          error: "#ba1a1a",
+          warning: "#a15c00",
+          info: "#0e6d9f",
+          success: "#1f7a43"
+        }
+      },
+      vaultDark: {
+        dark: true,
+        colors: {
+          background: "#111816",
+          surface: "#17211f",
+          "surface-bright": "#22302d",
+          "surface-variant": "#263a35",
+          primary: "#42d6b5",
+          secondary: "#a7bac5",
+          accent: "#ffb25f",
+          error: "#ffb4ab",
+          warning: "#f6bd62",
+          info: "#8fcfff",
+          success: "#7bdc9b"
         }
       }
     }
   },
   defaults: {
     VBtn: {
-      rounded: "sm"
+      rounded: "lg"
     },
     VCard: {
-      rounded: "sm"
+      rounded: "lg"
     },
     VTextField: {
       density: "comfortable",
