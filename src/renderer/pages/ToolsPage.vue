@@ -35,7 +35,7 @@ const toolItems: ToolItem[] = [
   {
     key: "video-conversion",
     title: "Video Conversion Studio",
-    icon: "mdi-video-sync-outline",
+    icon: "mdi-movie-cog-outline",
     url: "https://thelastoutpostworkshop.github.io/video_conversion/",
     description: "Convert video assets for embedded displays, maker projects, and web workflows.",
     sourceUrl: "https://github.com/thelastoutpostworkshop/video_conversion",
