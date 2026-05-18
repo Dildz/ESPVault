@@ -47,6 +47,29 @@ const savedBoardsByMac = computed(() => {
 const newDetectedBoards = computed(() =>
   detectedBoards.value.filter((board) => !getSavedBoard(board))
 );
+const savedDetectedBoardCount = computed(
+  () => detectedBoards.value.length - newDetectedBoards.value.length
+);
+const scanReadyFeedback = computed(() => {
+  if (loading.value || !detectedBoards.value.length) {
+    return null;
+  }
+
+  const parts = [
+    newDetectedBoards.value.length
+      ? `${newDetectedBoards.value.length} new board${
+          newDetectedBoards.value.length === 1 ? "" : "s"
+        } ready to add`
+      : null,
+    savedDetectedBoardCount.value
+      ? `${savedDetectedBoardCount.value} saved board${
+          savedDetectedBoardCount.value === 1 ? "" : "s"
+        } ready to update`
+      : null
+  ].filter((value): value is string => Boolean(value));
+
+  return parts.length ? parts.join(" / ") : "Review the detected boards below.";
+});
 
 async function runScan(): Promise<void> {
   if (loading.value) {
@@ -533,8 +556,49 @@ watch(
     </v-alert>
 
     <v-card v-if="detectedBoards.length" class="vault-table-card" flat>
-      <v-card-title class="detected-board-title">
-        <span class="text-subtitle-1 font-weight-bold">
+      <v-card-title
+        :class="[
+          'detected-board-title',
+          { 'detected-board-title--ready': scanReadyFeedback }
+        ]"
+      >
+        <div
+          v-if="scanReadyFeedback"
+          class="scan-ready-heading"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="scan-ready-orb" aria-hidden="true">
+            <span />
+            <span />
+            <v-icon icon="mdi-radar" size="28" />
+          </div>
+          <div class="scan-ready-copy">
+            <div class="scan-ready-kicker">Scan complete</div>
+            <div class="scan-ready-message">{{ scanReadyFeedback }}</div>
+            <div class="scan-ready-chip-row">
+              <v-chip
+                v-if="newDetectedBoards.length"
+                color="primary"
+                prepend-icon="mdi-plus-circle-outline"
+                size="small"
+                variant="tonal"
+              >
+                {{ newDetectedBoards.length }} ready to add
+              </v-chip>
+              <v-chip
+                v-if="savedDetectedBoardCount"
+                color="info"
+                prepend-icon="mdi-refresh-circle"
+                size="small"
+                variant="tonal"
+              >
+                {{ savedDetectedBoardCount }} ready to update
+              </v-chip>
+            </div>
+          </div>
+        </div>
+        <span v-else class="text-subtitle-1 font-weight-bold">
           <v-icon class="mr-2" color="primary" icon="mdi-radar" />
           Detected boards
         </span>
@@ -691,11 +755,170 @@ watch(
 
 <style scoped>
 .detected-board-title {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  overflow: hidden;
   min-height: 52px;
+}
+
+.detected-board-title--ready {
+  min-height: 104px;
+  padding: 16px 18px;
+  background:
+    radial-gradient(circle at 8% 50%, rgba(var(--v-theme-primary), 0.2), transparent 28%),
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.16), rgba(var(--v-theme-surface), 0.78));
+  box-shadow:
+    0 18px 42px rgba(var(--v-theme-primary), 0.12),
+    inset 0 0 0 1px rgba(var(--v-theme-primary), 0.08);
+  animation: scan-ready-enter 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.detected-board-title--ready::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 34%,
+    rgba(255, 255, 255, 0.16) 48%,
+    transparent 62%,
+    transparent 100%
+  );
+  content: "";
+  transform: translateX(-120%);
+  animation: scan-ready-sweep 1450ms ease-out 180ms both;
+  pointer-events: none;
+}
+
+.detected-board-title :deep(.v-btn) {
+  position: relative;
+  z-index: 1;
+}
+
+.scan-ready-heading {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  flex: 1 1 auto;
+  gap: 16px;
+  align-items: center;
+  min-width: 0;
+}
+
+.scan-ready-orb {
+  position: relative;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid rgba(var(--v-theme-primary), 0.34);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(var(--v-theme-primary), 0.28), rgba(var(--v-theme-primary), 0.08) 58%, transparent 70%);
+  color: rgb(var(--v-theme-primary));
+}
+
+.scan-ready-orb span {
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.45);
+  border-radius: inherit;
+  animation: scan-ready-pulse 1650ms ease-out infinite;
+}
+
+.scan-ready-orb span:nth-child(2) {
+  animation-delay: 420ms;
+}
+
+.scan-ready-orb :deep(.v-icon) {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 0 12px rgba(var(--v-theme-primary), 0.45));
+}
+
+.scan-ready-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.scan-ready-kicker {
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.scan-ready-message {
+  margin-top: 3px;
+  color: var(--vault-text);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.scan-ready-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+@keyframes scan-ready-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes scan-ready-sweep {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes scan-ready-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.72);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detected-board-title--ready,
+  .detected-board-title--ready::after,
+  .scan-ready-orb span {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .detected-board-title--ready {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .scan-ready-heading {
+    grid-template-columns: 1fr;
+  }
+
+  .scan-ready-orb {
+    display: none;
+  }
 }
 
 .detected-board-table {
