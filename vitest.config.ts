@@ -11,6 +11,11 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    server: {
+      deps: {
+        inline: ["tasmota-webserial-esptool"]
+      }
+    },
     setupFiles: ["./src/renderer/test/setupDexie.ts"]
   }
 });
