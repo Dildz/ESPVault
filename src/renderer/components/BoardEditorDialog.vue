@@ -60,9 +60,11 @@ const props = withDefaults(defineProps<{
   board: Board | null;
   coverImageBusy?: boolean;
   coverImageError?: string | null;
+  locationOptions?: string[];
 }>(), {
   coverImageBusy: false,
-  coverImageError: null
+  coverImageError: null,
+  locationOptions: () => []
 });
 
 const emit = defineEmits<{
@@ -739,7 +741,14 @@ function getDroppedImageFile(event: DragEvent): File | null {
               <v-text-field v-model="form.manufacturer" label="Manufacturer" />
             </v-col>
             <v-col cols="12" md="6">
-              <v-text-field v-model="form.physicalLocation" label="Location" />
+              <v-combobox
+                v-model="form.physicalLocation"
+                :items="locationOptions"
+                auto-select-first
+                clearable
+                label="Location"
+                prepend-inner-icon="mdi-map-marker-outline"
+              />
             </v-col>
             <v-col cols="12" md="6">
               <v-text-field v-model="form.purchaseUrl" label="Purchase URL" />

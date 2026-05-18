@@ -81,6 +81,12 @@ const chipModelOptions = computed(() => [
   { title: "All chip models", value: "" },
   ...chipModels.value.map((model) => ({ title: model, value: model }))
 ]);
+const locationOptions = computed(() =>
+  uniqueLocationOptions([
+    ...boards.value.map((board) => board.physicalLocation),
+    ...projects.value.map((project) => project.location)
+  ])
+);
 
 const filteredBoards = computed(() => {
   const search = filters.search.trim().toLowerCase();
@@ -470,6 +476,16 @@ function formatEnabledState(value: boolean | null): string {
   }
 
   return value ? "Enabled" : "Disabled";
+}
+
+function uniqueLocationOptions(values: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value))
+    )
+  ).sort((left, right) => left.localeCompare(right));
 }
 </script>
 
@@ -982,6 +998,7 @@ function formatEnabledState(value: boolean | null): string {
       :board="editingBoard"
       :cover-image-busy="Boolean(editingBoard && boardCoverBusyId === editingBoard.id)"
       :cover-image-error="boardCoverError"
+      :location-options="locationOptions"
       @choose-cover="chooseBoardCover"
       @remove-cover="removeBoardCover"
       @drop-cover="dropBoardCover"

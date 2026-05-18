@@ -166,6 +166,12 @@ const assignableBoardOptions = computed(() => {
       value: board.id
     }));
 });
+const locationOptions = computed(() =>
+  uniqueLocationOptions([
+    ...projects.value.map((project) => project.location),
+    ...boards.value.map((board) => board.physicalLocation)
+  ])
+);
 const projectCoverPathKey = computed(() =>
   projects.value
     .map((project) => `${project.id}:${project.coverImagePath ?? ""}`)
@@ -581,6 +587,16 @@ function projectHealthIcon(row: ProjectRow): string {
   }
 
   return row.attentionCount > 0 ? "mdi-alert-outline" : "mdi-check-circle-outline";
+}
+
+function uniqueLocationOptions(values: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value))
+    )
+  ).sort((left, right) => left.localeCompare(right));
 }
 
 function getProjectImageError(
@@ -1061,8 +1077,11 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
                 />
               </v-col>
               <v-col cols="12">
-                <v-text-field
+                <v-combobox
                   v-model="form.location"
+                  :items="locationOptions"
+                  auto-select-first
+                  clearable
                   label="Project location"
                   prepend-inner-icon="mdi-map-marker-outline"
                 />
