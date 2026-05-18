@@ -235,7 +235,7 @@ function buildBoardInput(board: DetectedEspBoard): CreateBoardInput {
     partitionTableReadError: board.partitionTableReadError,
     lastConnectedAt: board.detectedAt,
     lastScannedAt: board.detectedAt,
-    notes: "Created from tasmota-webserial-esptool scan data."
+    notes: "Created from scan data."
   };
 }
 
