@@ -797,193 +797,193 @@ function getCssVariable(name: string, fallback: string): string {
           </div>
       </v-card>
 
-      <v-card class="panel-card dashboard-panel" flat>
-          <v-card-title class="text-subtitle-1 font-weight-bold">
-            <v-icon class="mr-2" color="primary" icon="mdi-history" />
-            Recent activity
-          </v-card-title>
-          <v-divider />
-          <v-list v-if="recentActivity.length" lines="two" class="activity-list">
-            <v-list-item
-              v-for="(activity, index) in recentActivity"
-              :key="`${activity.kind}-${activity.board.id}-${index}`"
-              :title="activity.board.name"
-              :subtitle="formatDate(activity.date)"
-            >
-              <template #prepend>
-                <div class="activity-event-icon">
-                  <v-icon :color="activity.color" :icon="activity.icon" size="22" />
-                </div>
-              </template>
-              <template #title>
-                <div class="activity-title-row">
-                  <span>{{ activity.board.name }}</span>
-                  <v-chip :color="activity.color" size="x-small" variant="tonal">
-                    {{ activity.label }}
-                  </v-chip>
-                </div>
-              </template>
-              <template #append>
-                <v-chip
-                  class="status-chip"
-                  :color="BOARD_STATUS_COLORS[activity.board.status]"
-                  :prepend-icon="BOARD_STATUS_ICONS[activity.board.status]"
-                  size="small"
-                  variant="tonal"
-                >
-                  {{ BOARD_STATUS_LABELS[activity.board.status] }}
-                </v-chip>
-              </template>
-            </v-list-item>
-          </v-list>
-          <div v-else class="empty-state ma-4">
-            <v-icon icon="mdi-developer-board" size="34" color="primary" />
-            <div class="text-subtitle-1 font-weight-bold mt-2">No boards yet.</div>
-            <div class="text-body-2 muted mt-1">
-              Add a board manually to start building your inventory.
+      <v-card class="panel-card dashboard-panel partition-insights-panel" flat>
+        <v-card-title class="text-subtitle-1 font-weight-bold partition-insights-title">
+          <v-icon class="mr-2" color="primary" icon="mdi-memory" />
+          Partition insights
+        </v-card-title>
+        <v-divider />
+        <div
+          v-if="partitionInsights.boardsWithPartitions"
+          class="partition-insights-grid"
+        >
+          <div class="partition-flash-summary">
+            <div class="partition-flash-chart-wrap">
+              <canvas
+                ref="partitionFlashChartCanvas"
+                aria-label="Partitioned and open flash chart"
+              />
+              <div class="partition-flash-chart-center">
+                <strong>{{ partitionedFlashPercent }}%</strong>
+                <span>partitioned</span>
+              </div>
             </div>
-            <v-btn
-              class="mt-4"
-              color="primary"
-              prepend-icon="mdi-plus"
-              @click="emit('open-boards')"
-            >
-              Add board
-            </v-btn>
+            <div class="partition-flash-copy">
+              <div class="metric-label">Flash layout</div>
+              <div class="partition-flash-headline">
+                {{ formatBytes(partitionInsights.partitionedBytes) }} mapped
+              </div>
+              <div class="partition-flash-legend">
+                <span><i class="legend-dot legend-dot--primary" />Partitioned</span>
+                <span><i class="legend-dot legend-dot--amber" />Open flash</span>
+              </div>
+            </div>
           </div>
+
+          <div class="partition-kpi-grid">
+            <div class="partition-kpi">
+              <v-icon color="primary" icon="mdi-radar" />
+              <div>
+                <strong>{{ formatBoardCount(partitionInsights.boardsWithPartitions) }}</strong>
+                <span>with partition maps</span>
+              </div>
+            </div>
+            <div class="partition-kpi">
+              <v-icon color="success" icon="mdi-update" />
+              <div>
+                <strong>{{ otaReadyPercent }}%</strong>
+                <span>OTA-ready layouts</span>
+              </div>
+            </div>
+            <div class="partition-kpi">
+              <v-icon color="info" icon="mdi-table-row" />
+              <div>
+                <strong>{{ averagePartitionsPerBoard }}</strong>
+                <span>avg partitions per board</span>
+              </div>
+            </div>
+            <div class="partition-kpi">
+              <v-icon color="warning" icon="mdi-alert-circle-outline" />
+              <div>
+                <strong>{{ partitionInsights.failedBoards }}</strong>
+                <span>partition reads failed</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="open-flash-panel">
+            <div class="partition-section-heading">
+              <div>
+                <div class="metric-label">Open flash opportunities</div>
+                <strong>{{ formatBytes(partitionInsights.openBytes) }} available</strong>
+              </div>
+              <v-chip color="warning" size="small" variant="tonal">
+                Top {{ partitionInsights.topOpenFlashBoards.length }}
+              </v-chip>
+            </div>
+            <div
+              v-if="partitionInsights.topOpenFlashBoards.length"
+              class="open-flash-chart-wrap"
+            >
+              <canvas
+                ref="openFlashChartCanvas"
+                aria-label="Boards with the most open flash"
+              />
+            </div>
+            <div v-else class="partition-mini-empty">
+              No open flash detected in recorded partition maps.
+            </div>
+          </div>
+
+          <div class="filesystem-panel">
+            <div class="partition-section-heading">
+              <div>
+                <div class="metric-label">Filesystem footprint</div>
+                <strong>
+                  {{ partitionInsights.filesystemMetrics.length || "No" }}
+                  filesystem{{ partitionInsights.filesystemMetrics.length === 1 ? "" : "s" }}
+                </strong>
+              </div>
+            </div>
+            <div
+              v-if="partitionInsights.filesystemMetrics.length"
+              class="filesystem-metrics"
+            >
+              <div
+                v-for="metric in partitionInsights.filesystemMetrics"
+                :key="metric.key"
+                class="filesystem-metric"
+              >
+                <span
+                  class="filesystem-dot"
+                  :style="{ backgroundColor: metric.color }"
+                />
+                <span>{{ metric.label }}</span>
+                <strong>{{ formatBytes(metric.bytes) }}</strong>
+              </div>
+            </div>
+            <div v-else class="partition-mini-empty">
+              No SPIFFS, LittleFS, or FATFS partitions recorded yet.
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="empty-state ma-4">
+          <v-icon icon="mdi-table-search" size="34" color="primary" />
+          <div class="text-subtitle-1 font-weight-bold mt-2">
+            No partition maps yet.
+          </div>
+          <div class="text-body-2 muted mt-1">
+            Scan boards to unlock flash layout, OTA, and filesystem insights.
+          </div>
+        </div>
       </v-card>
     </div>
 
-    <v-card class="panel-card dashboard-panel partition-insights-panel" flat>
-      <v-card-title class="text-subtitle-1 font-weight-bold partition-insights-title">
-        <v-icon class="mr-2" color="primary" icon="mdi-memory" />
-        Partition insights
-      </v-card-title>
-      <v-divider />
-      <div
-        v-if="partitionInsights.boardsWithPartitions"
-        class="partition-insights-grid"
-      >
-        <div class="partition-flash-summary">
-          <div class="partition-flash-chart-wrap">
-            <canvas
-              ref="partitionFlashChartCanvas"
-              aria-label="Partitioned and open flash chart"
-            />
-            <div class="partition-flash-chart-center">
-              <strong>{{ partitionedFlashPercent }}%</strong>
-              <span>partitioned</span>
-            </div>
-          </div>
-          <div class="partition-flash-copy">
-            <div class="metric-label">Flash layout</div>
-            <div class="partition-flash-headline">
-              {{ formatBytes(partitionInsights.partitionedBytes) }} mapped
-            </div>
-            <div class="partition-flash-legend">
-              <span><i class="legend-dot legend-dot--primary" />Partitioned</span>
-              <span><i class="legend-dot legend-dot--amber" />Open flash</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="partition-kpi-grid">
-          <div class="partition-kpi">
-            <v-icon color="primary" icon="mdi-radar" />
-            <div>
-              <strong>{{ formatBoardCount(partitionInsights.boardsWithPartitions) }}</strong>
-              <span>with partition maps</span>
-            </div>
-          </div>
-          <div class="partition-kpi">
-            <v-icon color="success" icon="mdi-update" />
-            <div>
-              <strong>{{ otaReadyPercent }}%</strong>
-              <span>OTA-ready layouts</span>
-            </div>
-          </div>
-          <div class="partition-kpi">
-            <v-icon color="info" icon="mdi-table-row" />
-            <div>
-              <strong>{{ averagePartitionsPerBoard }}</strong>
-              <span>avg partitions per board</span>
-            </div>
-          </div>
-          <div class="partition-kpi">
-            <v-icon color="warning" icon="mdi-alert-circle-outline" />
-            <div>
-              <strong>{{ partitionInsights.failedBoards }}</strong>
-              <span>partition reads failed</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="open-flash-panel">
-          <div class="partition-section-heading">
-            <div>
-              <div class="metric-label">Open flash opportunities</div>
-              <strong>{{ formatBytes(partitionInsights.openBytes) }} available</strong>
-            </div>
-            <v-chip color="warning" size="small" variant="tonal">
-              Top {{ partitionInsights.topOpenFlashBoards.length }}
-            </v-chip>
-          </div>
-          <div
-            v-if="partitionInsights.topOpenFlashBoards.length"
-            class="open-flash-chart-wrap"
+    <v-card class="panel-card dashboard-panel recent-activity-panel" flat>
+        <v-card-title class="text-subtitle-1 font-weight-bold">
+          <v-icon class="mr-2" color="primary" icon="mdi-history" />
+          Recent activity
+        </v-card-title>
+        <v-divider />
+        <v-list v-if="recentActivity.length" lines="two" class="activity-list">
+          <v-list-item
+            v-for="(activity, index) in recentActivity"
+            :key="`${activity.kind}-${activity.board.id}-${index}`"
+            :title="activity.board.name"
+            :subtitle="formatDate(activity.date)"
           >
-            <canvas
-              ref="openFlashChartCanvas"
-              aria-label="Boards with the most open flash"
-            />
+            <template #prepend>
+              <div class="activity-event-icon">
+                <v-icon :color="activity.color" :icon="activity.icon" size="22" />
+              </div>
+            </template>
+            <template #title>
+              <div class="activity-title-row">
+                <span>{{ activity.board.name }}</span>
+                <v-chip :color="activity.color" size="x-small" variant="tonal">
+                  {{ activity.label }}
+                </v-chip>
+              </div>
+            </template>
+            <template #append>
+              <v-chip
+                class="status-chip"
+                :color="BOARD_STATUS_COLORS[activity.board.status]"
+                :prepend-icon="BOARD_STATUS_ICONS[activity.board.status]"
+                size="small"
+                variant="tonal"
+              >
+                {{ BOARD_STATUS_LABELS[activity.board.status] }}
+              </v-chip>
+            </template>
+          </v-list-item>
+        </v-list>
+        <div v-else class="empty-state ma-4">
+          <v-icon icon="mdi-developer-board" size="34" color="primary" />
+          <div class="text-subtitle-1 font-weight-bold mt-2">No boards yet.</div>
+          <div class="text-body-2 muted mt-1">
+            Add a board manually to start building your inventory.
           </div>
-          <div v-else class="partition-mini-empty">
-            No open flash detected in recorded partition maps.
-          </div>
-        </div>
-
-        <div class="filesystem-panel">
-          <div class="partition-section-heading">
-            <div>
-              <div class="metric-label">Filesystem footprint</div>
-              <strong>
-                {{ partitionInsights.filesystemMetrics.length || "No" }}
-                filesystem{{ partitionInsights.filesystemMetrics.length === 1 ? "" : "s" }}
-              </strong>
-            </div>
-          </div>
-          <div
-            v-if="partitionInsights.filesystemMetrics.length"
-            class="filesystem-metrics"
+          <v-btn
+            class="mt-4"
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="emit('open-boards')"
           >
-            <div
-              v-for="metric in partitionInsights.filesystemMetrics"
-              :key="metric.key"
-              class="filesystem-metric"
-            >
-              <span
-                class="filesystem-dot"
-                :style="{ backgroundColor: metric.color }"
-              />
-              <span>{{ metric.label }}</span>
-              <strong>{{ formatBytes(metric.bytes) }}</strong>
-            </div>
-          </div>
-          <div v-else class="partition-mini-empty">
-            No SPIFFS, LittleFS, or FATFS partitions recorded yet.
-          </div>
+            Add board
+          </v-btn>
         </div>
-      </div>
-
-      <div v-else class="empty-state ma-4">
-        <v-icon icon="mdi-table-search" size="34" color="primary" />
-        <div class="text-subtitle-1 font-weight-bold mt-2">
-          No partition maps yet.
-        </div>
-        <div class="text-body-2 muted mt-1">
-          Scan boards to unlock flash layout, OTA, and filesystem insights.
-        </div>
-      </div>
     </v-card>
   </section>
 </template>
@@ -1134,11 +1134,15 @@ function getCssVariable(name: string, fallback: string): string {
   display: grid;
   grid-template-columns: minmax(360px, 0.85fr) minmax(520px, 1.15fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .dashboard-panel {
   min-height: 180px;
+}
+
+.recent-activity-panel {
+  min-height: 0;
 }
 
 .chip-family-panel {
@@ -1556,6 +1560,12 @@ function getCssVariable(name: string, fallback: string): string {
   .chip-family-summary-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 1500px) and (min-width: 1181px) {
+  .partition-insights-grid {
+    grid-template-columns: 1fr;
   }
 }
 
