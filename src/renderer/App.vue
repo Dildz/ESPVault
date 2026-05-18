@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, type Component } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from "vue";
 import { storeToRefs } from "pinia";
 import type { Board } from "../shared/types/board";
 import type { Project } from "../shared/types/inventory";
@@ -56,6 +56,7 @@ const scanRequestId = ref(0);
 const searchSelection = ref<SearchItem | null>(null);
 const searchQuery = ref("");
 const appVersion = ref<string | null>(null);
+const viewportWidth = ref(typeof window === "undefined" ? 1280 : window.innerWidth);
 const { isDarkTheme, toggleTheme } = useVaultTheme();
 const boardStore = useBoardStore();
 const projectStore = useProjectStore();
@@ -124,6 +125,11 @@ const themeToggleLabel = computed(() =>
 const brandLogo = computed(() =>
   isDarkTheme.value ? darkBrandLogo : lightBrandLogo
 );
+const isTemporaryNavigation = computed(() => viewportWidth.value < 960);
+const isRailNavigation = computed(
+  () => viewportWidth.value >= 960 && viewportWidth.value < 1280
+);
+const drawerOpen = ref(!isTemporaryNavigation.value);
 const appBarBusy = computed(() => boardsLoading.value || projectsLoading.value);
 const searchItems = computed<SearchItem[]>(() => [
   ...boards.value.map((board) => ({
@@ -173,18 +179,42 @@ const activeComponentProps = computed(() => {
 onMounted(() => {
   void refreshAppData();
   void loadAppVersion();
+  window.addEventListener("resize", updateViewportWidth);
 });
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", updateViewportWidth);
+});
+
+watch(
+  isTemporaryNavigation,
+  (isTemporary) => {
+    drawerOpen.value = !isTemporary;
+  },
+  { immediate: true }
+);
+
+function updateViewportWidth(): void {
+  viewportWidth.value = window.innerWidth;
+}
+
+function navigateToView(view: ViewKey): void {
+  currentView.value = view;
+  closeTemporaryNavigation();
+}
 
 function openBoards(): void {
   boardToOpenId.value = null;
   projectToOpenId.value = null;
   currentView.value = "boards";
+  closeTemporaryNavigation();
 }
 
 function openScan(): void {
   boardToOpenId.value = null;
   projectToOpenId.value = null;
   currentView.value = "scan";
+  closeTemporaryNavigation();
 }
 
 function scanBoards(): void {
@@ -192,18 +222,21 @@ function scanBoards(): void {
   projectToOpenId.value = null;
   scanRequestId.value += 1;
   currentView.value = "scan";
+  closeTemporaryNavigation();
 }
 
 function openBoard(id: string): void {
   boardToOpenId.value = id;
   projectToOpenId.value = null;
   currentView.value = "boards";
+  closeTemporaryNavigation();
 }
 
 function openProject(id: string): void {
   boardToOpenId.value = null;
   projectToOpenId.value = id;
   currentView.value = "projects";
+  closeTemporaryNavigation();
 }
 
 function selectSearchResult(item: SearchItem | null): void {
@@ -255,15 +288,34 @@ function openResource(item: ResourceItem): void {
     return;
   }
 
+  closeTemporaryNavigation();
   void window.api.shell.openExternal(item.url).catch((caughtError: unknown) => {
     console.error("Resource link could not be opened.", caughtError);
   });
+}
+
+function closeTemporaryNavigation(): void {
+  if (isTemporaryNavigation.value) {
+    drawerOpen.value = false;
+  }
 }
 </script>
 
 <template>
   <v-app>
-    <v-navigation-drawer class="vault-drawer" permanent width="264">
+    <v-navigation-drawer
+      v-model="drawerOpen"
+      class="vault-drawer"
+      :class="{
+        'vault-drawer--rail': isRailNavigation,
+        'vault-drawer--temporary': isTemporaryNavigation
+      }"
+      :permanent="!isTemporaryNavigation"
+      :temporary="isTemporaryNavigation"
+      :rail="isRailNavigation"
+      :rail-width="78"
+      width="264"
+    >
       <div class="brand-block px-5 py-5">
         <img
           class="brand-logo"
@@ -275,41 +327,68 @@ function openResource(item: ResourceItem): void {
       <v-divider />
 
       <v-list nav density="compact" class="nav-list px-3 py-4">
-        <v-list-item
+        <v-tooltip
           v-for="item in navItems"
           :key="item.key"
-          :active="currentView === item.key"
-          :prepend-icon="item.icon"
-          :title="item.title"
-          rounded="lg"
-          @click="currentView = item.key"
-        />
+          :disabled="!isRailNavigation"
+          :text="item.title"
+          location="end"
+        >
+          <template #activator="{ props: tooltipProps }">
+            <v-list-item
+              v-bind="tooltipProps"
+              :active="currentView === item.key"
+              :prepend-icon="item.icon"
+              :title="item.title"
+              rounded="lg"
+              @click="navigateToView(item.key)"
+            />
+          </template>
+        </v-tooltip>
       </v-list>
 
       <v-divider class="mx-3" />
 
       <v-list nav density="compact" class="nav-list px-3 py-4">
         <v-list-subheader class="px-2">Resources</v-list-subheader>
-        <v-list-item
+        <v-tooltip
           v-for="item in resourceNavItems"
           :key="item.key"
-          :active="currentView === item.key"
-          :prepend-icon="item.icon"
-          :title="item.title"
-          rounded="lg"
-          @click="currentView = item.key"
-        />
-        <v-list-item
+          :disabled="!isRailNavigation"
+          :text="item.title"
+          location="end"
+        >
+          <template #activator="{ props: tooltipProps }">
+            <v-list-item
+              v-bind="tooltipProps"
+              :active="currentView === item.key"
+              :prepend-icon="item.icon"
+              :title="item.title"
+              rounded="lg"
+              @click="navigateToView(item.key)"
+            />
+          </template>
+        </v-tooltip>
+        <v-tooltip
           v-for="item in resourceItems"
           :key="item.key"
-          :disabled="!item.url"
-          :prepend-icon="item.icon"
-          :append-icon="item.url ? 'mdi-open-in-new' : undefined"
-          :title="item.title"
-          :subtitle="item.subtitle"
-          rounded="lg"
-          @click="openResource(item)"
-        />
+          :disabled="!isRailNavigation"
+          :text="item.subtitle ? `${item.title} - ${item.subtitle}` : item.title"
+          location="end"
+        >
+          <template #activator="{ props: tooltipProps }">
+            <v-list-item
+              v-bind="tooltipProps"
+              :disabled="!item.url"
+              :prepend-icon="item.icon"
+              :append-icon="item.url ? 'mdi-open-in-new' : undefined"
+              :title="item.title"
+              :subtitle="item.subtitle"
+              rounded="lg"
+              @click="openResource(item)"
+            />
+          </template>
+        </v-tooltip>
       </v-list>
 
       <div class="nav-version-block">
@@ -319,6 +398,13 @@ function openResource(item: ResourceItem): void {
     </v-navigation-drawer>
 
     <v-app-bar class="vault-app-bar" flat color="surface">
+      <v-btn
+        v-if="isTemporaryNavigation"
+        icon="mdi-menu"
+        variant="text"
+        aria-label="Open navigation"
+        @click="drawerOpen = true"
+      />
       <v-app-bar-title class="app-bar-title">{{ activeTitle }}</v-app-bar-title>
       <v-spacer />
       <v-autocomplete
@@ -429,6 +515,30 @@ function openResource(item: ResourceItem): void {
   object-fit: contain;
   object-position: left center;
   filter: drop-shadow(0 10px 24px rgba(var(--v-theme-primary), 0.14));
+}
+
+.vault-drawer--rail .brand-block {
+  min-height: 74px;
+  padding-inline: 10px !important;
+}
+
+.vault-drawer--rail .brand-logo {
+  max-height: 42px;
+  object-position: center center;
+}
+
+.vault-drawer--rail .nav-list {
+  padding-inline: 10px !important;
+}
+
+.vault-drawer--rail :deep(.v-list-subheader),
+.vault-drawer--rail :deep(.v-list-item__append),
+.vault-drawer--rail .nav-version-block {
+  display: none;
+}
+
+.vault-drawer--temporary .brand-logo {
+  object-position: left center;
 }
 
 .nav-list :deep(.v-list-item) {
