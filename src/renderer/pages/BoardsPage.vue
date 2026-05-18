@@ -49,6 +49,9 @@ const { projects } = storeToRefs(projectStore);
 const props = defineProps<{
   openBoardId?: string | null;
 }>();
+const emit = defineEmits<{
+  "open-project": [id: string];
+}>();
 const editorOpen = ref(false);
 const editingBoard = ref<Board | null>(null);
 const deletingBoard = ref<Board | null>(null);
@@ -202,6 +205,12 @@ function openBoardFromProp(): void {
 
   selectBoard(board);
   openedBoardId.value = props.openBoardId;
+}
+
+function openAssignedProject(board: Board): void {
+  if (board.projectId) {
+    emit("open-project", board.projectId);
+  }
 }
 
 async function saveBoard(input: CreateBoardInput): Promise<void> {
@@ -753,7 +762,16 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
             </div>
             <div>
               <div class="metric-label">Project</div>
-              <div class="board-fact-value">{{ formatProjectName(selectedBoard) }}</div>
+              <button
+                v-if="selectedBoard.projectId"
+                class="board-project-link"
+                type="button"
+                @click="openAssignedProject(selectedBoard)"
+              >
+                <span>{{ formatProjectName(selectedBoard) }}</span>
+                <v-icon icon="mdi-open-in-new" size="16" />
+              </button>
+              <div v-else class="board-fact-value">No project</div>
             </div>
           </div>
 
@@ -1313,6 +1331,39 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   margin-top: 4px;
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.board-project-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgb(var(--v-theme-primary));
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+
+.board-project-link span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-project-link:hover span {
+  text-decoration: underline;
+}
+
+.board-project-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 3px;
 }
 
 .board-info-grid {

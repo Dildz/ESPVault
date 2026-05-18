@@ -382,6 +382,7 @@ function openResource(item: ResourceItem): void {
         @open-scan="openScan"
         @scan-boards="scanBoards"
         @open-board="openBoard"
+        @open-project="openProject"
       />
     </v-main>
   </v-app>
