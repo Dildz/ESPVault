@@ -250,7 +250,7 @@ html[data-vault-theme="dark"] body {
 }
 
 .scan-log {
-  max-height: 260px;
+  height: clamp(420px, 46vh, 640px);
   margin: 0;
   overflow: auto;
   border: 1px solid var(--vault-soft-border);
@@ -258,9 +258,9 @@ html[data-vault-theme="dark"] body {
   background: rgba(var(--v-theme-background), 0.72);
   color: var(--vault-text);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  padding: 14px;
+  font-size: 0.8rem;
+  line-height: 1.42;
+  padding: 12px 14px;
   white-space: pre-wrap;
 }
 
