@@ -1337,6 +1337,11 @@ function formatEnabledState(value: boolean | null): string {
   min-width: 180px;
   flex-direction: column;
   gap: 4px;
+  color: inherit;
+}
+
+.partition-tooltip strong {
+  font-weight: 800;
 }
 
 .partition-table {

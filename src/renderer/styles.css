@@ -9,6 +9,10 @@
   --vault-grid-line: rgba(8, 116, 94, 0.06);
   --vault-cover-bg: #eef5ef;
   --vault-field-bg: rgba(255, 255, 255, 0.72);
+  --vault-tooltip-bg: #14342d;
+  --vault-tooltip-border: rgba(8, 116, 94, 0.36);
+  --vault-tooltip-shadow: 0 14px 32px rgba(20, 52, 45, 0.22);
+  --vault-tooltip-text: #f4fff9;
   color: var(--vault-text);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -29,6 +33,10 @@ html[data-vault-theme="dark"] {
   --vault-grid-line: rgba(66, 214, 181, 0.08);
   --vault-cover-bg: #1d2a27;
   --vault-field-bg: rgba(23, 33, 31, 0.78);
+  --vault-tooltip-bg: #e8f7f1;
+  --vault-tooltip-border: rgba(66, 214, 181, 0.32);
+  --vault-tooltip-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+  --vault-tooltip-text: #11241f;
   color-scheme: dark;
 }
 
@@ -75,6 +83,18 @@ html[data-vault-theme="dark"] body {
 
 .v-table {
   background: transparent;
+}
+
+.v-tooltip > .v-overlay__content {
+  border: 1px solid var(--vault-tooltip-border) !important;
+  background: var(--vault-tooltip-bg) !important;
+  box-shadow: var(--vault-tooltip-shadow) !important;
+  color: var(--vault-tooltip-text) !important;
+  font-weight: 650;
+}
+
+.v-tooltip > .v-overlay__content * {
+  color: inherit !important;
 }
 
 .page-shell {
