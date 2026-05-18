@@ -18,8 +18,8 @@ export class VaultDatabase extends Dexie {
   pinAssignments!: Table<PinAssignment, string>;
   appSettings!: Table<AppSetting, string>;
 
-  constructor() {
-    super("esp-board-vault");
+  constructor(databaseName = "esp-board-vault") {
+    super(databaseName);
 
     this.version(1).stores({
       boards:

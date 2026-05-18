@@ -7,9 +7,11 @@ import {
   type VaultBackupSummary
 } from "../../../shared/types/backup";
 import type { BackupRepository } from "../../repositories/BackupRepository";
-import { vaultDatabase } from "./vaultDatabase";
+import { vaultDatabase, type VaultDatabase } from "./vaultDatabase";
 
 export class DexieBackupRepository implements BackupRepository {
+  constructor(private readonly database: VaultDatabase = vaultDatabase) {}
+
   async exportBackup(): Promise<VaultBackup> {
     const [
       boards,
@@ -20,13 +22,13 @@ export class DexieBackupRepository implements BackupRepository {
       pinAssignments,
       appSettings
     ] = await Promise.all([
-      vaultDatabase.boards.toArray(),
-      vaultDatabase.projects.toArray(),
-      vaultDatabase.boardTags.toArray(),
-      vaultDatabase.firmwareHistory.toArray(),
-      vaultDatabase.attachments.toArray(),
-      vaultDatabase.pinAssignments.toArray(),
-      vaultDatabase.appSettings.toArray()
+      this.database.boards.toArray(),
+      this.database.projects.toArray(),
+      this.database.boardTags.toArray(),
+      this.database.firmwareHistory.toArray(),
+      this.database.attachments.toArray(),
+      this.database.pinAssignments.toArray(),
+      this.database.appSettings.toArray()
     ]);
 
     return {
@@ -34,8 +36,8 @@ export class DexieBackupRepository implements BackupRepository {
       version: BACKUP_VERSION,
       appVersion: packageMetadata.version,
       exportedAt: new Date().toISOString(),
-      databaseName: vaultDatabase.name,
-      schemaVersion: vaultDatabase.verno,
+      databaseName: this.database.name,
+      schemaVersion: this.database.verno,
       data: {
         boards,
         projects,
@@ -49,36 +51,36 @@ export class DexieBackupRepository implements BackupRepository {
   }
 
   async importBackup(backup: VaultBackup): Promise<VaultBackupSummary> {
-    await vaultDatabase.transaction(
+    await this.database.transaction(
       "rw",
       [
-        vaultDatabase.boards,
-        vaultDatabase.projects,
-        vaultDatabase.boardTags,
-        vaultDatabase.firmwareHistory,
-        vaultDatabase.attachments,
-        vaultDatabase.pinAssignments,
-        vaultDatabase.appSettings
+        this.database.boards,
+        this.database.projects,
+        this.database.boardTags,
+        this.database.firmwareHistory,
+        this.database.attachments,
+        this.database.pinAssignments,
+        this.database.appSettings
       ],
       async () => {
         await Promise.all([
-          vaultDatabase.boards.clear(),
-          vaultDatabase.projects.clear(),
-          vaultDatabase.boardTags.clear(),
-          vaultDatabase.firmwareHistory.clear(),
-          vaultDatabase.attachments.clear(),
-          vaultDatabase.pinAssignments.clear(),
-          vaultDatabase.appSettings.clear()
+          this.database.boards.clear(),
+          this.database.projects.clear(),
+          this.database.boardTags.clear(),
+          this.database.firmwareHistory.clear(),
+          this.database.attachments.clear(),
+          this.database.pinAssignments.clear(),
+          this.database.appSettings.clear()
         ]);
 
         await Promise.all([
-          vaultDatabase.boards.bulkPut(backup.data.boards),
-          vaultDatabase.projects.bulkPut(backup.data.projects),
-          vaultDatabase.boardTags.bulkPut(backup.data.boardTags),
-          vaultDatabase.firmwareHistory.bulkPut(backup.data.firmwareHistory),
-          vaultDatabase.attachments.bulkPut(backup.data.attachments),
-          vaultDatabase.pinAssignments.bulkPut(backup.data.pinAssignments),
-          vaultDatabase.appSettings.bulkPut(backup.data.appSettings)
+          this.database.boards.bulkPut(backup.data.boards),
+          this.database.projects.bulkPut(backup.data.projects),
+          this.database.boardTags.bulkPut(backup.data.boardTags),
+          this.database.firmwareHistory.bulkPut(backup.data.firmwareHistory),
+          this.database.attachments.bulkPut(backup.data.attachments),
+          this.database.pinAssignments.bulkPut(backup.data.pinAssignments),
+          this.database.appSettings.bulkPut(backup.data.appSettings)
         ]);
       }
     );

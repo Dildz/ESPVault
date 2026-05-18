@@ -9,11 +9,13 @@ import type {
   ProjectListFilters,
   ProjectRepository
 } from "../../repositories/ProjectRepository";
-import { vaultDatabase } from "./vaultDatabase";
+import { vaultDatabase, type VaultDatabase } from "./vaultDatabase";
 
 export class DexieProjectRepository implements ProjectRepository {
+  constructor(private readonly database: VaultDatabase = vaultDatabase) {}
+
   async list(filters: ProjectListFilters = {}): Promise<Project[]> {
-    const projects = await vaultDatabase.projects
+    const projects = await this.database.projects
       .orderBy("updatedAt")
       .reverse()
       .toArray();
@@ -24,7 +26,7 @@ export class DexieProjectRepository implements ProjectRepository {
   }
 
   async get(id: string): Promise<Project | null> {
-    const project = await vaultDatabase.projects.get(id);
+    const project = await this.database.projects.get(id);
     return project ? this.normalizeProject(project) : null;
   }
 
@@ -45,7 +47,7 @@ export class DexieProjectRepository implements ProjectRepository {
     };
 
     this.assertStatus(project.status);
-    await vaultDatabase.projects.add(project);
+    await this.database.projects.add(project);
 
     return project;
   }
@@ -91,7 +93,7 @@ export class DexieProjectRepository implements ProjectRepository {
     };
 
     this.assertStatus(project.status);
-    await vaultDatabase.projects.put(project);
+    await this.database.projects.put(project);
 
     return project;
   }
@@ -102,25 +104,25 @@ export class DexieProjectRepository implements ProjectRepository {
       return false;
     }
 
-    const boards = await vaultDatabase.boards
+    const boards = await this.database.boards
       .where("projectId")
       .equals(id)
       .toArray();
 
-    await vaultDatabase.transaction(
+    await this.database.transaction(
       "rw",
-      [vaultDatabase.projects, vaultDatabase.boards],
+      [this.database.projects, this.database.boards],
       async () => {
         await Promise.all(
           boards.map((board) =>
-            vaultDatabase.boards.put({
+            this.database.boards.put({
               ...board,
               projectId: null,
               updatedAt: new Date().toISOString()
             })
           )
         );
-        await vaultDatabase.projects.delete(id);
+        await this.database.projects.delete(id);
       }
     );
 

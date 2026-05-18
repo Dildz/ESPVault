@@ -8,11 +8,13 @@ import {
   type UpdateBoardInput
 } from "../../../shared/types/board";
 import type { BoardRepository } from "../../repositories/BoardRepository";
-import { vaultDatabase } from "./vaultDatabase";
+import { vaultDatabase, type VaultDatabase } from "./vaultDatabase";
 
 export class DexieBoardRepository implements BoardRepository {
+  constructor(private readonly database: VaultDatabase = vaultDatabase) {}
+
   async list(filters: BoardListFilters = {}): Promise<Board[]> {
-    const boards = await vaultDatabase.boards
+    const boards = await this.database.boards
       .orderBy("updatedAt")
       .reverse()
       .toArray();
@@ -23,7 +25,7 @@ export class DexieBoardRepository implements BoardRepository {
   }
 
   async get(id: string): Promise<Board | null> {
-    const board = await vaultDatabase.boards.get(id);
+    const board = await this.database.boards.get(id);
     return board ? this.normalizeBoard(board) : null;
   }
 
@@ -85,7 +87,7 @@ export class DexieBoardRepository implements BoardRepository {
     };
 
     this.assertStatus(board.status);
-    await vaultDatabase.boards.add(board);
+    await this.database.boards.add(board);
 
     return board;
   }
@@ -293,7 +295,7 @@ export class DexieBoardRepository implements BoardRepository {
     };
 
     this.assertStatus(board.status);
-    await vaultDatabase.boards.put(board);
+    await this.database.boards.put(board);
 
     return board;
   }
@@ -304,23 +306,23 @@ export class DexieBoardRepository implements BoardRepository {
       return false;
     }
 
-    await vaultDatabase.transaction(
+    await this.database.transaction(
       "rw",
       [
-        vaultDatabase.boards,
-        vaultDatabase.boardTags,
-        vaultDatabase.firmwareHistory,
-        vaultDatabase.attachments,
-        vaultDatabase.pinAssignments
+        this.database.boards,
+        this.database.boardTags,
+        this.database.firmwareHistory,
+        this.database.attachments,
+        this.database.pinAssignments
       ],
       async () => {
         await Promise.all([
-          vaultDatabase.boardTags.where("boardId").equals(id).delete(),
-          vaultDatabase.firmwareHistory.where("boardId").equals(id).delete(),
-          vaultDatabase.attachments.where("boardId").equals(id).delete(),
-          vaultDatabase.pinAssignments.where("boardId").equals(id).delete()
+          this.database.boardTags.where("boardId").equals(id).delete(),
+          this.database.firmwareHistory.where("boardId").equals(id).delete(),
+          this.database.attachments.where("boardId").equals(id).delete(),
+          this.database.pinAssignments.where("boardId").equals(id).delete()
         ]);
-        await vaultDatabase.boards.delete(id);
+        await this.database.boards.delete(id);
       }
     );
 
