@@ -26,6 +26,8 @@ const notice = ref<string | null>(null);
 const scanLogs = ref<string[]>([]);
 const logCopied = ref(false);
 const scanLogElement = ref<HTMLElement | null>(null);
+const appliedScanUpdateKeys = ref<Set<string>>(new Set());
+const pendingScanUpdateKeys = ref<Set<string>>(new Set());
 const handledScanRequestId = ref(0);
 let copyResetTimeout: number | null = null;
 
@@ -56,6 +58,8 @@ async function runScan(): Promise<void> {
   notice.value = null;
   scanLogs.value = [];
   detectedBoards.value = [];
+  appliedScanUpdateKeys.value = new Set();
+  pendingScanUpdateKeys.value = new Set();
 
   try {
     const scannedBoards = await scanEspBoards((_level, message) => {
@@ -117,14 +121,35 @@ async function addDetectedBoards(): Promise<void> {
   }
 }
 
-async function updateSavedBoardFromScan(board: DetectedEspBoard): Promise<void> {
+async function updateSavedBoardFromScan(
+  board: DetectedEspBoard,
+  index: number
+): Promise<void> {
   const savedBoard = getSavedBoard(board);
-  if (!savedBoard) {
+  const scanUpdateKey = getDetectedBoardKey(board, index);
+  if (
+    !savedBoard ||
+    appliedScanUpdateKeys.value.has(scanUpdateKey) ||
+    pendingScanUpdateKeys.value.has(scanUpdateKey)
+  ) {
     return;
   }
 
-  await boardStore.updateBoard(savedBoard.id, buildBoardUpdateInput(board));
-  notice.value = `${savedBoard.name} updated from scan data.`;
+  pendingScanUpdateKeys.value = new Set(pendingScanUpdateKeys.value).add(
+    scanUpdateKey
+  );
+
+  try {
+    await boardStore.updateBoard(savedBoard.id, buildBoardUpdateInput(board));
+    appliedScanUpdateKeys.value = new Set(appliedScanUpdateKeys.value).add(
+      scanUpdateKey
+    );
+    notice.value = `${savedBoard.name} updated from scan data.`;
+  } finally {
+    const nextPendingScanUpdateKeys = new Set(pendingScanUpdateKeys.value);
+    nextPendingScanUpdateKeys.delete(scanUpdateKey);
+    pendingScanUpdateKeys.value = nextPendingScanUpdateKeys;
+  }
 }
 
 function keepSavedBoard(board: DetectedEspBoard): void {
@@ -258,6 +283,22 @@ function buildBoardUpdateInput(board: DetectedEspBoard): UpdateBoardInput {
 function getSavedBoard(board: DetectedEspBoard): Board | null {
   const macAddress = normalizeMacAddress(board.macAddress);
   return macAddress ? savedBoardsByMac.value.get(macAddress) ?? null : null;
+}
+
+function getDetectedBoardKey(board: DetectedEspBoard, index: number): string {
+  return [
+    normalizeMacAddress(board.macAddress) ?? "unknown",
+    board.detectedAt,
+    index
+  ].join("-");
+}
+
+function isScanUpdateApplied(board: DetectedEspBoard, index: number): boolean {
+  return appliedScanUpdateKeys.value.has(getDetectedBoardKey(board, index));
+}
+
+function isScanUpdatePending(board: DetectedEspBoard, index: number): boolean {
+  return pendingScanUpdateKeys.value.has(getDetectedBoardKey(board, index));
 }
 
 function normalizeMacAddress(value: string | null | undefined): string | null {
@@ -422,7 +463,7 @@ watch(
         <tbody>
           <tr
             v-for="(detectedBoard, index) in detectedBoards"
-            :key="`${detectedBoard.macAddress ?? 'board'}-${detectedBoard.detectedAt}-${index}`"
+            :key="getDetectedBoardKey(detectedBoard, index)"
           >
             <td>
               <div class="board-name">
@@ -471,10 +512,23 @@ watch(
                   color="primary"
                   size="small"
                   variant="outlined"
-                  prepend-icon="mdi-refresh"
-                  @click="updateSavedBoardFromScan(detectedBoard)"
+                  :prepend-icon="
+                    isScanUpdateApplied(detectedBoard, index)
+                      ? 'mdi-check'
+                      : 'mdi-refresh'
+                  "
+                  :disabled="
+                    isScanUpdateApplied(detectedBoard, index) ||
+                    isScanUpdatePending(detectedBoard, index)
+                  "
+                  :loading="isScanUpdatePending(detectedBoard, index)"
+                  @click="updateSavedBoardFromScan(detectedBoard, index)"
                 >
-                  Update from scan
+                  {{
+                    isScanUpdateApplied(detectedBoard, index)
+                      ? "Updated"
+                      : "Update from scan"
+                  }}
                 </v-btn>
                 <v-btn
                   size="small"
