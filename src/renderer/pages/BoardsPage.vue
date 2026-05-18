@@ -34,6 +34,7 @@ import {
   formatPartitionTypeLabel,
   getPartitionColor
 } from "../utils/partitionDisplay";
+import { buildPartitionBuilderUrl } from "../utils/partitionBuilder";
 
 interface BoardFilters {
   search: string;
@@ -59,6 +60,7 @@ const boardCoverBusyId = ref<string | null>(null);
 const boardCoverDragActiveId = ref<string | null>(null);
 const boardCoverViewerOpen = ref(false);
 const boardThumbnailUrls = ref<Record<string, string | null>>({});
+const partitionBuilderError = ref<string | null>(null);
 let boardThumbnailLoadToken = 0;
 
 const filters = reactive<BoardFilters>({
@@ -438,6 +440,19 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
   };
 }
 
+async function openPartitionBuilder(board: Board): Promise<void> {
+  partitionBuilderError.value = null;
+
+  try {
+    await window.api.shell.openExternal(buildPartitionBuilderUrl(board));
+  } catch (caughtError) {
+    partitionBuilderError.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The ESP32 Partition Builder could not be opened.";
+  }
+}
+
 function formatProjectName(board: Board): string {
   if (!board.projectId) {
     return "No project";
@@ -732,15 +747,35 @@ function formatEnabledState(value: boolean | null): string {
                   {{ formatPartitionSummary(selectedBoard) }}
                 </div>
               </div>
-              <v-chip
-                color="primary"
-                prepend-icon="mdi-table"
-                size="small"
-                variant="tonal"
-              >
-                {{ selectedPartitionRows.length }} recorded
-              </v-chip>
+              <div class="partitions-actions">
+                <v-chip
+                  color="primary"
+                  prepend-icon="mdi-table"
+                  size="small"
+                  variant="tonal"
+                >
+                  {{ selectedPartitionRows.length }} recorded
+                </v-chip>
+                <v-btn
+                  color="primary"
+                  prepend-icon="mdi-table-edit"
+                  size="small"
+                  variant="tonal"
+                  @click="openPartitionBuilder(selectedBoard)"
+                >
+                  Open in builder
+                </v-btn>
+              </div>
             </div>
+
+            <v-alert
+              v-if="partitionBuilderError"
+              class="mt-4"
+              type="error"
+              variant="tonal"
+            >
+              {{ partitionBuilderError }}
+            </v-alert>
 
             <v-alert
               v-if="selectedBoard.partitionTableReadError"
@@ -1274,6 +1309,13 @@ function formatEnabledState(value: boolean | null): string {
   gap: 16px;
 }
 
+.partitions-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .partition-map {
   display: flex;
   width: 100%;
@@ -1426,6 +1468,10 @@ function formatEnabledState(value: boolean | null): string {
   .partition-empty {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .partitions-actions {
+    justify-content: flex-start;
   }
 
   .partition-map {
