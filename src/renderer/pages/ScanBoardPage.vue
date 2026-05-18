@@ -24,6 +24,7 @@ const emit = defineEmits<{
 }>();
 const detectedBoards = ref<DetectedEspBoard[]>([]);
 const loading = ref(false);
+const scanProgressStarted = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const logCopied = ref(false);
@@ -49,9 +50,18 @@ const savedBoardsByMac = computed(() => {
 const newDetectedBoards = computed(() =>
   detectedBoards.value.filter((board) => !getSavedBoard(board))
 );
+const latestScanLog = computed(
+  () => scanLogs.value[scanLogs.value.length - 1] ?? "Waiting for serial access..."
+);
 const savedDetectedBoardCount = computed(
   () => detectedBoards.value.length - newDetectedBoards.value.length
 );
+const scanAnimationSteps = [
+  { icon: "mdi-usb-port", label: "Serial link" },
+  { icon: "mdi-chip", label: "Chip identity" },
+  { icon: "mdi-memory", label: "Flash map" },
+  { icon: "mdi-shield-check-outline", label: "Safe reset" }
+];
 const scanReadyFeedback = computed(() => {
   if (loading.value || !detectedBoards.value.length) {
     return null;
@@ -79,15 +89,20 @@ async function runScan(): Promise<void> {
   }
 
   loading.value = true;
+  scanProgressStarted.value = false;
   error.value = null;
   notice.value = null;
-  scanSessionStore.clearScanLogs();
   detectedBoards.value = [];
   appliedScanUpdateKeys.value = new Set();
   pendingScanUpdateKeys.value = new Set();
 
   try {
     const scannedBoards = await scanEspBoards((_level, message) => {
+      if (!scanProgressStarted.value) {
+        scanProgressStarted.value = true;
+        scanSessionStore.clearScanLogs();
+      }
+
       scanSessionStore.appendScanLog(message);
       void scrollScanLogToBottom();
     });
@@ -100,6 +115,7 @@ async function runScan(): Promise<void> {
         : "The board scan could not be completed.";
   } finally {
     loading.value = false;
+    scanProgressStarted.value = false;
   }
 }
 
@@ -557,6 +573,42 @@ watch(
       {{ notice }}
     </v-alert>
 
+    <v-card
+      v-if="scanProgressStarted"
+      class="scan-progress-card mb-4"
+      flat
+      role="status"
+      aria-live="polite"
+    >
+      <div class="scan-progress-visual" aria-hidden="true">
+        <div class="scan-radar-field">
+          <span class="scan-radar-ring scan-radar-ring--outer" />
+          <span class="scan-radar-ring scan-radar-ring--middle" />
+          <span class="scan-radar-ring scan-radar-ring--inner" />
+          <span class="scan-radar-sweep" />
+          <span class="scan-radar-dot scan-radar-dot--one" />
+          <span class="scan-radar-dot scan-radar-dot--two" />
+          <span class="scan-radar-dot scan-radar-dot--three" />
+          <v-icon icon="mdi-chip" size="42" />
+        </div>
+      </div>
+      <div class="scan-progress-copy">
+        <div class="scan-progress-kicker">Scanning in progress</div>
+        <h2 class="scan-progress-title">Reading ESP board hardware</h2>
+        <p class="scan-progress-line">{{ latestScanLog }}</p>
+        <div class="scan-step-grid">
+          <div
+            v-for="step in scanAnimationSteps"
+            :key="step.label"
+            class="scan-step"
+          >
+            <v-icon :icon="step.icon" size="20" />
+            <span>{{ step.label }}</span>
+          </div>
+        </div>
+      </div>
+    </v-card>
+
     <v-card v-if="detectedBoards.length" class="vault-table-card" flat>
       <v-card-title
         :class="[
@@ -724,7 +776,7 @@ watch(
       </v-table>
     </v-card>
 
-    <div v-else class="empty-state">
+    <div v-else-if="!loading" class="empty-state">
       <v-icon icon="mdi-usb-port" size="40" color="primary" />
       <div class="text-subtitle-1 font-weight-bold mt-3">
         {{ scanLogs.length ? "No detected boards shown" : "No board scanned yet" }}
@@ -770,6 +822,214 @@ watch(
   gap: 12px;
   overflow: hidden;
   min-height: 52px;
+}
+
+.scan-progress-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-primary), 0.3);
+  border-radius: 8px;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 10% 50%, rgba(var(--v-theme-primary), 0.2), transparent 34%),
+    radial-gradient(circle at 90% 20%, rgba(var(--v-theme-info), 0.12), transparent 28%),
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.14), rgba(var(--v-theme-surface), 0.82));
+  box-shadow:
+    0 22px 54px rgba(var(--v-theme-primary), 0.13),
+    inset 0 0 0 1px rgba(var(--v-theme-primary), 0.08);
+}
+
+.scan-progress-card::before {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(var(--v-theme-primary), 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--v-theme-primary), 0.08) 1px, transparent 1px);
+  background-size: 30px 30px;
+  content: "";
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.9), transparent 72%);
+  pointer-events: none;
+}
+
+.scan-progress-card::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(var(--v-theme-primary), 0.14),
+    transparent
+  );
+  content: "";
+  transform: translateX(-120%);
+  animation: scan-progress-sweep 2300ms ease-in-out infinite;
+  pointer-events: none;
+}
+
+.scan-progress-visual,
+.scan-progress-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.scan-progress-visual {
+  display: grid;
+  place-items: center;
+  min-height: 170px;
+}
+
+.scan-radar-field {
+  position: relative;
+  display: grid;
+  width: 156px;
+  height: 156px;
+  place-items: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(var(--v-theme-primary), 0.24), rgba(var(--v-theme-primary), 0.08) 48%, transparent 70%);
+  color: rgb(var(--v-theme-primary));
+  filter: drop-shadow(0 0 28px rgba(var(--v-theme-primary), 0.24));
+}
+
+.scan-radar-field :deep(.v-icon) {
+  position: relative;
+  z-index: 3;
+  filter: drop-shadow(0 0 14px rgba(var(--v-theme-primary), 0.6));
+}
+
+.scan-radar-ring {
+  position: absolute;
+  border: 1px solid rgba(var(--v-theme-primary), 0.28);
+  border-radius: inherit;
+}
+
+.scan-radar-ring--outer {
+  inset: 0;
+}
+
+.scan-radar-ring--middle {
+  inset: 22px;
+}
+
+.scan-radar-ring--inner {
+  inset: 48px;
+}
+
+.scan-radar-sweep {
+  position: absolute;
+  inset: 4px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    rgba(var(--v-theme-primary), 0.48),
+    rgba(var(--v-theme-primary), 0.12) 42deg,
+    transparent 78deg,
+    transparent 360deg
+  );
+  mask-image: radial-gradient(circle, transparent 0 26%, #000 27% 100%);
+  animation: scan-radar-spin 1800ms linear infinite;
+}
+
+.scan-radar-dot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 14px rgba(var(--v-theme-primary), 0.75);
+  animation: scan-radar-dot-pulse 1400ms ease-in-out infinite;
+}
+
+.scan-radar-dot--one {
+  top: 28px;
+  right: 44px;
+}
+
+.scan-radar-dot--two {
+  bottom: 34px;
+  left: 42px;
+  animation-delay: 280ms;
+}
+
+.scan-radar-dot--three {
+  right: 28px;
+  bottom: 54px;
+  animation-delay: 560ms;
+}
+
+.scan-progress-kicker {
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.scan-progress-title {
+  margin: 4px 0 8px;
+  color: var(--vault-text);
+  font-size: clamp(1.35rem, 2vw, 2rem);
+  line-height: 1.12;
+}
+
+.scan-progress-line {
+  min-height: 1.5rem;
+  margin: 0;
+  color: var(--vault-muted);
+  font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.scan-step-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.scan-step {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.16);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(var(--v-theme-surface), 0.56);
+  color: var(--vault-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  animation: scan-step-glow 1600ms ease-in-out infinite;
+}
+
+.scan-step :deep(.v-icon) {
+  flex: 0 0 auto;
+  color: rgb(var(--v-theme-primary));
+}
+
+.scan-step span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-step:nth-child(2) {
+  animation-delay: 160ms;
+}
+
+.scan-step:nth-child(3) {
+  animation-delay: 320ms;
+}
+
+.scan-step:nth-child(4) {
+  animation-delay: 480ms;
 }
 
 .detected-board-title--ready {
@@ -906,11 +1166,78 @@ watch(
   }
 }
 
+@keyframes scan-progress-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  52%,
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+@keyframes scan-radar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scan-radar-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.86);
+  }
+
+  45% {
+    opacity: 1;
+    transform: scale(1.28);
+  }
+}
+
+@keyframes scan-step-glow {
+  0%,
+  100% {
+    border-color: rgba(var(--v-theme-primary), 0.16);
+    box-shadow: none;
+  }
+
+  45% {
+    border-color: rgba(var(--v-theme-primary), 0.44);
+    box-shadow: 0 0 22px rgba(var(--v-theme-primary), 0.12);
+    color: var(--vault-text);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .scan-progress-card::after,
+  .scan-radar-sweep,
+  .scan-radar-dot,
+  .scan-step,
   .detected-board-title--ready,
   .detected-board-title--ready::after,
   .scan-ready-orb span {
     animation: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .scan-progress-card {
+    grid-template-columns: 1fr;
+  }
+
+  .scan-progress-visual {
+    min-height: 132px;
+  }
+
+  .scan-radar-field {
+    width: 132px;
+    height: 132px;
+  }
+
+  .scan-step-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -926,6 +1253,10 @@ watch(
 
   .scan-ready-orb {
     display: none;
+  }
+
+  .scan-step-grid {
+    grid-template-columns: 1fr;
   }
 }
 
