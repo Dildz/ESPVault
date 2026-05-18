@@ -793,44 +793,46 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 
       <v-card v-if="selectedRow" class="panel-card project-detail-card" flat>
         <v-card-title class="project-detail-title">
-          <div>
-            <div class="text-h6">{{ selectedRow.project.name }}</div>
-            <div class="text-body-2 muted">
-              {{ selectedRow.project.description || "No notes yet" }}
+          <div class="project-detail-heading">
+            <div class="project-detail-copy">
+              <div class="text-h6">{{ selectedRow.project.name }}</div>
             </div>
-            <div
-              v-if="selectedRow.project.location"
-              class="project-location-line"
-            >
-              <v-icon icon="mdi-map-marker-outline" size="16" />
-              <span>{{ selectedRow.project.location }}</span>
+            <div class="project-detail-actions">
+              <v-chip
+                class="status-chip"
+                :color="PROJECT_STATUS_COLORS[selectedRow.project.status]"
+                :prepend-icon="PROJECT_STATUS_ICONS[selectedRow.project.status]"
+                size="small"
+                variant="tonal"
+              >
+                {{ PROJECT_STATUS_LABELS[selectedRow.project.status] }}
+              </v-chip>
+              <v-btn
+                icon="mdi-pencil"
+                size="small"
+                variant="text"
+                aria-label="Edit project"
+                @click="openEditDialog(selectedRow.project)"
+              />
+              <v-btn
+                icon="mdi-delete-outline"
+                size="small"
+                variant="text"
+                color="error"
+                aria-label="Delete project"
+                @click="deletingProject = selectedRow.project"
+              />
             </div>
           </div>
-          <div class="project-detail-actions">
-            <v-chip
-              class="status-chip"
-              :color="PROJECT_STATUS_COLORS[selectedRow.project.status]"
-              :prepend-icon="PROJECT_STATUS_ICONS[selectedRow.project.status]"
-              size="small"
-              variant="tonal"
-            >
-              {{ PROJECT_STATUS_LABELS[selectedRow.project.status] }}
-            </v-chip>
-            <v-btn
-              icon="mdi-pencil"
-              size="small"
-              variant="text"
-              aria-label="Edit project"
-              @click="openEditDialog(selectedRow.project)"
-            />
-            <v-btn
-              icon="mdi-delete-outline"
-              size="small"
-              variant="text"
-              color="error"
-              aria-label="Delete project"
-              @click="deletingProject = selectedRow.project"
-            />
+          <div class="text-body-2 muted detail-description">
+            {{ selectedRow.project.description || "No notes yet" }}
+          </div>
+          <div
+            v-if="selectedRow.project.location"
+            class="project-location-line"
+          >
+            <v-icon icon="mdi-map-marker-outline" size="16" />
+            <span>{{ selectedRow.project.location }}</span>
           </div>
         </v-card-title>
         <v-divider />
@@ -1202,16 +1204,37 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 }
 
 .project-detail-title {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+}
+
+.project-detail-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px;
+}
+
+.project-detail-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.project-detail-copy .text-h6 {
+  overflow-wrap: anywhere;
+}
+
+.detail-description {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .project-detail-actions {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 6px;
 }
 
@@ -1219,9 +1242,17 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
   margin-top: 8px;
   color: var(--vault-muted);
   font-size: 0.88rem;
+}
+
+.project-location-line span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-cover-panel {
@@ -1392,7 +1423,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
     grid-template-columns: 1fr;
   }
 
-  .project-detail-title {
+  .project-detail-heading {
     flex-direction: column;
   }
 }

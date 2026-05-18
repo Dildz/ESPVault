@@ -603,47 +603,49 @@ function formatEnabledState(value: boolean | null): string {
 
       <v-card v-if="selectedBoard" class="panel-card board-detail-card" flat>
         <v-card-title class="board-detail-title">
-          <div>
-            <div class="text-h6">{{ selectedBoard.name }}</div>
-            <div class="text-body-2 muted">
-              {{ selectedBoard.description || selectedBoard.notes || "No notes yet" }}
+          <div class="board-detail-heading">
+            <div class="board-detail-copy">
+              <div class="text-h6">{{ selectedBoard.name }}</div>
             </div>
-            <div class="board-detail-timestamps">
-              <span>
-                <v-icon icon="mdi-pencil-circle-outline" size="15" />
-                Updated {{ formatDate(selectedBoard.updatedAt) }}
-              </span>
-              <span v-if="selectedBoard.lastScannedAt">
-                <v-icon icon="mdi-radar" size="15" />
-                Scan updated {{ formatDate(selectedBoard.lastScannedAt) }}
-              </span>
+            <div class="board-detail-actions">
+              <v-chip
+                class="status-chip"
+                :color="BOARD_STATUS_COLORS[selectedBoard.status]"
+                :prepend-icon="BOARD_STATUS_ICONS[selectedBoard.status]"
+                size="small"
+                variant="tonal"
+              >
+                {{ BOARD_STATUS_LABELS[selectedBoard.status] }}
+              </v-chip>
+              <v-btn
+                icon="mdi-pencil"
+                size="small"
+                variant="text"
+                aria-label="Edit board"
+                @click="openEditDialog(selectedBoard)"
+              />
+              <v-btn
+                icon="mdi-delete-outline"
+                size="small"
+                variant="text"
+                color="error"
+                aria-label="Delete board"
+                @click="deletingBoard = selectedBoard"
+              />
             </div>
           </div>
-          <div class="board-detail-actions">
-            <v-chip
-              class="status-chip"
-              :color="BOARD_STATUS_COLORS[selectedBoard.status]"
-              :prepend-icon="BOARD_STATUS_ICONS[selectedBoard.status]"
-              size="small"
-              variant="tonal"
-            >
-              {{ BOARD_STATUS_LABELS[selectedBoard.status] }}
-            </v-chip>
-            <v-btn
-              icon="mdi-pencil"
-              size="small"
-              variant="text"
-              aria-label="Edit board"
-              @click="openEditDialog(selectedBoard)"
-            />
-            <v-btn
-              icon="mdi-delete-outline"
-              size="small"
-              variant="text"
-              color="error"
-              aria-label="Delete board"
-              @click="deletingBoard = selectedBoard"
-            />
+          <div class="text-body-2 muted detail-description">
+            {{ selectedBoard.description || selectedBoard.notes || "No notes yet" }}
+          </div>
+          <div class="board-detail-timestamps">
+            <span>
+              <v-icon icon="mdi-pencil-circle-outline" size="15" />
+              Updated {{ formatDate(selectedBoard.updatedAt) }}
+            </span>
+            <span v-if="selectedBoard.lastScannedAt">
+              <v-icon icon="mdi-radar" size="15" />
+              Scan updated {{ formatDate(selectedBoard.lastScannedAt) }}
+            </span>
           </div>
         </v-card-title>
         <v-divider />
@@ -1108,16 +1110,37 @@ function formatEnabledState(value: boolean | null): string {
 }
 
 .board-detail-title {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+}
+
+.board-detail-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px;
+}
+
+.board-detail-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.board-detail-copy .text-h6 {
+  overflow-wrap: anywhere;
+}
+
+.detail-description {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .board-detail-actions {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 6px;
 }
 
@@ -1457,7 +1480,6 @@ function formatEnabledState(value: boolean | null): string {
 }
 
 @media (max-width: 760px) {
-  .board-detail-title,
   .board-cover-panel,
   .board-facts,
   .board-info-grid {
@@ -1482,7 +1504,7 @@ function formatEnabledState(value: boolean | null): string {
     overflow-x: auto;
   }
 
-  .board-detail-title {
+  .board-detail-heading {
     flex-direction: column;
   }
 
