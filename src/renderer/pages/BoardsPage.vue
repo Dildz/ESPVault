@@ -578,6 +578,12 @@ function formatBoardType(board: Board): string {
               >
                 {{ formatBytes(selectedBoard.coverImageSizeBytes) }}
               </div>
+              <div class="board-cover-meta">
+                <div class="metric-label">MAC address</div>
+                <strong class="metadata-mono">
+                  {{ selectedBoard.macAddress || "Not set" }}
+                </strong>
+              </div>
               <div class="board-cover-actions">
                 <v-btn
                   color="primary"
@@ -625,10 +631,6 @@ function formatBoardType(board: Board): string {
               <div class="board-detail-row">
                 <span>Board type</span>
                 <strong>{{ formatBoardType(selectedBoard) }}</strong>
-              </div>
-              <div class="board-detail-row">
-                <span>MAC address</span>
-                <strong class="metadata-mono">{{ selectedBoard.macAddress || "Not set" }}</strong>
               </div>
               <div class="board-detail-row">
                 <span>PSRAM</span>
@@ -1001,6 +1003,22 @@ function formatBoardType(board: Board): string {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
+}
+
+.board-cover-meta {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 12px;
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+
+.board-cover-meta strong {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
 }
 
 .board-cover-actions {
