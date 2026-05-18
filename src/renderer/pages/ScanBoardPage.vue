@@ -9,10 +9,13 @@ import type {
 import type { DetectedEspBoard } from "../../shared/types/serial";
 import { scanEspBoards } from "../services/espBoardScanner";
 import { useBoardStore } from "../stores/boardStore";
+import { useScanSessionStore } from "../stores/scanSessionStore";
 import { formatBytes, formatDate, formatFlashSize } from "../utils/boardDisplay";
 
 const boardStore = useBoardStore();
+const scanSessionStore = useScanSessionStore();
 const { boards } = storeToRefs(boardStore);
+const { scanLogs } = storeToRefs(scanSessionStore);
 const props = defineProps<{
   scanRequestId?: number;
 }>();
@@ -23,7 +26,6 @@ const detectedBoards = ref<DetectedEspBoard[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
-const scanLogs = ref<string[]>([]);
 const logCopied = ref(false);
 const scanLogElement = ref<HTMLElement | null>(null);
 const appliedScanUpdateKeys = ref<Set<string>>(new Set());
@@ -79,14 +81,14 @@ async function runScan(): Promise<void> {
   loading.value = true;
   error.value = null;
   notice.value = null;
-  scanLogs.value = [];
+  scanSessionStore.clearScanLogs();
   detectedBoards.value = [];
   appliedScanUpdateKeys.value = new Set();
   pendingScanUpdateKeys.value = new Set();
 
   try {
     const scannedBoards = await scanEspBoards((_level, message) => {
-      scanLogs.value = [...scanLogs.value.slice(-80), message];
+      scanSessionStore.appendScanLog(message);
       void scrollScanLogToBottom();
     });
     await boardStore.loadBoards();
@@ -724,9 +726,15 @@ watch(
 
     <div v-else class="empty-state">
       <v-icon icon="mdi-usb-port" size="40" color="primary" />
-      <div class="text-subtitle-1 font-weight-bold mt-3">No board scanned yet</div>
+      <div class="text-subtitle-1 font-weight-bold mt-3">
+        {{ scanLogs.length ? "No detected boards shown" : "No board scanned yet" }}
+      </div>
       <div class="text-body-2 muted mt-1">
-        The app will ask for serial ports, reset into the ESP bootloader, and read chip details.
+        {{
+          scanLogs.length
+            ? "The last scan log is still available below. Run a new scan to refresh detected boards."
+            : "The app will ask for serial ports, reset into the ESP bootloader, and read chip details."
+        }}
       </div>
     </div>
 
