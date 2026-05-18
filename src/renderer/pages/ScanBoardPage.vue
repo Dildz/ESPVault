@@ -31,7 +31,6 @@ const logCopied = ref(false);
 const scanLogElement = ref<HTMLElement | null>(null);
 const appliedScanUpdateKeys = ref<Set<string>>(new Set());
 const pendingScanUpdateKeys = ref<Set<string>>(new Set());
-const handledScanRequestId = ref(0);
 let copyResetTimeout: number | null = null;
 
 const savedBoardsByMac = computed(() => {
@@ -617,11 +616,14 @@ onMounted(() => {
 watch(
   () => props.scanRequestId,
   (scanRequestId) => {
-    if (!scanRequestId || scanRequestId === handledScanRequestId.value) {
+    if (
+      !scanRequestId ||
+      scanSessionStore.hasHandledScanRequest(scanRequestId)
+    ) {
       return;
     }
 
-    handledScanRequestId.value = scanRequestId;
+    scanSessionStore.markScanRequestHandled(scanRequestId);
     void runScan();
   },
   { immediate: true }

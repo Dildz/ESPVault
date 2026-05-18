@@ -5,6 +5,7 @@ const MAX_SCAN_LOG_LINES = 80;
 
 export const useScanSessionStore = defineStore("scanSession", () => {
   const scanLogs = ref<string[]>([]);
+  const handledScanRequestId = ref(0);
 
   function clearScanLogs(): void {
     scanLogs.value = [];
@@ -17,9 +18,22 @@ export const useScanSessionStore = defineStore("scanSession", () => {
     ];
   }
 
+  function hasHandledScanRequest(scanRequestId: number): boolean {
+    return scanRequestId <= handledScanRequestId.value;
+  }
+
+  function markScanRequestHandled(scanRequestId: number): void {
+    handledScanRequestId.value = Math.max(
+      handledScanRequestId.value,
+      scanRequestId
+    );
+  }
+
   return {
     scanLogs,
     clearScanLogs,
-    appendScanLog
+    appendScanLog,
+    hasHandledScanRequest,
+    markScanRequestHandled
   };
 });
