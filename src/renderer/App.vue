@@ -64,8 +64,8 @@ const { projects, loading: projectsLoading } = storeToRefs(projectStore);
 const navItems: NavItem[] = [
   { key: "dashboard", title: "Dashboard", icon: "mdi-view-dashboard-outline" },
   { key: "boards", title: "Boards", icon: "mdi-developer-board" },
-  { key: "scan", title: "Scan board", icon: "mdi-usb-port" },
   { key: "projects", title: "Projects", icon: "mdi-folder-outline" },
+  { key: "scan", title: "Scan board", icon: "mdi-usb-port" },
   { key: "backup", title: "Backup & Restore", icon: "mdi-database-sync-outline" },
   { key: "settings", title: "Settings", icon: "mdi-cog-outline" },
   { key: "about", title: "About", icon: "mdi-information-outline" }
