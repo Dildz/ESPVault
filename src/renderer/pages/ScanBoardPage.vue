@@ -50,8 +50,8 @@ const savedBoardsByMac = computed(() => {
 const newDetectedBoards = computed(() =>
   detectedBoards.value.filter((board) => !getSavedBoard(board))
 );
-const latestScanLog = computed(
-  () => scanLogs.value[scanLogs.value.length - 1] ?? "Waiting for serial access..."
+const scanProgressMessage = computed(() =>
+  formatEssentialScanProgress(scanLogs.value)
 );
 const savedDetectedBoardCount = computed(
   () => detectedBoards.value.length - newDetectedBoards.value.length
@@ -522,6 +522,88 @@ function formatEnabledState(value: boolean | null): string {
   return value ? "Enabled" : "Disabled";
 }
 
+function formatEssentialScanProgress(logs: string[]): string {
+  const currentBoard = findCurrentScanBoard(logs);
+  const prefix = currentBoard ? `Board ${currentBoard}: ` : "";
+
+  for (const log of logs.slice(-12).reverse()) {
+    const normalizedLog = log.toLowerCase();
+
+    if (
+      normalizedLog.includes("retrying") ||
+      normalizedLog.includes("recovery") ||
+      normalizedLog.includes("timed out")
+    ) {
+      return `${prefix}recovering serial read`;
+    }
+
+    if (
+      normalizedLog.includes("resetting to firmware") ||
+      normalizedLog.includes("hard reset") ||
+      normalizedLog.includes("reset to firmware")
+    ) {
+      return `${prefix}resetting safely`;
+    }
+
+    if (
+      normalizedLog.includes("partition table") ||
+      normalizedLog.includes("reading 3072 bytes") ||
+      normalizedLog.includes("reading chunk")
+    ) {
+      return `${prefix}reading partition map`;
+    }
+
+    if (
+      normalizedLog.includes("detecting flash size") ||
+      normalizedLog.includes("auto-detected flash size") ||
+      normalizedLog.includes("flash chip") ||
+      normalizedLog.includes("flash size")
+    ) {
+      return `${prefix}reading flash details`;
+    }
+
+    if (
+      normalizedLog.includes("chip variant") ||
+      normalizedLog.includes("detected chip") ||
+      normalizedLog.includes("revision") ||
+      normalizedLog.includes("mac address") ||
+      normalizedLog.includes("psram")
+    ) {
+      return `${prefix}reading chip identity`;
+    }
+
+    if (
+      normalizedLog.includes("uploading stub") ||
+      normalizedLog.includes("stub is now running") ||
+      normalizedLog.includes("loading stub")
+    ) {
+      return `${prefix}preparing read-only scanner`;
+    }
+
+    if (
+      normalizedLog.includes("connected") ||
+      normalizedLog.includes("opening port") ||
+      normalizedLog.includes("serial port")
+    ) {
+      return `${prefix}connecting to board`;
+    }
+  }
+
+  return currentBoard ? `Board ${currentBoard}: scanning hardware` : "Scanning hardware";
+}
+
+function findCurrentScanBoard(logs: string[]): string | null {
+  for (const log of logs.slice().reverse()) {
+    const match = log.match(/Scanning selected serial port (\d+) of (\d+)/i);
+
+    if (match) {
+      return `${match[1]} of ${match[2]}`;
+    }
+  }
+
+  return null;
+}
+
 onBeforeUnmount(() => {
   if (copyResetTimeout !== null) {
     window.clearTimeout(copyResetTimeout);
@@ -595,7 +677,7 @@ watch(
       <div class="scan-progress-copy">
         <div class="scan-progress-kicker">Scanning in progress</div>
         <h2 class="scan-progress-title">Reading ESP board hardware</h2>
-        <p class="scan-progress-line">{{ latestScanLog }}</p>
+        <p class="scan-progress-line">{{ scanProgressMessage }}</p>
         <div class="scan-step-grid">
           <div
             v-for="step in scanAnimationSteps"
