@@ -1342,6 +1342,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 
 .project-cover-preview {
   position: relative;
+  display: grid;
   min-height: 160px;
   overflow: hidden;
   border: 1px solid var(--vault-border);
@@ -1352,9 +1353,11 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 }
 
 .project-cover-viewer-trigger {
-  display: block;
+  display: grid;
   width: 100%;
+  height: 100%;
   min-height: 160px;
+  place-items: center;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1364,6 +1367,16 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 .project-cover-viewer-trigger:focus-visible {
   outline: 3px solid rgb(var(--v-theme-primary));
   outline-offset: -3px;
+}
+
+.project-cover-viewer-trigger :deep(.v-img) {
+  width: 100%;
+  height: 100% !important;
+}
+
+.project-cover-viewer-trigger :deep(.v-img__img) {
+  object-fit: contain;
+  object-position: center center;
 }
 
 .project-cover-placeholder {
