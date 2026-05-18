@@ -4,6 +4,7 @@ import {
   clipboard,
   dialog,
   ipcMain,
+  Menu,
   screen,
   shell,
   type SaveDialogOptions,
@@ -322,6 +323,7 @@ function createMainWindow(): BrowserWindow {
     height: windowSize.height,
     minWidth: MIN_WINDOW_SIZE.width,
     minHeight: MIN_WINDOW_SIZE.height,
+    autoHideMenuBar: true,
     title: "ESP Board Vault",
     backgroundColor: "#f7f8f5",
     webPreferences: {
@@ -1763,6 +1765,7 @@ async function showSerialPortPicker<TPort extends SelectableSerialPort>(
       height: 560,
       minWidth: 560,
       minHeight: 460,
+      autoHideMenuBar: true,
       parent: window,
       modal: true,
       title: "Select ESP Boards",
@@ -2086,6 +2089,10 @@ function escapeHtml(value: string): string {
 }
 
 app.whenReady().then(() => {
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+  }
+
   createMainWindow();
 
   app.on("activate", () => {
