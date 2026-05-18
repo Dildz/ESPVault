@@ -21,6 +21,7 @@ import {
   formatFlashSize,
   formatPsramSize
 } from "../utils/boardDisplay";
+import { rotateCoverImageDataUrl } from "../utils/imageRotation";
 import { useBoardStore } from "../stores/boardStore";
 import {
   PROJECT_STATUS_COLORS,
@@ -419,6 +420,31 @@ async function dropCoverImage(file: File): Promise<void> {
       window.api.projectImages.copyCoverFromFile(project.id, coverFile)
     )
   );
+}
+
+async function rotateProjectCover(): Promise<void> {
+  const project = selectedRow.value?.project;
+  const coverImagePath = project?.coverImagePath;
+  if (!project || !coverImagePath) {
+    return;
+  }
+
+  await applyProjectCoverImage(project, async () => {
+    const dataUrl =
+      coverImageDataUrl.value ??
+      (await window.api.projectImages.readCoverDataUrl(coverImagePath));
+
+    if (!dataUrl) {
+      throw new Error("The project photo could not be loaded.");
+    }
+
+    const rotatedFile = await rotateCoverImageDataUrl(
+      dataUrl,
+      project.coverImageFilename,
+      project.coverImageMimeType
+    );
+    return window.api.projectImages.copyCoverFromFile(project.id, rotatedFile);
+  });
 }
 
 async function applyProjectCoverImage(
@@ -885,7 +911,24 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
                   height="160"
                 />
               </button>
-              <div v-else class="project-cover-placeholder">
+              <v-tooltip text="Rotate photo">
+                <template #activator="{ props: tooltipProps }">
+                  <v-btn
+                    v-if="selectedRow.project.coverImagePath"
+                    v-bind="tooltipProps"
+                    class="cover-rotate-button"
+                    color="primary"
+                    icon="mdi-rotate-right"
+                    size="small"
+                    variant="tonal"
+                    :disabled="coverImageLoading"
+                    :loading="coverImageLoading"
+                    aria-label="Rotate project photo"
+                    @click.stop="rotateProjectCover"
+                  />
+                </template>
+              </v-tooltip>
+              <div v-if="!coverImageDataUrl" class="project-cover-placeholder">
                 <v-icon icon="mdi-image-plus-outline" size="34" color="primary" />
                 <div class="text-caption muted mt-1">No project photo</div>
               </div>
@@ -1298,6 +1341,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 }
 
 .project-cover-preview {
+  position: relative;
   min-height: 160px;
   overflow: hidden;
   border: 1px solid var(--vault-border);
@@ -1327,6 +1371,14 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
   min-height: 160px;
   place-items: center;
   align-content: center;
+}
+
+.cover-rotate-button {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  right: 10px;
+  box-shadow: var(--vault-card-shadow);
 }
 
 .project-cover-body {

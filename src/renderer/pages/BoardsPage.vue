@@ -23,6 +23,7 @@ import {
   formatDate,
   formatPsramSize
 } from "../utils/boardDisplay";
+import { rotateCoverImageDataUrl } from "../utils/imageRotation";
 import {
   buildPartitionMapSegments,
   formatPartitionEndHex,
@@ -289,6 +290,30 @@ async function dropBoardCover(board: Board, file: File): Promise<void> {
       window.api.boardImages.copyCoverFromFile(board.id, coverFile)
     )
   );
+}
+
+async function rotateBoardCover(board: Board): Promise<void> {
+  const coverImagePath = board.coverImagePath;
+  if (!coverImagePath) {
+    return;
+  }
+
+  await applyBoardCoverImage(board, async () => {
+    const dataUrl =
+      boardThumbnailUrls.value[board.id] ??
+      (await window.api.boardImages.readCoverDataUrl(coverImagePath));
+
+    if (!dataUrl) {
+      throw new Error("The board photo could not be loaded.");
+    }
+
+    const rotatedFile = await rotateCoverImageDataUrl(
+      dataUrl,
+      board.coverImageFilename,
+      board.coverImageMimeType
+    );
+    return window.api.boardImages.copyCoverFromFile(board.id, rotatedFile);
+  });
 }
 
 async function applyBoardCoverImage(
@@ -700,7 +725,27 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
                   height="180"
                 />
               </button>
-              <div v-else class="board-cover-placeholder">
+              <v-tooltip text="Rotate photo">
+                <template #activator="{ props: tooltipProps }">
+                  <v-btn
+                    v-if="selectedBoard.coverImagePath"
+                    v-bind="tooltipProps"
+                    class="cover-rotate-button"
+                    color="primary"
+                    icon="mdi-rotate-right"
+                    size="small"
+                    variant="tonal"
+                    :disabled="boardCoverBusyId === selectedBoard.id"
+                    :loading="boardCoverBusyId === selectedBoard.id"
+                    aria-label="Rotate board photo"
+                    @click.stop="rotateBoardCover(selectedBoard)"
+                  />
+                </template>
+              </v-tooltip>
+              <div
+                v-if="!boardThumbnailUrls[selectedBoard.id]"
+                class="board-cover-placeholder"
+              >
                 <v-icon icon="mdi-image-plus-outline" size="34" color="primary" />
                 <div class="text-caption muted mt-1">No board photo</div>
               </div>
@@ -1218,6 +1263,7 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
 }
 
 .board-cover-preview {
+  position: relative;
   min-height: 180px;
   overflow: hidden;
   border: 1px solid var(--vault-border);
@@ -1247,6 +1293,14 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   min-height: 180px;
   place-items: center;
   align-content: center;
+}
+
+.cover-rotate-button {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  right: 10px;
+  box-shadow: var(--vault-card-shadow);
 }
 
 .board-cover-body {
