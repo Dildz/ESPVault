@@ -853,7 +853,6 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
                 <v-img
                   :src="coverImageDataUrl"
                   alt=""
-                  cover
                   height="160"
                 />
               </button>
@@ -1171,7 +1170,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .project-list-copy {

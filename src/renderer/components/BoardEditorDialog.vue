@@ -453,7 +453,6 @@ function getDroppedImageFile(event: DragEvent): File | null {
                 <v-img
                   :src="coverImageDataUrl"
                   alt=""
-                  cover
                   height="150"
                 />
               </button>

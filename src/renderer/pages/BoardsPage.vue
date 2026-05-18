@@ -646,7 +646,6 @@ function formatBoardType(board: Board): string {
                 v-if="boardThumbnailUrls[selectedBoard.id]"
                 :src="boardThumbnailUrls[selectedBoard.id] ?? ''"
                 alt=""
-                cover
                 height="180"
               />
               <div v-else class="board-cover-placeholder">
@@ -1007,7 +1006,7 @@ function formatBoardType(board: Board): string {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .board-list-copy {
