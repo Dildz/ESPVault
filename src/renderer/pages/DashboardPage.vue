@@ -781,14 +781,14 @@ function getCssVariable(name: string, fallback: string): string {
         <v-icon icon="mdi-check-circle-outline" />
         <div>
           <div class="insight-value">{{ availableBoards }}</div>
-          <div class="insight-label">Available</div>
+          <div class="insight-label">Available boards</div>
         </div>
       </div>
       <div class="insight-card insight-card--attention">
         <v-icon icon="mdi-alert-outline" />
         <div>
           <div class="insight-value">{{ boardsNeedingAttention }}</div>
-          <div class="insight-label">Need attention</div>
+          <div class="insight-label">Boards need attention</div>
         </div>
       </div>
     </div>
