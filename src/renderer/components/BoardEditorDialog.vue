@@ -884,9 +884,11 @@ function getDroppedImageFile(event: DragEvent): File | null {
 }
 
 .cover-viewer-card {
-  width: min-content;
+  display: flex;
+  width: min(96vw, 1200px);
   max-width: 96vw;
   max-height: 92vh;
+  flex-direction: column;
 }
 
 .cover-viewer-title {
@@ -894,13 +896,16 @@ function getDroppedImageFile(event: DragEvent): File | null {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-width: min(520px, 90vw);
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .cover-viewer-body {
-  max-width: 96vw;
-  max-height: 82vh;
-  overflow: auto;
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  place-items: center;
+  overflow: hidden;
   padding: 12px;
 }
 
@@ -908,7 +913,8 @@ function getDroppedImageFile(event: DragEvent): File | null {
   display: block;
   width: auto;
   height: auto;
-  max-width: none;
-  max-height: none;
+  max-width: 100%;
+  max-height: calc(92vh - 72px);
+  object-fit: contain;
 }
 </style>

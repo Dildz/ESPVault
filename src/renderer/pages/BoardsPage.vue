@@ -57,6 +57,7 @@ const selectedBoardId = ref<string | null>(null);
 const boardCoverError = ref<string | null>(null);
 const boardCoverBusyId = ref<string | null>(null);
 const boardCoverDragActiveId = ref<string | null>(null);
+const boardCoverViewerOpen = ref(false);
 const boardThumbnailUrls = ref<Record<string, string | null>>({});
 let boardThumbnailLoadToken = 0;
 
@@ -353,6 +354,12 @@ function clearBoardCoverDrag(board: Board): void {
   }
 }
 
+function openBoardCoverViewer(board: Board): void {
+  if (boardThumbnailUrls.value[board.id]) {
+    boardCoverViewerOpen.value = true;
+  }
+}
+
 async function dropBoardCoverFromEvent(
   board: Board,
   event: DragEvent
@@ -642,12 +649,19 @@ function formatBoardType(board: Board): string {
             @drop.prevent.stop="dropBoardCoverFromEvent(selectedBoard, $event)"
           >
             <div class="board-cover-preview">
-              <v-img
+              <button
                 v-if="boardThumbnailUrls[selectedBoard.id]"
-                :src="boardThumbnailUrls[selectedBoard.id] ?? ''"
-                alt=""
-                height="180"
-              />
+                class="board-cover-viewer-trigger"
+                type="button"
+                :aria-label="`View ${selectedBoard.coverImageFilename || 'board photo'}`"
+                @click="openBoardCoverViewer(selectedBoard)"
+              >
+                <v-img
+                  :src="boardThumbnailUrls[selectedBoard.id] ?? ''"
+                  alt=""
+                  height="180"
+                />
+              </button>
               <div v-else class="board-cover-placeholder">
                 <v-icon icon="mdi-image-plus-outline" size="34" color="primary" />
                 <div class="text-caption muted mt-1">No board photo</div>
@@ -938,6 +952,31 @@ function formatBoardType(board: Board): string {
       @save="saveBoard"
     />
 
+    <v-dialog v-model="boardCoverViewerOpen" max-width="96vw">
+      <v-card class="cover-viewer-card">
+        <v-card-title class="cover-viewer-title">
+          <span class="text-subtitle-1 font-weight-bold">
+            {{ selectedBoard?.coverImageFilename || "Board photo" }}
+          </span>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            aria-label="Close board photo"
+            @click="boardCoverViewerOpen = false"
+          />
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="cover-viewer-body">
+          <img
+            v-if="selectedBoard && boardThumbnailUrls[selectedBoard.id]"
+            class="cover-viewer-image"
+            :src="boardThumbnailUrls[selectedBoard.id] ?? ''"
+            :alt="selectedBoard.coverImageFilename || 'Board photo'"
+          >
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <v-dialog :model-value="Boolean(deletingBoard)" max-width="460" persistent>
       <v-card>
         <v-card-title>Delete board?</v-card-title>
@@ -1096,6 +1135,21 @@ function formatBoardType(board: Board): string {
     var(--vault-cover-bg);
 }
 
+.board-cover-viewer-trigger {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.board-cover-viewer-trigger:focus-visible {
+  outline: 3px solid rgb(var(--v-theme-primary));
+  outline-offset: -3px;
+}
+
 .board-cover-placeholder {
   display: grid;
   min-height: 180px;
@@ -1131,6 +1185,40 @@ function formatBoardType(board: Board): string {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
+}
+
+.cover-viewer-card {
+  display: flex;
+  width: min(96vw, 1200px);
+  max-height: 92vh;
+  flex-direction: column;
+}
+
+.cover-viewer-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.cover-viewer-body {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  place-items: center;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.cover-viewer-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(92vh - 72px);
+  object-fit: contain;
 }
 
 .board-facts {
