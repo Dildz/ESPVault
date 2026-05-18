@@ -59,6 +59,15 @@ interface PartitionInsights {
   topOpenFlashBoards: OpenFlashBoardMetric[];
 }
 
+interface ScanFreshnessMetric {
+  key: string;
+  label: string;
+  detail: string;
+  count: number;
+  percent: number;
+  color: string;
+}
+
 const boardStore = useBoardStore();
 const projectStore = useProjectStore();
 const { boards, dashboardStats, error } = storeToRefs(boardStore);
@@ -131,6 +140,86 @@ const chipFamilyMetrics = computed(() => {
 const chipFamilyChartMetrics = computed(() => chipFamilyMetrics.value.slice(0, 7));
 const dominantChipFamily = computed(() => chipFamilyMetrics.value[0]?.label ?? "No chip data");
 const chipFamilyCount = computed(() => chipFamilyMetrics.value.length);
+const scanFreshnessMetrics = computed<ScanFreshnessMetric[]>(() => {
+  const total = boards.value.length;
+  const now = Date.now();
+  const freshThresholdMs = 14 * 24 * 60 * 60 * 1000;
+  let fresh = 0;
+  let stale = 0;
+  let never = 0;
+
+  for (const board of boards.value) {
+    const scannedAt = parseDateMs(board.lastScannedAt);
+
+    if (scannedAt === null) {
+      never += 1;
+      continue;
+    }
+
+    if (now - scannedAt <= freshThresholdMs) {
+      fresh += 1;
+    } else {
+      stale += 1;
+    }
+  }
+
+  return [
+    {
+      key: "fresh",
+      label: "Fresh scans",
+      detail: "Last 14 days",
+      count: fresh,
+      percent: getPercent(fresh, total),
+      color: "#2dd4bf"
+    },
+    {
+      key: "stale",
+      label: "Stale scans",
+      detail: "Older scan data",
+      count: stale,
+      percent: getPercent(stale, total),
+      color: "#f59e0b"
+    },
+    {
+      key: "never",
+      label: "Never scanned",
+      detail: "Manual or unknown",
+      count: never,
+      percent: getPercent(never, total),
+      color: "#94a3b8"
+    }
+  ];
+});
+const latestScanDate = computed(() => {
+  const latest = Math.max(
+    ...boards.value
+      .map((board) => parseDateMs(board.lastScannedAt))
+      .filter((value): value is number => value !== null)
+  );
+
+  return Number.isFinite(latest) ? formatDate(new Date(latest).toISOString()) : "No scans yet";
+});
+const psramEquippedBoards = computed(
+  () =>
+    boards.value.filter(
+      (board) =>
+        (board.psramSizeBytes !== null && board.psramSizeBytes > 0) ||
+        board.psramDetected === true
+    ).length
+);
+const averageFlashBytes = computed(() =>
+  boardsWithKnownFlash.value > 0
+    ? Math.round(totalFlashBytes.value / boardsWithKnownFlash.value)
+    : 0
+);
+const largestFlashBoard = computed(() =>
+  boards.value
+    .filter(
+      (board): board is Board & { flashSizeBytes: number } =>
+        board.flashSizeBytes !== null && board.flashSizeBytes > 0
+    )
+    .sort((left, right) => right.flashSizeBytes - left.flashSizeBytes)[0] ?? null
+);
 const partitionInsights = computed<PartitionInsights>(() => {
   const filesystemBytes = new Map<string, FilesystemMetric>();
   let boardsWithPartitions = 0;
@@ -517,6 +606,19 @@ function formatChipFamily(board: Board): string {
   return board.chipModel?.trim() || board.chipFamilyHex || "Unknown";
 }
 
+function parseDateMs(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getPercent(value: number, total: number): number {
+  return total > 0 ? Math.round((value / total) * 100) : 0;
+}
+
 function chipFamilyColor(index: number): string {
   return chipFamilyPalette[index % chipFamilyPalette.length];
 }
@@ -784,6 +886,67 @@ function getCssVariable(name: string, fallback: string): string {
                     <small>{{ chipFamily.count }} board{{ chipFamily.count === 1 ? "" : "s" }}</small>
                   </div>
                   <strong>{{ chipFamily.count }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="chip-family-insights-grid">
+              <div class="chip-insight-panel">
+                <div class="chip-insight-heading">
+                  <div>
+                    <div class="metric-label">Scan freshness</div>
+                    <strong>{{ latestScanDate }}</strong>
+                  </div>
+                  <v-icon color="primary" icon="mdi-radar" />
+                </div>
+                <div class="scan-freshness-list">
+                  <div
+                    v-for="metric in scanFreshnessMetrics"
+                    :key="metric.key"
+                    class="scan-freshness-row"
+                  >
+                    <div class="scan-freshness-copy">
+                      <span>{{ metric.label }}</span>
+                      <small>{{ metric.detail }}</small>
+                    </div>
+                    <div class="scan-freshness-meter">
+                      <span
+                        :style="{
+                          width: `${metric.percent}%`,
+                          backgroundColor: metric.color
+                        }"
+                      />
+                    </div>
+                    <strong>{{ metric.count }}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="chip-insight-panel">
+                <div class="chip-insight-heading">
+                  <div>
+                    <div class="metric-label">Capability snapshot</div>
+                    <strong>{{ psramEquippedBoards }} PSRAM-ready</strong>
+                  </div>
+                  <v-icon color="info" icon="mdi-memory" />
+                </div>
+                <div class="capability-grid">
+                  <div>
+                    <span>Average flash</span>
+                    <strong>{{ formatBytes(averageFlashBytes) }}</strong>
+                  </div>
+                  <div>
+                    <span>Largest flash</span>
+                    <strong>{{ formatBytes(largestFlashBoard?.flashSizeBytes ?? 0) }}</strong>
+                  </div>
+                  <div>
+                    <span>Known flash</span>
+                    <strong>{{ boardsWithKnownFlash }}/{{ totalBoards }}</strong>
+                  </div>
+                  <div>
+                    <span>Top capacity</span>
+                    <strong>{{ largestFlashBoard?.chipModel ?? "Not set" }}</strong>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1288,6 +1451,128 @@ function getCssVariable(name: string, fallback: string): string {
   font-weight: 850;
 }
 
+.chip-family-insights-grid {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.chip-insight-panel {
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(var(--v-theme-primary), 0.1), transparent 36%),
+    rgba(var(--v-theme-surface), 0.42);
+}
+
+.chip-insight-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.chip-insight-heading strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--vault-text);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.scan-freshness-list {
+  display: grid;
+  gap: 10px;
+}
+
+.scan-freshness-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) minmax(80px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.scan-freshness-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.scan-freshness-copy span {
+  overflow: hidden;
+  color: var(--vault-text);
+  font-size: 0.84rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-freshness-copy small {
+  overflow: hidden;
+  color: var(--vault-muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-freshness-meter {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.scan-freshness-meter span {
+  display: block;
+  min-width: 3px;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.scan-freshness-row strong {
+  color: var(--vault-text);
+  font-weight: 850;
+  text-align: right;
+}
+
+.capability-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.capability-grid > div {
+  min-width: 0;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(var(--v-theme-surface), 0.38);
+}
+
+.capability-grid span {
+  display: block;
+  overflow: hidden;
+  color: var(--vault-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.capability-grid strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--vault-text);
+  font-size: 1rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .activity-list :deep(.v-list-item) {
   min-height: 66px;
 }
@@ -1554,6 +1839,11 @@ function getCssVariable(name: string, fallback: string): string {
 @media (max-width: 720px) {
   .chip-family-chart-card,
   .partition-flash-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .chip-family-insights-grid,
+  .capability-grid {
     grid-template-columns: 1fr;
   }
 
