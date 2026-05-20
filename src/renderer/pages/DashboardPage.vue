@@ -74,6 +74,7 @@ const { boards, dashboardStats, error } = storeToRefs(boardStore);
 const { projects } = storeToRefs(projectStore);
 const emit = defineEmits<{
   "open-boards": [];
+  "open-board": [id: string];
 }>();
 const chipFamilyChartCanvas = ref<HTMLCanvasElement | null>(null);
 const partitionFlashChartCanvas = ref<HTMLCanvasElement | null>(null);
@@ -579,13 +580,9 @@ function renderOpenFlashChart(): void {
           }
         },
         y: {
+          display: false,
           grid: {
             display: false
-          },
-          ticks: {
-            color: getChartTextColor(),
-            callback: (_value, index) =>
-              truncateLabel(metrics[index]?.board.name ?? "Board")
           }
         }
       }
@@ -706,10 +703,6 @@ function formatBoardCount(count: number): string {
   return `${count} board${count === 1 ? "" : "s"}`;
 }
 
-function truncateLabel(value: string): string {
-  return value.length > 22 ? `${value.slice(0, 21)}...` : value;
-}
-
 function getChartTooltipBase(): {
   backgroundColor: string;
   bodyColor: string;
@@ -741,10 +734,6 @@ function getChartGridColor(): string {
 
 function getChartMutedColor(): string {
   return getCssVariable("--vault-muted", "#94a3b8");
-}
-
-function getChartTextColor(): string {
-  return getCssVariable("--vault-text", "#eef6f2");
 }
 
 function getCssVariable(name: string, fallback: string): string {
@@ -989,10 +978,40 @@ function getCssVariable(name: string, fallback: string): string {
               v-if="partitionInsights.topOpenFlashBoards.length"
               class="open-flash-chart-wrap"
             >
-              <canvas
-                ref="openFlashChartCanvas"
-                aria-label="Boards with the most open flash"
-              />
+              <div
+                class="open-flash-board-axis"
+                :style="{
+                  gridTemplateRows: `repeat(${partitionInsights.topOpenFlashBoards.length}, minmax(0, 1fr))`
+                }"
+              >
+                <div
+                  v-for="metric in partitionInsights.topOpenFlashBoards"
+                  :key="metric.board.id"
+                  class="open-flash-board-row"
+                >
+                  <span :title="metric.board.name">{{ metric.board.name }}</span>
+                  <v-tooltip :text="`Open ${metric.board.name}`">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-btn
+                        v-bind="tooltipProps"
+                        class="open-flash-board-action"
+                        color="primary"
+                        icon="mdi-open-in-new"
+                        size="x-small"
+                        variant="text"
+                        :aria-label="`Open ${metric.board.name}`"
+                        @click.stop="emit('open-board', metric.board.id)"
+                      />
+                    </template>
+                  </v-tooltip>
+                </div>
+              </div>
+              <div class="open-flash-chart-canvas">
+                <canvas
+                  ref="openFlashChartCanvas"
+                  aria-label="Boards with the most open flash"
+                />
+              </div>
             </div>
             <div v-else class="partition-mini-empty">
               No open flash detected in recorded partition maps.
@@ -1797,8 +1816,46 @@ function getCssVariable(name: string, fallback: string): string {
 }
 
 .open-flash-chart-wrap {
+  display: grid;
+  grid-template-columns: minmax(126px, 0.42fr) minmax(0, 1fr);
+  gap: 8px;
   height: 190px;
   margin-top: 12px;
+}
+
+.open-flash-board-axis {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  padding: 5px 0 32px;
+}
+
+.open-flash-board-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26px;
+  gap: 4px;
+  align-items: center;
+  min-height: 0;
+}
+
+.open-flash-board-row span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--vault-text);
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open-flash-board-action {
+  justify-self: end;
+}
+
+.open-flash-chart-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
 }
 
 .filesystem-metrics {
@@ -1888,6 +1945,14 @@ function getCssVariable(name: string, fallback: string): string {
 
   .partition-kpi-grid {
     grid-template-columns: 1fr;
+  }
+
+  .open-flash-chart-wrap {
+    grid-template-columns: minmax(108px, 0.48fr) minmax(0, 1fr);
+  }
+
+  .open-flash-board-row span {
+    font-size: 0.76rem;
   }
 }
 </style>
