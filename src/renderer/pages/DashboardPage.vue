@@ -68,6 +68,17 @@ interface ScanFreshnessMetric {
   color: string;
 }
 
+interface LabOrganizationMetric {
+  key: string;
+  label: string;
+  detail: string;
+  availableCount: number;
+  inUseCount: number;
+  attentionCount: number;
+  archivedCount: number;
+  total: number;
+}
+
 const boardStore = useBoardStore();
 const projectStore = useProjectStore();
 const { boards, dashboardStats, error } = storeToRefs(boardStore);
@@ -79,9 +90,11 @@ const emit = defineEmits<{
 const chipFamilyChartCanvas = ref<HTMLCanvasElement | null>(null);
 const partitionFlashChartCanvas = ref<HTMLCanvasElement | null>(null);
 const openFlashChartCanvas = ref<HTMLCanvasElement | null>(null);
+const labOrganizationChartCanvas = ref<HTMLCanvasElement | null>(null);
 let chipFamilyChart: Chart<"doughnut"> | null = null;
 let partitionFlashChart: Chart<"doughnut"> | null = null;
 let openFlashChart: Chart<"bar"> | null = null;
+let labOrganizationChart: Chart<"bar"> | null = null;
 let themeObserver: MutationObserver | null = null;
 
 const chipFamilyPalette = [
@@ -97,6 +110,12 @@ const filesystemPalette = {
   fatfs: "#60a5fa",
   littlefs: "#38bdf8",
   spiffs: "#818cf8"
+};
+const labOrganizationPalette = {
+  available: "#22c55e",
+  inUse: "#38bdf8",
+  attention: "#f59e0b",
+  archived: "#94a3b8"
 };
 const DEFAULT_PARTITION_TABLE_OFFSET = 0x8000;
 const PARTITION_TABLE_REGION_SIZE = 0x1000;
@@ -125,6 +144,60 @@ const boardsNeedingAttention = computed(
 );
 const unassignedBoards = computed(
   () => boards.value.filter((board) => !board.projectId).length
+);
+const assignedBoards = computed(() =>
+  Math.max(totalBoards.value - unassignedBoards.value, 0)
+);
+const organizedBoardPercent = computed(() =>
+  getPercent(assignedBoards.value, totalBoards.value)
+);
+const projectGroupsInUse = computed(
+  () =>
+    new Set(
+      boards.value
+        .map((board) => board.projectId)
+        .filter((projectId): projectId is string => Boolean(projectId))
+    ).size
+);
+const labOrganizationMetrics = computed<LabOrganizationMetric[]>(() => {
+  const metrics = new Map<string, LabOrganizationMetric>();
+  const projectMap = new Map(projects.value.map((project) => [project.id, project]));
+
+  for (const board of boards.value) {
+    const project = board.projectId ? projectMap.get(board.projectId) : null;
+    const key = project?.id ?? (board.projectId ? `missing-${board.projectId}` : "unassigned");
+    const metric =
+      metrics.get(key) ??
+      createLabOrganizationMetric(
+        key,
+        project?.name ?? (board.projectId ? "Missing project" : "Unassigned"),
+        project?.location ??
+          (project
+            ? projectStore.getStatusLabel(project.status)
+            : board.projectId
+              ? "Detached board"
+              : "Needs project")
+      );
+
+    countLabOrganizationBoard(metric, board);
+    metrics.set(key, metric);
+  }
+
+  return Array.from(metrics.values())
+    .sort((left, right) => {
+      if (left.key === "unassigned" && right.key !== "unassigned") return -1;
+      if (right.key === "unassigned" && left.key !== "unassigned") return 1;
+      return right.total - left.total || left.label.localeCompare(right.label);
+    })
+    .slice(0, 5);
+});
+const labOrganizationChartKey = computed(() =>
+  labOrganizationMetrics.value
+    .map(
+      (metric) =>
+        `${metric.key}:${metric.label}:${metric.detail}:${metric.availableCount}:${metric.inUseCount}:${metric.attentionCount}:${metric.archivedCount}`
+    )
+    .join("|")
 );
 const chipFamilyMetrics = computed(() => {
   const counts = new Map<string, number>();
@@ -382,10 +455,12 @@ onBeforeUnmount(() => {
   chipFamilyChart?.destroy();
   partitionFlashChart?.destroy();
   openFlashChart?.destroy();
+  labOrganizationChart?.destroy();
   themeObserver?.disconnect();
   chipFamilyChart = null;
   partitionFlashChart = null;
   openFlashChart = null;
+  labOrganizationChart = null;
   themeObserver = null;
 });
 
@@ -404,9 +479,17 @@ watch(
   }
 );
 
+watch(
+  labOrganizationChartKey,
+  () => {
+    void nextTick(renderLabOrganizationChart);
+  }
+);
+
 function renderDashboardCharts(): void {
   renderChipFamilyChart();
   renderPartitionCharts();
+  renderLabOrganizationChart();
 }
 
 function renderChipFamilyChart(): void {
@@ -590,6 +673,104 @@ function renderOpenFlashChart(): void {
   });
 }
 
+function renderLabOrganizationChart(): void {
+  const canvas = labOrganizationChartCanvas.value;
+  const metrics = labOrganizationMetrics.value;
+
+  labOrganizationChart?.destroy();
+  labOrganizationChart = null;
+
+  if (!canvas || !metrics.length) {
+    return;
+  }
+
+  labOrganizationChart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: metrics.map((metric) => metric.label),
+      datasets: [
+        {
+          label: "Available",
+          data: metrics.map((metric) => metric.availableCount),
+          backgroundColor: labOrganizationPalette.available,
+          borderRadius: 5,
+          borderSkipped: false,
+          barThickness: 14
+        },
+        {
+          label: "In use",
+          data: metrics.map((metric) => metric.inUseCount),
+          backgroundColor: labOrganizationPalette.inUse,
+          borderRadius: 5,
+          borderSkipped: false,
+          barThickness: 14
+        },
+        {
+          label: "Needs attention",
+          data: metrics.map((metric) => metric.attentionCount),
+          backgroundColor: labOrganizationPalette.attention,
+          borderRadius: 5,
+          borderSkipped: false,
+          barThickness: 14
+        },
+        {
+          label: "Archived",
+          data: metrics.map((metric) => metric.archivedCount),
+          backgroundColor: labOrganizationPalette.archived,
+          borderRadius: 5,
+          borderSkipped: false,
+          barThickness: 14
+        }
+      ]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          ...getChartTooltipBase(),
+          callbacks: {
+            afterTitle: (items) => {
+              const index = items[0]?.dataIndex;
+              return typeof index === "number" ? metrics[index]?.detail ?? "" : "";
+            },
+            label: (context) => {
+              const value = Number(context.raw) || 0;
+              const label = context.dataset.label ?? "Boards";
+              return `${label}: ${formatBoardCount(value)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          stacked: true,
+          grid: {
+            color: getChartGridColor()
+          },
+          ticks: {
+            color: getChartMutedColor(),
+            precision: 0,
+            stepSize: 1
+          }
+        },
+        y: {
+          display: false,
+          stacked: true,
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
 async function refreshDashboard(): Promise<void> {
   await Promise.all([boardStore.refresh(), projectStore.loadProjects()]);
 }
@@ -614,6 +795,44 @@ function parseDateMs(value: string | null): number | null {
 
 function getPercent(value: number, total: number): number {
   return total > 0 ? Math.round((value / total) * 100) : 0;
+}
+
+function createLabOrganizationMetric(
+  key: string,
+  label: string,
+  detail: string
+): LabOrganizationMetric {
+  return {
+    key,
+    label,
+    detail,
+    availableCount: 0,
+    inUseCount: 0,
+    attentionCount: 0,
+    archivedCount: 0,
+    total: 0
+  };
+}
+
+function countLabOrganizationBoard(metric: LabOrganizationMetric, board: Board): void {
+  metric.total += 1;
+
+  if (board.status === "available") {
+    metric.availableCount += 1;
+    return;
+  }
+
+  if (board.status === "in_use") {
+    metric.inUseCount += 1;
+    return;
+  }
+
+  if (board.status === "archived") {
+    metric.archivedCount += 1;
+    return;
+  }
+
+  metric.attentionCount += 1;
 }
 
 function chipFamilyColor(index: number): string {
@@ -1097,17 +1316,61 @@ function getCssVariable(name: string, fallback: string): string {
           </v-chip>
         </div>
       </div>
-      <div class="snapshot-panel">
-        <div class="metric-label">Lab organization</div>
-        <div class="snapshot-values">
-          <div>
-            <strong>{{ unassignedBoards }}</strong>
-            <span>Unassigned board{{ unassignedBoards === 1 ? "" : "s" }}</span>
+      <div class="snapshot-panel snapshot-panel--lab">
+        <div class="lab-organization-head">
+          <div class="lab-organization-summary">
+            <div class="metric-label">Lab organization</div>
+            <strong>{{ organizedBoardPercent }}% assigned</strong>
+            <span>
+              {{ projectGroupsInUse }} project group{{ projectGroupsInUse === 1 ? "" : "s" }} in use
+            </span>
           </div>
-          <div>
-            <strong>{{ dominantChipFamily }}</strong>
-            <span>Dominant chip family</span>
+          <v-chip
+            :color="unassignedBoards ? 'warning' : 'success'"
+            prepend-icon="mdi-folder-account-outline"
+            size="small"
+            variant="tonal"
+          >
+            {{ unassignedBoards }} unassigned
+          </v-chip>
+        </div>
+
+        <div v-if="labOrganizationMetrics.length" class="lab-organization-chart">
+          <div
+            class="lab-organization-axis"
+            :style="{
+              gridTemplateRows: `repeat(${labOrganizationMetrics.length}, minmax(0, 1fr))`
+            }"
+          >
+            <div
+              v-for="metric in labOrganizationMetrics"
+              :key="metric.key"
+              class="lab-organization-axis-row"
+            >
+              <span :title="metric.label">{{ metric.label }}</span>
+              <small>
+                {{ metric.total }} board{{ metric.total === 1 ? "" : "s" }} /
+                {{ metric.detail }}
+              </small>
+            </div>
           </div>
+          <div class="lab-organization-canvas">
+            <canvas
+              ref="labOrganizationChartCanvas"
+              aria-label="Project assignment and board status chart"
+            />
+          </div>
+        </div>
+
+        <div v-else class="lab-organization-empty">
+          Assign boards to projects to map bench load and unassigned hardware.
+        </div>
+
+        <div v-if="labOrganizationMetrics.length" class="lab-organization-legend">
+          <span><i class="lab-legend-dot lab-legend-dot--available" />Available</span>
+          <span><i class="lab-legend-dot lab-legend-dot--in-use" />In use</span>
+          <span><i class="lab-legend-dot lab-legend-dot--attention" />Attention</span>
+          <span><i class="lab-legend-dot lab-legend-dot--archived" />Archived</span>
         </div>
       </div>
     </div>
@@ -1263,6 +1526,12 @@ function getCssVariable(name: string, fallback: string): string {
   background: rgba(var(--v-theme-surface), 0.78);
 }
 
+.snapshot-panel--lab {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
 .snapshot-values {
   display: grid;
   gap: 12px;
@@ -1303,6 +1572,131 @@ function getCssVariable(name: string, fallback: string): string {
   color: var(--vault-muted);
   font-size: 0.85rem;
   text-align: right;
+}
+
+.lab-organization-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lab-organization-summary {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.lab-organization-summary strong {
+  color: var(--vault-text);
+  font-size: 1.22rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.lab-organization-summary span {
+  overflow: hidden;
+  color: var(--vault-muted);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-organization-chart {
+  display: grid;
+  grid-template-columns: minmax(108px, 0.43fr) minmax(0, 1fr);
+  gap: 10px;
+  height: 154px;
+  min-width: 0;
+}
+
+.lab-organization-axis {
+  display: grid;
+  min-width: 0;
+  padding: 6px 0 24px;
+}
+
+.lab-organization-axis-row {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.lab-organization-axis-row span {
+  overflow: hidden;
+  color: var(--vault-text);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-organization-axis-row small {
+  overflow: hidden;
+  color: var(--vault-muted);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-organization-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.lab-organization-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.lab-organization-empty {
+  border: 1px dashed var(--vault-border);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--vault-muted);
+  font-size: 0.9rem;
+}
+
+.lab-organization-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.lab-organization-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vault-muted);
+  font-size: 0.73rem;
+  font-weight: 750;
+}
+
+.lab-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.lab-legend-dot--available {
+  background: #22c55e;
+}
+
+.lab-legend-dot--in-use {
+  background: #38bdf8;
+}
+
+.lab-legend-dot--attention {
+  background: #f59e0b;
+}
+
+.lab-legend-dot--archived {
+  background: #94a3b8;
 }
 
 .status-pills {
@@ -1941,6 +2335,15 @@ function getCssVariable(name: string, fallback: string): string {
 
   .snapshot-values span {
     text-align: left;
+  }
+
+  .lab-organization-chart {
+    grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+  }
+
+  .lab-organization-head {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .partition-kpi-grid {
