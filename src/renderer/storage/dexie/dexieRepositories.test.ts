@@ -175,13 +175,13 @@ describe("Dexie repositories", () => {
     });
 
     const updatedProject = await projects.update(project.id, {
-      status: "on_hold",
+      status: "needs_repair",
       location: "Office bench"
     });
 
     expect(updatedProject.location).toBe("Office bench");
     expect(await projects.list({ search: "office" })).toHaveLength(1);
-    expect(await projects.list({ status: "on_hold" })).toHaveLength(1);
+    expect(await projects.list({ status: "needs_repair" })).toHaveLength(1);
 
     expect(await projects.delete(project.id)).toBe(true);
     expect(await projects.get(project.id)).toBeNull();

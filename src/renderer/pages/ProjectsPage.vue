@@ -99,6 +99,7 @@ const statusOptions = [
 ];
 const PROJECT_STATUS_ICONS: Record<ProjectStatus, string> = {
   active: "mdi-play-circle-outline",
+  needs_repair: "mdi-wrench-outline",
   on_hold: "mdi-pause-circle-outline",
   completed: "mdi-check-circle-outline",
   archived: "mdi-archive-outline"

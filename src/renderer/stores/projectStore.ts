@@ -88,6 +88,7 @@ export const useProjectStore = defineStore("projects", () => {
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   active: "Active",
+  needs_repair: "Needs repair",
   on_hold: "On hold",
   completed: "Completed",
   archived: "Archived"
@@ -95,6 +96,7 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
 
 export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
   active: "success",
+  needs_repair: "error",
   on_hold: "warning",
   completed: "info",
   archived: "secondary"

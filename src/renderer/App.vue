@@ -15,7 +15,7 @@ import darkBrandLogo from "./assets/esp-board-vault-logo-dark.png";
 import lightBrandLogo from "./assets/esp-board-vault-logo-light.png";
 import { useVaultTheme } from "./composables/useVaultTheme";
 import { useBoardStore } from "./stores/boardStore";
-import { useProjectStore } from "./stores/projectStore";
+import { PROJECT_STATUS_LABELS, useProjectStore } from "./stores/projectStore";
 
 type ViewKey =
   | "dashboard"
@@ -278,7 +278,7 @@ function formatBoardSearchSubtitle(board: Board): string {
 }
 
 function formatProjectSearchSubtitle(project: Project): string {
-  return ["Project", project.status.replace("_", " ")]
+  return ["Project", PROJECT_STATUS_LABELS[project.status]]
     .filter(Boolean)
     .join(" / ");
 }

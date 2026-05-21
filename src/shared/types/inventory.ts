@@ -1,5 +1,6 @@
 export const PROJECT_STATUSES = [
   "active",
+  "needs_repair",
   "on_hold",
   "completed",
   "archived"
