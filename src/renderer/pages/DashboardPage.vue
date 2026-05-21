@@ -79,6 +79,22 @@ interface LabOrganizationMetric {
   total: number;
 }
 
+interface MemoryInventoryMetric {
+  key: string;
+  label: string;
+  bytes: number;
+  knownBoards: number;
+  color: string;
+}
+
+interface BoardStateMetric {
+  status: Board["status"];
+  label: string;
+  displayLabel: string;
+  count: number;
+  color: string;
+}
+
 const boardStore = useBoardStore();
 const projectStore = useProjectStore();
 const { boards, dashboardStats, error } = storeToRefs(boardStore);
@@ -90,10 +106,14 @@ const emit = defineEmits<{
 const chipFamilyChartCanvas = ref<HTMLCanvasElement | null>(null);
 const partitionFlashChartCanvas = ref<HTMLCanvasElement | null>(null);
 const openFlashChartCanvas = ref<HTMLCanvasElement | null>(null);
+const knownMemoryChartCanvas = ref<HTMLCanvasElement | null>(null);
+const boardStateChartCanvas = ref<HTMLCanvasElement | null>(null);
 const labOrganizationChartCanvas = ref<HTMLCanvasElement | null>(null);
 let chipFamilyChart: Chart<"doughnut"> | null = null;
 let partitionFlashChart: Chart<"doughnut"> | null = null;
 let openFlashChart: Chart<"bar"> | null = null;
+let knownMemoryChart: Chart<"bar"> | null = null;
+let boardStateChart: Chart<"bar"> | null = null;
 let labOrganizationChart: Chart<"bar"> | null = null;
 let themeObserver: MutationObserver | null = null;
 
@@ -111,19 +131,38 @@ const filesystemPalette = {
   littlefs: "#38bdf8",
   spiffs: "#818cf8"
 };
+const memoryPalette = {
+  flash: "#2dd4bf",
+  psram: "#a78bfa"
+};
+const boardStatePalette: Record<Board["status"], string> = {
+  available: "#22c55e",
+  in_use: "#38bdf8",
+  needs_flashing: "#f59e0b",
+  broken: "#fb7185",
+  archived: "#94a3b8",
+  unknown: "#a78bfa"
+};
 const labOrganizationPalette = {
   available: "#22c55e",
   inUse: "#38bdf8",
   attention: "#f59e0b",
   archived: "#94a3b8"
 };
+const boardStatusChartOrder: Board["status"][] = [
+  "available",
+  "in_use",
+  "needs_flashing",
+  "broken",
+  "unknown",
+  "archived"
+];
 const DEFAULT_PARTITION_TABLE_OFFSET = 0x8000;
 const PARTITION_TABLE_REGION_SIZE = 0x1000;
 
 const totalBoards = computed(() => dashboardStats.value?.totalBoards ?? boards.value.length);
 const availableBoards = computed(() => dashboardStats.value?.availableBoards ?? 0);
 const inUseBoards = computed(() => dashboardStats.value?.inUseBoards ?? 0);
-const brokenBoards = computed(() => dashboardStats.value?.brokenBoards ?? 0);
 const totalFlashBytes = computed(() =>
   boards.value.reduce((total, board) => total + (board.flashSizeBytes ?? 0), 0)
 );
@@ -136,11 +175,72 @@ const boardsWithKnownFlash = computed(
 const boardsWithKnownPsram = computed(
   () => boards.value.filter((board) => board.psramSizeBytes !== null).length
 );
+const totalKnownMemoryBytes = computed(
+  () => totalFlashBytes.value + totalPsramBytes.value
+);
+const memoryInventoryMetrics = computed<MemoryInventoryMetric[]>(() => [
+  {
+    key: "flash",
+    label: "Flash",
+    bytes: totalFlashBytes.value,
+    knownBoards: boardsWithKnownFlash.value,
+    color: memoryPalette.flash
+  },
+  {
+    key: "psram",
+    label: "PSRAM",
+    bytes: totalPsramBytes.value,
+    knownBoards: boardsWithKnownPsram.value,
+    color: memoryPalette.psram
+  }
+]);
+const hasKnownMemory = computed(() =>
+  memoryInventoryMetrics.value.some((metric) => metric.bytes > 0)
+);
+const knownMemoryChartKey = computed(() =>
+  memoryInventoryMetrics.value
+    .map((metric) => `${metric.key}:${metric.bytes}:${metric.knownBoards}`)
+    .join("|")
+);
 const boardsNeedingAttention = computed(
   () =>
     boards.value.filter((board) =>
       ["broken", "needs_flashing", "unknown"].includes(board.status)
     ).length
+);
+const readyBoards = computed(() => availableBoards.value + inUseBoards.value);
+const readyBoardPercent = computed(() => getPercent(readyBoards.value, totalBoards.value));
+const boardStateMetrics = computed<BoardStateMetric[]>(() => {
+  const counts = new Map<Board["status"], number>();
+
+  for (const board of boards.value) {
+    counts.set(board.status, (counts.get(board.status) ?? 0) + 1);
+  }
+
+  return boardStatusChartOrder.map((status) => {
+    const label = BOARD_STATUS_LABELS[status];
+    return {
+      status,
+      label,
+      displayLabel: label.toLocaleLowerCase(),
+      count: counts.get(status) ?? 0,
+      color: boardStatePalette[status]
+    };
+  });
+});
+const visibleBoardStateMetrics = computed(() =>
+  boardStateMetrics.value.filter(
+    (metric) =>
+      metric.count > 0 ||
+      metric.status === "available" ||
+      metric.status === "in_use" ||
+      metric.status === "broken"
+  )
+);
+const boardStateChartKey = computed(() =>
+  boardStateMetrics.value
+    .map((metric) => `${metric.status}:${metric.count}`)
+    .join("|")
 );
 const unassignedBoards = computed(
   () => boards.value.filter((board) => !board.projectId).length
@@ -455,11 +555,15 @@ onBeforeUnmount(() => {
   chipFamilyChart?.destroy();
   partitionFlashChart?.destroy();
   openFlashChart?.destroy();
+  knownMemoryChart?.destroy();
+  boardStateChart?.destroy();
   labOrganizationChart?.destroy();
   themeObserver?.disconnect();
   chipFamilyChart = null;
   partitionFlashChart = null;
   openFlashChart = null;
+  knownMemoryChart = null;
+  boardStateChart = null;
   labOrganizationChart = null;
   themeObserver = null;
 });
@@ -480,6 +584,20 @@ watch(
 );
 
 watch(
+  knownMemoryChartKey,
+  () => {
+    void nextTick(renderKnownMemoryChart);
+  }
+);
+
+watch(
+  boardStateChartKey,
+  () => {
+    void nextTick(renderBoardStateChart);
+  }
+);
+
+watch(
   labOrganizationChartKey,
   () => {
     void nextTick(renderLabOrganizationChart);
@@ -489,6 +607,8 @@ watch(
 function renderDashboardCharts(): void {
   renderChipFamilyChart();
   renderPartitionCharts();
+  renderKnownMemoryChart();
+  renderBoardStateChart();
   renderLabOrganizationChart();
 }
 
@@ -664,6 +784,144 @@ function renderOpenFlashChart(): void {
         },
         y: {
           display: false,
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderKnownMemoryChart(): void {
+  const canvas = knownMemoryChartCanvas.value;
+  const metrics = memoryInventoryMetrics.value;
+
+  knownMemoryChart?.destroy();
+  knownMemoryChart = null;
+
+  if (!canvas || !hasKnownMemory.value) {
+    return;
+  }
+
+  knownMemoryChart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: metrics.map((metric) => metric.label),
+      datasets: [
+        {
+          label: "Recorded memory",
+          data: metrics.map((metric) => metric.bytes),
+          backgroundColor: metrics.map((metric) => metric.color),
+          borderRadius: 6,
+          borderSkipped: false,
+          barThickness: 18
+        }
+      ]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          ...getChartTooltipBase(),
+          callbacks: {
+            afterLabel: (context) => {
+              const metric = metrics[context.dataIndex];
+              return metric
+                ? `${formatRecordedCount(metric.knownBoards)}`
+                : "";
+            },
+            label: (context) =>
+              `${context.label}: ${formatBytes(Number(context.raw) || 0)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          grid: {
+            color: getChartGridColor()
+          },
+          ticks: {
+            color: getChartMutedColor(),
+            callback: (value) => formatBytes(Number(value) || 0)
+          }
+        },
+        y: {
+          display: false,
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderBoardStateChart(): void {
+  const canvas = boardStateChartCanvas.value;
+  const metrics = boardStateMetrics.value;
+
+  boardStateChart?.destroy();
+  boardStateChart = null;
+
+  if (!canvas || totalBoards.value <= 0) {
+    return;
+  }
+
+  boardStateChart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: ["Board state"],
+      datasets: metrics.map((metric) => ({
+        label: metric.label,
+        data: [metric.count],
+        backgroundColor: metric.color,
+        borderRadius: 5,
+        borderSkipped: false,
+        barThickness: 24
+      }))
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          ...getChartTooltipBase(),
+          callbacks: {
+            label: (context) => {
+              const value = Number(context.raw) || 0;
+              const label = context.dataset.label ?? "Boards";
+              return `${label}: ${formatBoardCount(value)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          stacked: true,
+          grid: {
+            color: getChartGridColor()
+          },
+          ticks: {
+            color: getChartMutedColor(),
+            precision: 0,
+            stepSize: 1
+          }
+        },
+        y: {
+          display: false,
+          stacked: true,
           grid: {
             display: false
           }
@@ -1283,36 +1541,87 @@ function getCssVariable(name: string, fallback: string): string {
     </div>
 
     <div class="dashboard-snapshot">
-      <div class="snapshot-panel">
-        <div class="metric-label">Known memory</div>
-        <div class="snapshot-values">
-          <div class="memory-row">
-            <div>
-              <strong>{{ formatBytes(totalFlashBytes) }}</strong>
-              <span class="memory-type">Flash memory</span>
-            </div>
-            <span>{{ formatRecordedCount(boardsWithKnownFlash) }}</span>
+      <div class="snapshot-panel snapshot-panel--memory">
+        <div class="snapshot-panel-head">
+          <div class="snapshot-panel-summary">
+            <div class="metric-label">Known memory</div>
+            <strong>{{ formatBytes(totalKnownMemoryBytes) }}</strong>
+            <span>Recorded capacity</span>
           </div>
-          <div class="memory-row">
-            <div>
-              <strong>{{ formatBytes(totalPsramBytes) }}</strong>
-              <span class="memory-type">PSRAM memory</span>
+          <v-icon color="primary" icon="mdi-memory" />
+        </div>
+
+        <div v-if="hasKnownMemory" class="memory-inventory-chart">
+          <div
+            class="memory-inventory-axis"
+            :style="{
+              gridTemplateRows: `repeat(${memoryInventoryMetrics.length}, minmax(0, 1fr))`
+            }"
+          >
+            <div
+              v-for="metric in memoryInventoryMetrics"
+              :key="metric.key"
+              class="memory-inventory-axis-row"
+            >
+              <span>{{ metric.label }}</span>
+              <small>{{ formatRecordedCount(metric.knownBoards) }}</small>
             </div>
-            <span>{{ formatRecordedCount(boardsWithKnownPsram) }}</span>
+          </div>
+          <div class="memory-inventory-canvas">
+            <canvas
+              ref="knownMemoryChartCanvas"
+              aria-label="Known flash and PSRAM memory chart"
+            />
           </div>
         </div>
+
+        <div v-else class="snapshot-chart-empty">
+          Scan boards to record flash and PSRAM capacity.
+        </div>
+
+        <div class="memory-inventory-totals">
+          <span>
+            <i class="memory-dot memory-dot--flash" />
+            Flash {{ formatBytes(totalFlashBytes) }}
+          </span>
+          <span>
+            <i class="memory-dot memory-dot--psram" />
+            PSRAM {{ formatBytes(totalPsramBytes) }}
+          </span>
+        </div>
       </div>
-      <div class="snapshot-panel">
-        <div class="metric-label">Board state</div>
+      <div class="snapshot-panel snapshot-panel--state">
+        <div class="snapshot-panel-head">
+          <div class="snapshot-panel-summary">
+            <div class="metric-label">Board state</div>
+            <strong>{{ readyBoardPercent }}% ready</strong>
+            <span>{{ boardsNeedingAttention }} need attention</span>
+          </div>
+          <v-icon color="success" icon="mdi-pulse" />
+        </div>
+
+        <div v-if="totalBoards" class="board-state-chart">
+          <canvas
+            ref="boardStateChartCanvas"
+            aria-label="Board status distribution chart"
+          />
+        </div>
+
+        <div v-else class="snapshot-chart-empty">
+          Add boards to track inventory state.
+        </div>
+
         <div class="status-pills">
-          <v-chip color="success" prepend-icon="mdi-check-circle-outline" size="small" variant="tonal">
-            {{ availableBoards }} available
-          </v-chip>
-          <v-chip color="info" prepend-icon="mdi-play-circle-outline" size="small" variant="tonal">
-            {{ inUseBoards }} in use
-          </v-chip>
-          <v-chip color="error" prepend-icon="mdi-alert-octagon-outline" size="small" variant="tonal">
-            {{ brokenBoards }} broken
+          <v-chip
+            v-for="metric in visibleBoardStateMetrics"
+            :key="metric.status"
+            class="status-pill"
+            :color="BOARD_STATUS_COLORS[metric.status]"
+            :prepend-icon="BOARD_STATUS_ICONS[metric.status]"
+            size="small"
+            variant="tonal"
+          >
+            {{ metric.count }} {{ metric.displayLabel }}
           </v-chip>
         </div>
       </div>
@@ -1532,6 +1841,46 @@ function getCssVariable(name: string, fallback: string): string {
   min-width: 0;
 }
 
+.snapshot-panel--memory,
+.snapshot-panel--state {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.snapshot-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.snapshot-panel-head :deep(.v-icon) {
+  flex: 0 0 auto;
+}
+
+.snapshot-panel-summary {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.snapshot-panel-summary strong {
+  color: var(--vault-text);
+  font-size: 1.22rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.snapshot-panel-summary span {
+  overflow: hidden;
+  color: var(--vault-muted);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .snapshot-values {
   display: grid;
   gap: 12px;
@@ -1572,6 +1921,99 @@ function getCssVariable(name: string, fallback: string): string {
   color: var(--vault-muted);
   font-size: 0.85rem;
   text-align: right;
+}
+
+.memory-inventory-chart {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.28fr) minmax(0, 1fr);
+  gap: 10px;
+  height: 126px;
+  min-width: 0;
+}
+
+.memory-inventory-axis {
+  display: grid;
+  min-width: 0;
+  padding: 7px 0 25px;
+}
+
+.memory-inventory-axis-row {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+}
+
+.memory-inventory-axis-row span {
+  overflow: hidden;
+  color: var(--vault-text);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-inventory-axis-row small {
+  overflow: hidden;
+  color: var(--vault-muted);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-inventory-canvas,
+.board-state-chart {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.memory-inventory-canvas canvas,
+.board-state-chart canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.memory-inventory-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.memory-inventory-totals span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vault-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.memory-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.memory-dot--flash {
+  background: #2dd4bf;
+}
+
+.memory-dot--psram {
+  background: #a78bfa;
+}
+
+.board-state-chart {
+  height: 92px;
+}
+
+.snapshot-chart-empty {
+  border: 1px dashed var(--vault-border);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--vault-muted);
+  font-size: 0.9rem;
 }
 
 .lab-organization-head {
@@ -1703,7 +2145,11 @@ function getCssVariable(name: string, fallback: string): string {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 0;
+}
+
+.status-pill {
+  max-width: 100%;
 }
 
 .dashboard-main-grid {
