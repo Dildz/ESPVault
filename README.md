@@ -1,7 +1,7 @@
 # ESP Vault
 
 ESP Vault is a local desktop inventory for ESP32 makers. It helps you keep
-track of boards, hardware details, projects, firmware notes, physical locations,
+track of ESP boards, hardware details, projects, firmware notes, physical locations,
 and recovery information without using a cloud service.
 
 The app is designed for the common maker problem: months later, you can answer
@@ -48,22 +48,17 @@ Each board can store:
 
 ## Scanning Boards
 
-The Scan board view uses Web Serial and `tasmota-webserial-esptool` to connect
-to ESP boards in bootloader mode. Scanning is read-only: it does not flash,
-erase, or modify the board.
+The Scan board view is the easiest way to add an ESP board with its hardware
+details already filled in. Connect a board in bootloader mode, run a scan, then
+save the detected board into the vault or update an existing board record using
+its MAC address.
 
-The scan flow can detect:
+Scanning is read-only: it does not flash, erase, or modify the board. When
+available, the app records useful details such as chip model, MAC address, flash,
+PSRAM, security state, and bootloader information.
 
-- chip model and revision
-- MAC address, including eFuse fallback when supported
-- flash size and flash chip details
-- PSRAM from eFuse metadata when available
-- crystal frequency when supported
-- secure boot and flash encryption state
-- bootloader offset
-
-If multiple boards are connected, the app lets you select the serial ports to
-scan. The scan log autoscrolls and can be copied.
+If multiple boards are connected, the app lets you choose which serial ports to
+scan.
 
 ## Projects
 
