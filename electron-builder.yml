@@ -1,0 +1,57 @@
+appId: com.thelastoutpostworkshop.espboardvault
+productName: ESP Board Vault
+copyright: Copyright 2026 The Last Outpost Workshop
+
+directories:
+  output: release
+
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+
+asar: true
+npmRebuild: false
+
+win:
+  artifactName: ${productName}-${version}-windows-${arch}.${ext}
+  signAndEditExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+mac:
+  artifactName: ${productName}-${version}-macos-${arch}.${ext}
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+
+linux:
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}
+  category: Development
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: tar.gz
+      arch:
+        - x64
