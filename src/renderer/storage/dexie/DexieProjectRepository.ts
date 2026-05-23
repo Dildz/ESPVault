@@ -111,7 +111,11 @@ export class DexieProjectRepository implements ProjectRepository {
 
     await this.database.transaction(
       "rw",
-      [this.database.projects, this.database.boards],
+      [
+        this.database.projects,
+        this.database.boards,
+        this.database.projectChecklistItems
+      ],
       async () => {
         await Promise.all(
           boards.map((board) =>
@@ -122,6 +126,10 @@ export class DexieProjectRepository implements ProjectRepository {
             })
           )
         );
+        await this.database.projectChecklistItems
+          .where("projectId")
+          .equals(id)
+          .delete();
         await this.database.projects.delete(id);
       }
     );

@@ -7,9 +7,12 @@ import type {
   CoverImageResult
 } from "../../shared/types/api";
 import {
+  PROJECT_CHECKLIST_CATEGORIES,
   PROJECT_STATUSES,
   type CreateProjectInput,
   type Project,
+  type ProjectChecklistCategory,
+  type ProjectChecklistItem,
   type ProjectStatus
 } from "../../shared/types/inventory";
 import {
@@ -23,6 +26,7 @@ import {
 } from "../utils/boardDisplay";
 import { rotateCoverImageDataUrl } from "../utils/imageRotation";
 import { useBoardStore } from "../stores/boardStore";
+import { useProjectChecklistStore } from "../stores/projectChecklistStore";
 import {
   PROJECT_STATUS_COLORS,
   PROJECT_STATUS_LABELS,
@@ -41,9 +45,25 @@ interface ProjectForm {
   status: ProjectStatus;
 }
 
+interface ChecklistForm {
+  title: string;
+  notes: string;
+  category: ProjectChecklistCategory | null;
+  boardId: string | null;
+  completed: boolean;
+}
+
+interface ChecklistTemplate {
+  title: string;
+  category: ProjectChecklistCategory;
+}
+
 interface ProjectRow {
   project: Project;
   assignedBoards: Board[];
+  checklistItems: ProjectChecklistItem[];
+  checklistCompletedCount: number;
+  checklistTotalCount: number;
   attentionCount: number;
 }
 
@@ -55,12 +75,19 @@ const props = defineProps<{
 }>();
 
 const boardStore = useBoardStore();
+const checklistStore = useProjectChecklistStore();
 const projectStore = useProjectStore();
 const {
   boards,
   loading: boardsLoading,
   error: boardError
 } = storeToRefs(boardStore);
+const {
+  items: checklistItems,
+  loading: checklistLoading,
+  error: checklistError,
+  openItemCount: openChecklistItemCount
+} = storeToRefs(checklistStore);
 const {
   projects,
   loading: projectsLoading,
@@ -72,13 +99,20 @@ const filters = reactive<ProjectFilters>({
   status: "all"
 });
 const form = reactive<ProjectForm>(emptyForm());
+const checklistForm = reactive<ChecklistForm>(emptyChecklistForm());
+const checklistEditorForm = reactive<ChecklistForm>(emptyChecklistForm());
 const editorOpen = ref(false);
+const checklistEditorOpen = ref(false);
 const editingProject = ref<Project | null>(null);
+const editingChecklistItem = ref<ProjectChecklistItem | null>(null);
 const deletingProject = ref<Project | null>(null);
 const saving = ref(false);
+const checklistSaving = ref(false);
+const checklistEditorSaving = ref(false);
 const selectedProjectId = ref<string | null>(null);
 const openedProjectId = ref<string | null>(null);
 const selectedAssignableBoardId = ref<string | null>(null);
+const showCompletedChecklistItems = ref(true);
 const coverImageDataUrl = ref<string | null>(null);
 const coverImageError = ref<string | null>(null);
 const coverImageLoading = ref(false);
@@ -88,8 +122,12 @@ const coverThumbnailUrls = ref<Record<string, string | null>>({});
 let coverImageLoadToken = 0;
 let coverThumbnailLoadToken = 0;
 
-const loading = computed(() => boardsLoading.value || projectsLoading.value);
-const error = computed(() => projectError.value ?? boardError.value);
+const loading = computed(
+  () => boardsLoading.value || projectsLoading.value || checklistLoading.value
+);
+const error = computed(
+  () => projectError.value ?? boardError.value ?? checklistError.value
+);
 const statusOptions = [
   { title: "All statuses", value: "all" },
   ...PROJECT_STATUSES.map((status) => ({
@@ -104,16 +142,73 @@ const PROJECT_STATUS_ICONS: Record<ProjectStatus, string> = {
   completed: "mdi-check-circle-outline",
   archived: "mdi-archive-outline"
 };
+const CHECKLIST_CATEGORY_META: Record<
+  ProjectChecklistCategory,
+  { label: string; icon: string; color: string }
+> = {
+  hardware: {
+    label: "Hardware",
+    icon: "mdi-memory",
+    color: "accent"
+  },
+  firmware: {
+    label: "Firmware",
+    icon: "mdi-chip",
+    color: "primary"
+  },
+  testing: {
+    label: "Testing",
+    icon: "mdi-clipboard-check-outline",
+    color: "success"
+  },
+  enclosure: {
+    label: "Enclosure",
+    icon: "mdi-cube-outline",
+    color: "info"
+  },
+  documentation: {
+    label: "Docs",
+    icon: "mdi-file-document-outline",
+    color: "secondary"
+  },
+  install: {
+    label: "Install",
+    icon: "mdi-map-marker-check-outline",
+    color: "warning"
+  }
+};
+const checklistCategoryOptions = PROJECT_CHECKLIST_CATEGORIES.map((category) => ({
+  title: CHECKLIST_CATEGORY_META[category].label,
+  value: category
+}));
+const checklistTemplates: ChecklistTemplate[] = [
+  { title: "Flash firmware", category: "firmware" },
+  { title: "Record MAC address", category: "hardware" },
+  { title: "Label board", category: "hardware" },
+  { title: "Verify pin assignments", category: "testing" },
+  { title: "Test Wi-Fi connection", category: "testing" },
+  { title: "Capture firmware version", category: "documentation" },
+  { title: "Document enclosure/location", category: "enclosure" },
+  { title: "Backup config", category: "documentation" }
+];
 
 const projectRows = computed<ProjectRow[]>(() =>
   projects.value.map((project) => {
     const assignedBoards = boards.value.filter(
       (board) => board.projectId === project.id
     );
+    const projectChecklistItems = checklistItems.value.filter(
+      (item) => item.projectId === project.id
+    );
 
     return {
       project,
       assignedBoards,
+      checklistItems: projectChecklistItems,
+      checklistCompletedCount: projectChecklistItems.filter(
+        (item) => item.completed
+      ).length,
+      checklistTotalCount: projectChecklistItems.length,
       attentionCount: assignedBoards.filter((board) =>
         ["broken", "needs_flashing", "unknown"].includes(board.status)
       ).length
@@ -149,12 +244,48 @@ const selectedRow = computed(() => {
   );
 });
 
+const selectedChecklistItems = computed(
+  () => selectedRow.value?.checklistItems ?? []
+);
+const visibleSelectedChecklistItems = computed(() =>
+  showCompletedChecklistItems.value
+    ? selectedChecklistItems.value
+    : selectedChecklistItems.value.filter((item) => !item.completed)
+);
+const selectedChecklistProgress = computed(() => {
+  const row = selectedRow.value;
+  if (!row?.checklistTotalCount) {
+    return 0;
+  }
+
+  return Math.round(
+    (row.checklistCompletedCount / row.checklistTotalCount) * 100
+  );
+});
+
 const unassignedBoardCount = computed(
   () => boards.value.filter((board) => !board.projectId).length
 );
 const assignedBoardCount = computed(
   () => boards.value.filter((board) => Boolean(board.projectId)).length
 );
+const checklistBoardOptions = computed(() => {
+  const selectedBoardIds = new Set(
+    selectedRow.value?.assignedBoards.map((board) => board.id) ?? []
+  );
+  const linkedBoardIds = selectedChecklistItems.value
+    .map((item) => item.boardId)
+    .filter((boardId): boardId is string => Boolean(boardId));
+
+  linkedBoardIds.forEach((boardId) => selectedBoardIds.add(boardId));
+
+  return boards.value
+    .filter((board) => selectedBoardIds.has(board.id))
+    .map((board) => ({
+      title: board.name,
+      value: board.id
+    }));
+});
 const assignableBoardOptions = computed(() => {
   const currentProjectId = selectedRow.value?.project.id;
   if (!currentProjectId) {
@@ -214,6 +345,7 @@ watch(projects, () => {
 
 watch(selectedProjectId, () => {
   selectedAssignableBoardId.value = null;
+  Object.assign(checklistForm, emptyChecklistForm());
 });
 
 watch(
@@ -238,6 +370,16 @@ function emptyForm(): ProjectForm {
     description: "",
     location: "",
     status: "active"
+  };
+}
+
+function emptyChecklistForm(): ChecklistForm {
+  return {
+    title: "",
+    notes: "",
+    category: "hardware",
+    boardId: null,
+    completed: false
   };
 }
 
@@ -278,8 +420,17 @@ function closeEditor(): void {
   editorOpen.value = false;
 }
 
+function closeChecklistEditor(): void {
+  checklistEditorOpen.value = false;
+  editingChecklistItem.value = null;
+}
+
 async function refreshProjects(): Promise<void> {
-  await Promise.all([projectStore.loadProjects(), boardStore.loadBoards()]);
+  await Promise.all([
+    projectStore.loadProjects(),
+    boardStore.loadBoards(),
+    checklistStore.loadItems()
+  ]);
 }
 
 async function saveProject(): Promise<void> {
@@ -311,7 +462,7 @@ async function confirmDelete(): Promise<void> {
 
   const deletedProjectId = deletingProject.value.id;
   await projectStore.deleteProject(deletedProjectId);
-  await boardStore.loadBoards();
+  await Promise.all([boardStore.loadBoards(), checklistStore.loadItems()]);
 
   if (selectedProjectId.value === deletedProjectId) {
     selectedProjectId.value = filteredRows.value[0]?.project.id ?? null;
@@ -335,6 +486,94 @@ async function removeBoardFromProject(board: Board): Promise<void> {
   await boardStore.updateBoard(board.id, {
     projectId: null
   });
+}
+
+async function addChecklistItem(): Promise<void> {
+  const project = selectedRow.value?.project;
+  if (!project || !checklistForm.title.trim()) {
+    return;
+  }
+
+  checklistSaving.value = true;
+
+  try {
+    await checklistStore.createItem({
+      projectId: project.id,
+      title: checklistForm.title,
+      notes: checklistForm.notes,
+      category: checklistForm.category,
+      boardId: checklistForm.boardId
+    });
+    Object.assign(checklistForm, emptyChecklistForm());
+  } finally {
+    checklistSaving.value = false;
+  }
+}
+
+async function addChecklistTemplate(
+  template: ChecklistTemplate
+): Promise<void> {
+  const project = selectedRow.value?.project;
+  if (!project) {
+    return;
+  }
+
+  await checklistStore.createItem({
+    projectId: project.id,
+    title: template.title,
+    category: template.category
+  });
+}
+
+function openChecklistEditor(item: ProjectChecklistItem): void {
+  editingChecklistItem.value = item;
+  Object.assign(checklistEditorForm, {
+    title: item.title,
+    notes: item.notes ?? "",
+    category: item.category,
+    boardId: item.boardId,
+    completed: item.completed
+  });
+  checklistEditorOpen.value = true;
+}
+
+async function saveChecklistItem(): Promise<void> {
+  if (!editingChecklistItem.value || !checklistEditorForm.title.trim()) {
+    return;
+  }
+
+  checklistEditorSaving.value = true;
+
+  try {
+    await checklistStore.updateItem(editingChecklistItem.value.id, {
+      title: checklistEditorForm.title,
+      notes: checklistEditorForm.notes,
+      category: checklistEditorForm.category,
+      boardId: checklistEditorForm.boardId,
+      completed: checklistEditorForm.completed
+    });
+    closeChecklistEditor();
+  } finally {
+    checklistEditorSaving.value = false;
+  }
+}
+
+async function toggleChecklistItem(
+  item: ProjectChecklistItem,
+  completed: boolean
+): Promise<void> {
+  await checklistStore.updateItem(item.id, { completed });
+}
+
+async function deleteChecklistItem(item: ProjectChecklistItem): Promise<void> {
+  await checklistStore.deleteItem(item.id);
+}
+
+async function moveChecklistItem(
+  item: ProjectChecklistItem,
+  direction: "up" | "down"
+): Promise<void> {
+  await checklistStore.moveItem(item.projectId, item.id, direction);
 }
 
 async function loadSelectedCoverImage(
@@ -600,6 +839,34 @@ function formatProjectHealth(row: ProjectRow): string {
   return "Ready";
 }
 
+function formatChecklistProgress(row: ProjectRow): string {
+  if (!row.checklistTotalCount) {
+    return "No tasks";
+  }
+
+  return `${row.checklistCompletedCount}/${row.checklistTotalCount} done`;
+}
+
+function projectChecklistColor(row: ProjectRow): string {
+  if (!row.checklistTotalCount) {
+    return "secondary";
+  }
+
+  return row.checklistCompletedCount === row.checklistTotalCount
+    ? "success"
+    : "info";
+}
+
+function projectChecklistIcon(row: ProjectRow): string {
+  if (!row.checklistTotalCount) {
+    return "mdi-checkbox-blank-circle-outline";
+  }
+
+  return row.checklistCompletedCount === row.checklistTotalCount
+    ? "mdi-checkbox-marked-circle-outline"
+    : "mdi-format-list-checks";
+}
+
 function projectHealthColor(row: ProjectRow): string {
   if (!row.assignedBoards.length) {
     return "secondary";
@@ -614,6 +881,45 @@ function projectHealthIcon(row: ProjectRow): string {
   }
 
   return row.attentionCount > 0 ? "mdi-alert-outline" : "mdi-check-circle-outline";
+}
+
+function checklistCategoryLabel(
+  category: ProjectChecklistCategory | null
+): string {
+  return category ? CHECKLIST_CATEGORY_META[category].label : "General";
+}
+
+function checklistCategoryIcon(
+  category: ProjectChecklistCategory | null
+): string {
+  return category ? CHECKLIST_CATEGORY_META[category].icon : "mdi-format-list-checks";
+}
+
+function checklistCategoryColor(
+  category: ProjectChecklistCategory | null
+): string {
+  return category ? CHECKLIST_CATEGORY_META[category].color : "secondary";
+}
+
+function linkedBoardLabel(boardId: string | null): string | null {
+  if (!boardId) {
+    return null;
+  }
+
+  return boards.value.find((board) => board.id === boardId)?.name ?? "Board removed";
+}
+
+function canMoveChecklistItem(
+  item: ProjectChecklistItem,
+  direction: "up" | "down"
+): boolean {
+  const index = selectedChecklistItems.value.findIndex(
+    (candidate) => candidate.id === item.id
+  );
+
+  return direction === "up"
+    ? index > 0
+    : index >= 0 && index < selectedChecklistItems.value.length - 1;
 }
 
 function uniqueLocationOptions(values: Array<string | null | undefined>): string[] {
@@ -670,7 +976,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
     </v-alert>
 
     <v-row class="mb-4" dense>
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3">
         <v-card class="metric-card metric-card--amber" flat>
           <v-card-text>
             <div class="metric-card-content">
@@ -685,7 +991,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3">
         <v-card class="metric-card metric-card--green" flat>
           <v-card-text>
             <div class="metric-card-content">
@@ -700,7 +1006,22 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3">
+        <v-card class="metric-card metric-card--orange" flat>
+          <v-card-text>
+            <div class="metric-card-content">
+              <div>
+                <div class="metric-label">Open tasks</div>
+                <div class="metric-value">{{ openChecklistItemCount }}</div>
+              </div>
+              <div class="metric-icon">
+                <v-icon icon="mdi-format-list-checks" />
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="3">
         <v-card class="metric-card metric-card--blue" flat>
           <v-card-text>
             <div class="metric-card-content">
@@ -772,6 +1093,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
               <th>Project</th>
               <th>Status</th>
               <th>Boards</th>
+              <th>Checklist</th>
               <th>Health</th>
             </tr>
           </thead>
@@ -825,6 +1147,16 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
                 <span class="project-list-board-count-label">
                   {{ row.assignedBoards.length === 1 ? " board" : " boards" }}
                 </span>
+              </td>
+              <td class="project-list-checklist-cell">
+                <v-chip
+                  :color="projectChecklistColor(row)"
+                  :prepend-icon="projectChecklistIcon(row)"
+                  size="small"
+                  variant="tonal"
+                >
+                  {{ formatChecklistProgress(row) }}
+                </v-chip>
               </td>
               <td class="project-list-health-cell">
                 <v-chip
@@ -985,6 +1317,10 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
               <div class="project-fact-value">{{ selectedRow.assignedBoards.length }}</div>
             </div>
             <div>
+              <div class="metric-label">Checklist</div>
+              <div class="project-fact-value">{{ formatChecklistProgress(selectedRow) }}</div>
+            </div>
+            <div>
               <div class="metric-label">Health</div>
               <div class="project-fact-value">{{ formatProjectHealth(selectedRow) }}</div>
             </div>
@@ -997,6 +1333,198 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
             <div>
               <div class="metric-label">Updated</div>
               <div class="project-fact-value">{{ formatDate(selectedRow.project.updatedAt) }}</div>
+            </div>
+          </div>
+
+          <div class="checklist-panel">
+            <div class="checklist-header">
+              <div>
+                <div class="section-title">Checklist</div>
+                <div class="text-body-2 muted mt-1">
+                  {{ formatChecklistProgress(selectedRow) }}
+                </div>
+              </div>
+              <div class="checklist-header-actions">
+                <v-switch
+                  v-model="showCompletedChecklistItems"
+                  class="checklist-show-done"
+                  color="primary"
+                  density="compact"
+                  hide-details
+                  inset
+                  label="Show done"
+                />
+                <v-menu>
+                  <template #activator="{ props: menuProps }">
+                    <v-btn
+                      v-bind="menuProps"
+                      variant="tonal"
+                      color="primary"
+                      prepend-icon="mdi-playlist-plus"
+                    >
+                      Templates
+                    </v-btn>
+                  </template>
+                  <v-list density="compact">
+                    <v-list-item
+                      v-for="template in checklistTemplates"
+                      :key="template.title"
+                      :prepend-icon="checklistCategoryIcon(template.category)"
+                      :title="template.title"
+                      :subtitle="checklistCategoryLabel(template.category)"
+                      @click="addChecklistTemplate(template)"
+                    />
+                  </v-list>
+                </v-menu>
+              </div>
+            </div>
+
+            <v-progress-linear
+              class="checklist-progress"
+              color="success"
+              height="8"
+              rounded
+              :model-value="selectedChecklistProgress"
+            />
+
+            <form class="checklist-add-row" @submit.prevent="addChecklistItem">
+              <v-text-field
+                v-model="checklistForm.title"
+                hide-details
+                label="New checklist item"
+                prepend-inner-icon="mdi-checkbox-marked-outline"
+              />
+              <v-select
+                v-model="checklistForm.category"
+                :items="checklistCategoryOptions"
+                hide-details
+                label="Category"
+              />
+              <v-select
+                v-model="checklistForm.boardId"
+                :items="checklistBoardOptions"
+                clearable
+                hide-details
+                label="Board"
+              />
+              <v-btn
+                color="primary"
+                prepend-icon="mdi-plus"
+                type="submit"
+                :disabled="!checklistForm.title.trim()"
+                :loading="checklistSaving"
+              >
+                Add
+              </v-btn>
+            </form>
+
+            <div v-if="selectedChecklistItems.length" class="checklist-list">
+              <div
+                v-if="!visibleSelectedChecklistItems.length"
+                class="text-body-2 muted checklist-filter-empty"
+              >
+                Completed items are hidden.
+              </div>
+              <div
+                v-for="item in visibleSelectedChecklistItems"
+                :key="item.id"
+                class="checklist-item"
+                :class="{ 'checklist-item--completed': item.completed }"
+              >
+                <v-checkbox-btn
+                  :model-value="item.completed"
+                  color="success"
+                  density="compact"
+                  :aria-label="`Mark ${item.title} ${item.completed ? 'open' : 'done'}`"
+                  @update:model-value="toggleChecklistItem(item, Boolean($event))"
+                />
+                <div class="checklist-item-body">
+                  <div class="checklist-item-title">{{ item.title }}</div>
+                  <div v-if="item.notes" class="text-caption muted">
+                    {{ item.notes }}
+                  </div>
+                  <div class="checklist-item-meta">
+                    <v-chip
+                      :color="checklistCategoryColor(item.category)"
+                      :prepend-icon="checklistCategoryIcon(item.category)"
+                      size="x-small"
+                      variant="tonal"
+                    >
+                      {{ checklistCategoryLabel(item.category) }}
+                    </v-chip>
+                    <v-chip
+                      v-if="linkedBoardLabel(item.boardId)"
+                      color="primary"
+                      prepend-icon="mdi-developer-board"
+                      size="x-small"
+                      variant="tonal"
+                    >
+                      {{ linkedBoardLabel(item.boardId) }}
+                    </v-chip>
+                  </div>
+                </div>
+                <div class="checklist-item-actions">
+                  <v-tooltip text="Move up">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-btn
+                        v-bind="tooltipProps"
+                        icon="mdi-chevron-up"
+                        size="x-small"
+                        variant="text"
+                        :disabled="!canMoveChecklistItem(item, 'up')"
+                        aria-label="Move checklist item up"
+                        @click="moveChecklistItem(item, 'up')"
+                      />
+                    </template>
+                  </v-tooltip>
+                  <v-tooltip text="Move down">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-btn
+                        v-bind="tooltipProps"
+                        icon="mdi-chevron-down"
+                        size="x-small"
+                        variant="text"
+                        :disabled="!canMoveChecklistItem(item, 'down')"
+                        aria-label="Move checklist item down"
+                        @click="moveChecklistItem(item, 'down')"
+                      />
+                    </template>
+                  </v-tooltip>
+                  <v-tooltip text="Edit">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-btn
+                        v-bind="tooltipProps"
+                        icon="mdi-pencil-outline"
+                        size="x-small"
+                        variant="text"
+                        aria-label="Edit checklist item"
+                        @click="openChecklistEditor(item)"
+                      />
+                    </template>
+                  </v-tooltip>
+                  <v-tooltip text="Delete">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-btn
+                        v-bind="tooltipProps"
+                        color="error"
+                        icon="mdi-delete-outline"
+                        size="x-small"
+                        variant="text"
+                        aria-label="Delete checklist item"
+                        @click="deleteChecklistItem(item)"
+                      />
+                    </template>
+                  </v-tooltip>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="empty-state project-empty-state checklist-empty-state">
+              <v-icon icon="mdi-format-list-checks" size="32" color="primary" />
+              <div class="text-subtitle-2 font-weight-bold mt-2">No checklist items</div>
+              <div class="text-body-2 muted mt-1">
+                Add build, flash, test, and install steps for this project.
+              </div>
             </div>
           </div>
 
@@ -1164,6 +1692,82 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
       </v-card>
     </v-dialog>
 
+    <v-dialog v-model="checklistEditorOpen" max-width="620" persistent>
+      <v-card class="vault-edit-dialog-card">
+        <v-card-title class="d-flex align-center justify-space-between">
+          <span>Edit checklist item</span>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            aria-label="Close"
+            @click="closeChecklistEditor"
+          />
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="vault-edit-dialog-body">
+          <v-form @submit.prevent="saveChecklistItem">
+            <v-row>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="checklistEditorForm.title"
+                  label="Checklist item"
+                  required
+                  autofocus
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  v-model="checklistEditorForm.category"
+                  :items="checklistCategoryOptions"
+                  clearable
+                  label="Category"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  v-model="checklistEditorForm.boardId"
+                  :items="checklistBoardOptions"
+                  clearable
+                  label="Linked board"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-textarea
+                  v-model="checklistEditorForm.notes"
+                  label="Notes"
+                  rows="3"
+                  auto-grow
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-switch
+                  v-model="checklistEditorForm.completed"
+                  color="success"
+                  hide-details
+                  inset
+                  label="Completed"
+                />
+              </v-col>
+            </v-row>
+          </v-form>
+        </v-card-text>
+        <v-divider />
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="closeChecklistEditor">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-content-save"
+            :disabled="!checklistEditorForm.title.trim()"
+            :loading="checklistEditorSaving"
+            @click="saveChecklistItem"
+          >
+            Save item
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-dialog v-model="coverImageViewerOpen" max-width="96vw">
       <v-card class="cover-viewer-card">
         <v-card-title class="cover-viewer-title">
@@ -1239,22 +1843,27 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 
 .projects-table :deep(th:nth-child(1)),
 .projects-table :deep(td:nth-child(1)) {
-  width: 46%;
+  width: 38%;
 }
 
 .projects-table :deep(th:nth-child(2)),
 .projects-table :deep(td:nth-child(2)) {
-  width: 24%;
+  width: 20%;
 }
 
 .projects-table :deep(th:nth-child(3)),
 .projects-table :deep(td:nth-child(3)) {
-  width: 12%;
+  width: 10%;
 }
 
 .projects-table :deep(th:nth-child(4)),
 .projects-table :deep(td:nth-child(4)) {
-  width: 18%;
+  width: 16%;
+}
+
+.projects-table :deep(th:nth-child(5)),
+.projects-table :deep(td:nth-child(5)) {
+  width: 16%;
 }
 
 .project-row {
@@ -1493,7 +2102,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 
 .project-facts {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -1521,6 +2130,99 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 .project-fact-value {
   margin-top: 4px;
   font-weight: 700;
+}
+
+.checklist-panel {
+  margin-top: 20px;
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  padding: 16px;
+  background: rgba(var(--v-theme-surface-variant), 0.22);
+}
+
+.checklist-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.checklist-header-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.checklist-show-done {
+  min-width: 136px;
+}
+
+.checklist-progress {
+  margin: 14px 0;
+}
+
+.checklist-add-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 170px 190px auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.checklist-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.checklist-filter-empty {
+  border: 1px dashed var(--vault-soft-border);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+}
+
+.checklist-item {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(var(--v-theme-surface), 0.72);
+}
+
+.checklist-item--completed .checklist-item-title {
+  color: var(--vault-muted);
+  text-decoration: line-through;
+}
+
+.checklist-item-body {
+  min-width: 0;
+}
+
+.checklist-item-title {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.checklist-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.checklist-item-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.checklist-empty-state {
+  margin-top: 14px;
 }
 
 .section-title {
@@ -1558,7 +2260,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 
   .projects-table :deep(tr) {
     display: grid;
-    grid-template-columns: max-content max-content max-content;
+    grid-template-columns: max-content max-content max-content max-content;
     gap: 10px 12px;
     padding: 14px 18px;
     border-bottom: 1px solid var(--vault-soft-border);
@@ -1569,7 +2271,8 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
   .projects-table :deep(td:nth-child(1)),
   .projects-table :deep(td:nth-child(2)),
   .projects-table :deep(td:nth-child(3)),
-  .projects-table :deep(td:nth-child(4)) {
+  .projects-table :deep(td:nth-child(4)),
+  .projects-table :deep(td:nth-child(5)) {
     width: auto;
     padding: 0;
     border-bottom: 0 !important;
@@ -1628,12 +2331,26 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
   .project-toolbar,
   .project-cover-panel,
   .project-facts,
+  .checklist-add-row,
   .assign-board-row {
     grid-template-columns: 1fr;
   }
 
   .project-detail-heading {
     flex-direction: column;
+  }
+
+  .checklist-header {
+    display: grid;
+  }
+
+  .checklist-header-actions,
+  .checklist-item-actions {
+    justify-content: flex-start;
+  }
+
+  .checklist-item {
+    grid-template-columns: 1fr;
   }
 }
 </style>

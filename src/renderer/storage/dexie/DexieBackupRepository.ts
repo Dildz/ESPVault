@@ -16,6 +16,7 @@ export class DexieBackupRepository implements BackupRepository {
     const [
       boards,
       projects,
+      projectChecklistItems,
       boardTags,
       firmwareHistory,
       attachments,
@@ -24,6 +25,7 @@ export class DexieBackupRepository implements BackupRepository {
     ] = await Promise.all([
       this.database.boards.toArray(),
       this.database.projects.toArray(),
+      this.database.projectChecklistItems.toArray(),
       this.database.boardTags.toArray(),
       this.database.firmwareHistory.toArray(),
       this.database.attachments.toArray(),
@@ -41,6 +43,7 @@ export class DexieBackupRepository implements BackupRepository {
       data: {
         boards,
         projects,
+        projectChecklistItems,
         boardTags,
         firmwareHistory,
         attachments,
@@ -56,6 +59,7 @@ export class DexieBackupRepository implements BackupRepository {
       [
         this.database.boards,
         this.database.projects,
+        this.database.projectChecklistItems,
         this.database.boardTags,
         this.database.firmwareHistory,
         this.database.attachments,
@@ -66,6 +70,7 @@ export class DexieBackupRepository implements BackupRepository {
         await Promise.all([
           this.database.boards.clear(),
           this.database.projects.clear(),
+          this.database.projectChecklistItems.clear(),
           this.database.boardTags.clear(),
           this.database.firmwareHistory.clear(),
           this.database.attachments.clear(),
@@ -76,6 +81,9 @@ export class DexieBackupRepository implements BackupRepository {
         await Promise.all([
           this.database.boards.bulkPut(backup.data.boards),
           this.database.projects.bulkPut(backup.data.projects),
+          this.database.projectChecklistItems.bulkPut(
+            backup.data.projectChecklistItems
+          ),
           this.database.boardTags.bulkPut(backup.data.boardTags),
           this.database.firmwareHistory.bulkPut(backup.data.firmwareHistory),
           this.database.attachments.bulkPut(backup.data.attachments),

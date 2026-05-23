@@ -6,12 +6,14 @@ import type {
   BoardTag,
   FirmwareHistoryEntry,
   PinAssignment,
-  Project
+  Project,
+  ProjectChecklistItem
 } from "../../../shared/types/inventory";
 
 export class VaultDatabase extends Dexie {
   boards!: Table<Board, string>;
   projects!: Table<Project, string>;
+  projectChecklistItems!: Table<ProjectChecklistItem, string>;
   boardTags!: Table<BoardTag, string>;
   firmwareHistory!: Table<FirmwareHistoryEntry, string>;
   attachments!: Table<BoardAttachment, string>;
@@ -47,6 +49,19 @@ export class VaultDatabase extends Dexie {
       boards:
         "id, name, status, chipModel, chipFamily, flashChipId, flashManufacturerId, projectId, updatedAt, lastConnectedAt, createdAt",
       projects: "id, name, status, location, updatedAt, createdAt",
+      boardTags: "id, boardId, tag, createdAt",
+      firmwareHistory: "id, boardId, firmwareName, flashedAt, createdAt",
+      attachments: "id, boardId, type, filename, createdAt",
+      pinAssignments: "id, boardId, gpio, updatedAt, createdAt",
+      appSettings: "key, updatedAt"
+    });
+
+    this.version(4).stores({
+      boards:
+        "id, name, status, chipModel, chipFamily, flashChipId, flashManufacturerId, projectId, updatedAt, lastConnectedAt, createdAt",
+      projects: "id, name, status, location, updatedAt, createdAt",
+      projectChecklistItems:
+        "id, projectId, boardId, category, completed, sortOrder, updatedAt, createdAt",
       boardTags: "id, boardId, tag, createdAt",
       firmwareHistory: "id, boardId, firmwareName, flashedAt, createdAt",
       attachments: "id, boardId, type, filename, createdAt",

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { BoardPartition } from "../../../shared/types/partition";
 import { DexieBackupRepository } from "./DexieBackupRepository";
 import { DexieBoardRepository } from "./DexieBoardRepository";
+import { DexieProjectChecklistRepository } from "./DexieProjectChecklistRepository";
 import { DexieProjectRepository } from "./DexieProjectRepository";
 import { VaultDatabase } from "./vaultDatabase";
 
@@ -38,7 +39,7 @@ describe("Dexie repositories", () => {
 
     await database.open();
 
-    expect(database.verno).toBe(3);
+    expect(database.verno).toBe(4);
     expect(database.tables.map((table) => table.name).sort()).toEqual([
       "appSettings",
       "attachments",
@@ -46,11 +47,13 @@ describe("Dexie repositories", () => {
       "boards",
       "firmwareHistory",
       "pinAssignments",
+      "projectChecklistItems",
       "projects"
     ]);
     expect(database.boards.schema.idxByName.updatedAt).toBeDefined();
     expect(database.boards.schema.idxByName.projectId).toBeDefined();
     expect(database.projects.schema.idxByName.location).toBeDefined();
+    expect(database.projectChecklistItems.schema.idxByName.projectId).toBeDefined();
   });
 
   it("creates, lists, updates, and filters boards with scan metadata", async () => {
@@ -108,6 +111,9 @@ describe("Dexie repositories", () => {
   it("deletes board-owned records when deleting a board", async () => {
     const database = createTestDatabase();
     const boards = new DexieBoardRepository(database);
+    const projects = new DexieProjectRepository(database);
+    const checklists = new DexieProjectChecklistRepository(database);
+    const project = await projects.create({ name: "Linked project" });
     const board = await boards.create({ name: "Delete target" });
     const now = "2026-05-18T11:00:00.000Z";
 
@@ -148,6 +154,12 @@ describe("Dexie repositories", () => {
       createdAt: now,
       updatedAt: now
     });
+    const checklistItem = await checklists.create({
+      projectId: project.id,
+      boardId: board.id,
+      title: "Replace board in enclosure",
+      category: "hardware"
+    });
 
     expect(await boards.delete(board.id)).toBe(true);
     expect(await boards.get(board.id)).toBeNull();
@@ -155,12 +167,17 @@ describe("Dexie repositories", () => {
     expect(await database.firmwareHistory.count()).toBe(0);
     expect(await database.attachments.count()).toBe(0);
     expect(await database.pinAssignments.count()).toBe(0);
+    expect(await checklists.get(checklistItem.id)).toMatchObject({
+      id: checklistItem.id,
+      boardId: null
+    });
   });
 
   it("manages projects and clears board assignments without deleting boards", async () => {
     const database = createTestDatabase();
     const projects = new DexieProjectRepository(database);
     const boards = new DexieBoardRepository(database);
+    const checklists = new DexieProjectChecklistRepository(database);
 
     const project = await projects.create({
       name: "Door panel",
@@ -172,6 +189,11 @@ describe("Dexie repositories", () => {
       name: "Project board",
       projectId: project.id,
       status: "in_use"
+    });
+    await checklists.create({
+      projectId: project.id,
+      title: "Flash release firmware",
+      category: "firmware"
     });
 
     const updatedProject = await projects.update(project.id, {
@@ -189,6 +211,44 @@ describe("Dexie repositories", () => {
       id: board.id,
       projectId: null
     });
+    expect(await checklists.list({ projectId: project.id })).toHaveLength(0);
+  });
+
+  it("creates, updates, orders, and deletes project checklist items", async () => {
+    const database = createTestDatabase();
+    const projects = new DexieProjectRepository(database);
+    const checklists = new DexieProjectChecklistRepository(database);
+    const project = await projects.create({ name: "Bench sensor" });
+
+    const first = await checklists.create({
+      projectId: project.id,
+      title: " Label board ",
+      category: "hardware"
+    });
+    const second = await checklists.create({
+      projectId: project.id,
+      title: "Test Wi-Fi connection",
+      category: "testing",
+      notes: "Use the workshop AP."
+    });
+
+    expect(first.title).toBe("Label board");
+    expect(second.sortOrder).toBeGreaterThan(first.sortOrder);
+    expect((await checklists.list({ projectId: project.id })).map((item) => item.id))
+      .toEqual([first.id, second.id]);
+
+    const completed = await checklists.update(second.id, {
+      completed: true,
+      sortOrder: 0
+    });
+
+    expect(completed.completed).toBe(true);
+    expect(completed.completedAt).toBeTruthy();
+    expect((await checklists.list({ projectId: project.id })).map((item) => item.id))
+      .toEqual([second.id, first.id]);
+
+    expect(await checklists.delete(first.id)).toBe(true);
+    expect(await checklists.get(first.id)).toBeNull();
   });
 
   it("exports and imports a complete vault backup", async () => {
@@ -196,8 +256,10 @@ describe("Dexie repositories", () => {
     const targetDatabase = createTestDatabase();
     const sourceBoards = new DexieBoardRepository(sourceDatabase);
     const sourceProjects = new DexieProjectRepository(sourceDatabase);
+    const sourceChecklists = new DexieProjectChecklistRepository(sourceDatabase);
     const sourceBackups = new DexieBackupRepository(sourceDatabase);
     const targetBoards = new DexieBoardRepository(targetDatabase);
+    const targetChecklists = new DexieProjectChecklistRepository(targetDatabase);
     const targetBackups = new DexieBackupRepository(targetDatabase);
     const now = "2026-05-18T12:00:00.000Z";
 
@@ -210,6 +272,13 @@ describe("Dexie repositories", () => {
       projectId: project.id,
       status: "available",
       partitions: [samplePartition]
+    });
+    await sourceChecklists.create({
+      projectId: project.id,
+      boardId: board.id,
+      title: "Verify control panel boot",
+      category: "testing",
+      completed: true
     });
 
     await sourceDatabase.boardTags.add({
@@ -230,14 +299,21 @@ describe("Dexie repositories", () => {
 
     expect(summary.counts.boards).toBe(1);
     expect(summary.counts.projects).toBe(1);
+    expect(summary.counts.projectChecklistItems).toBe(1);
     expect(summary.counts.boardTags).toBe(1);
     expect(await targetDatabase.boards.count()).toBe(1);
     expect(await targetDatabase.projects.count()).toBe(1);
+    expect(await targetDatabase.projectChecklistItems.count()).toBe(1);
     expect(await targetDatabase.boardTags.count()).toBe(1);
     expect(await targetDatabase.appSettings.count()).toBe(1);
     expect((await targetBoards.list())[0]).toMatchObject({
       name: "Console MCU",
       projectId: project.id
+    });
+    expect((await targetChecklists.list({ projectId: project.id }))[0]).toMatchObject({
+      title: "Verify control panel boot",
+      completed: true,
+      boardId: board.id
     });
   });
 
@@ -315,7 +391,7 @@ describe("Dexie repositories", () => {
 
     await database.open();
 
-    expect(database.verno).toBe(3);
+    expect(database.verno).toBe(4);
     expect(await projects.get("legacy-project")).toMatchObject({
       id: "legacy-project",
       location: null

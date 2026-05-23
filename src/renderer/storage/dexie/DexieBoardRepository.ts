@@ -313,14 +313,29 @@ export class DexieBoardRepository implements BoardRepository {
         this.database.boardTags,
         this.database.firmwareHistory,
         this.database.attachments,
-        this.database.pinAssignments
+        this.database.pinAssignments,
+        this.database.projectChecklistItems
       ],
       async () => {
+        const now = new Date().toISOString();
+        const linkedChecklistItems =
+          await this.database.projectChecklistItems
+            .where("boardId")
+            .equals(id)
+            .toArray();
+
         await Promise.all([
           this.database.boardTags.where("boardId").equals(id).delete(),
           this.database.firmwareHistory.where("boardId").equals(id).delete(),
           this.database.attachments.where("boardId").equals(id).delete(),
-          this.database.pinAssignments.where("boardId").equals(id).delete()
+          this.database.pinAssignments.where("boardId").equals(id).delete(),
+          ...linkedChecklistItems.map((item) =>
+            this.database.projectChecklistItems.put({
+              ...item,
+              boardId: null,
+              updatedAt: now
+            })
+          )
         ]);
         await this.database.boards.delete(id);
       }

@@ -5,7 +5,8 @@ import type {
   BoardTag,
   FirmwareHistoryEntry,
   PinAssignment,
-  Project
+  Project,
+  ProjectChecklistItem
 } from "./inventory";
 
 export const BACKUP_FORMAT = "esp-board-vault-backup";
@@ -14,6 +15,7 @@ export const BACKUP_VERSION = 1;
 export interface VaultBackupTables {
   boards: Board[];
   projects: Project[];
+  projectChecklistItems: ProjectChecklistItem[];
   boardTags: BoardTag[];
   firmwareHistory: FirmwareHistoryEntry[];
   attachments: BoardAttachment[];
@@ -92,6 +94,11 @@ export function parseVaultBackup(value: unknown): VaultBackup {
     data: {
       boards: readObjectArray<Board>(value.data, "boards", "id"),
       projects: readObjectArray<Project>(value.data, "projects", "id"),
+      projectChecklistItems: readOptionalObjectArray<ProjectChecklistItem>(
+        value.data,
+        "projectChecklistItems",
+        "id"
+      ),
       boardTags: readObjectArray<BoardTag>(value.data, "boardTags", "id"),
       firmwareHistory: readObjectArray<FirmwareHistoryEntry>(
         value.data,
@@ -122,6 +129,7 @@ export function summarizeVaultBackup(backup: VaultBackup): VaultBackupSummary {
     counts: {
       boards: backup.data.boards.length,
       projects: backup.data.projects.length,
+      projectChecklistItems: backup.data.projectChecklistItems.length,
       boardTags: backup.data.boardTags.length,
       firmwareHistory: backup.data.firmwareHistory.length,
       attachments: backup.data.attachments.length,
@@ -134,6 +142,18 @@ export function summarizeVaultBackup(backup: VaultBackup): VaultBackupSummary {
       0
     )
   };
+}
+
+function readOptionalObjectArray<TRecord>(
+  container: Record<string, unknown>,
+  key: string,
+  primaryKey: string
+): TRecord[] {
+  if (container[key] === undefined) {
+    return [];
+  }
+
+  return readObjectArray<TRecord>(container, key, primaryKey);
 }
 
 function readObjectArray<TRecord>(
