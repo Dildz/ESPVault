@@ -1431,13 +1431,15 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
                 class="checklist-item"
                 :class="{ 'checklist-item--completed': item.completed }"
               >
-                <v-checkbox-btn
-                  :model-value="item.completed"
-                  color="success"
-                  density="compact"
-                  :aria-label="`Mark ${item.title} ${item.completed ? 'open' : 'done'}`"
-                  @update:model-value="toggleChecklistItem(item, Boolean($event))"
-                />
+                <div class="checklist-item-check">
+                  <v-checkbox-btn
+                    :model-value="item.completed"
+                    color="success"
+                    density="compact"
+                    :aria-label="`Mark ${item.title} ${item.completed ? 'open' : 'done'}`"
+                    @update:model-value="toggleChecklistItem(item, Boolean($event))"
+                  />
+                </div>
                 <div class="checklist-item-body">
                   <div class="checklist-item-title">{{ item.title }}</div>
                   <div v-if="item.notes" class="text-caption muted">
@@ -2183,8 +2185,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 }
 
 .checklist-item {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
+  display: flex;
   gap: 10px;
   align-items: flex-start;
   border: 1px solid var(--vault-soft-border);
@@ -2193,17 +2194,37 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
   background: rgba(var(--v-theme-surface), 0.72);
 }
 
+.checklist-item-check {
+  display: grid;
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  place-items: center;
+}
+
+.checklist-item-check :deep(.v-selection-control) {
+  justify-content: center;
+  min-height: 32px;
+}
+
+.checklist-item-check :deep(.v-selection-control__wrapper) {
+  width: 32px;
+  height: 32px;
+}
+
 .checklist-item--completed .checklist-item-title {
   color: var(--vault-muted);
   text-decoration: line-through;
 }
 
 .checklist-item-body {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
 .checklist-item-title {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   font-weight: 700;
 }
 
@@ -2216,6 +2237,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 
 .checklist-item-actions {
   display: inline-flex;
+  flex: 0 0 auto;
   flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 2px;
@@ -2350,7 +2372,16 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
   }
 
   .checklist-item {
-    grid-template-columns: 1fr;
+    flex-wrap: wrap;
+  }
+
+  .checklist-item-body {
+    flex-basis: calc(100% - 42px);
+  }
+
+  .checklist-item-actions {
+    flex-basis: 100%;
+    padding-left: 42px;
   }
 }
 </style>
