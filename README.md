@@ -22,6 +22,8 @@ I get it working again?"
 - Copy the scan log when you need to paste diagnostics elsewhere.
 - Save detected boards into the vault or update an existing saved board.
 - Group boards into projects.
+- Track project checklist items for build, firmware, testing, enclosure,
+  documentation, install, and repair follow-up work.
 - Assign and remove boards from a project from either the board editor or the
   project view.
 - See project health, assigned boards, board status, hardware metadata, and
@@ -44,6 +46,7 @@ Dashboard charts help you understand the lab at a glance:
 - known flash and PSRAM capacity
 - board status distribution
 - project assignment and unassigned boards
+- project status, assigned-board coverage, and open checklist tasks
 - partition layout, open flash, OTA readiness, and filesystem footprint when
   partition maps are available
 
@@ -95,10 +98,17 @@ The Projects view shows:
 
 - project status
 - assigned board count
+- checklist progress and open project tasks
 - project health
 - assigned boards with MAC, chip, flash, PSRAM, status, and location
 - quick open actions for board records
 - controls to assign or remove boards from the current project
+
+Each project can include a local checklist for the work needed to finish,
+repair, install, or reproduce the build. Checklist items can be categorized,
+linked to a board, marked complete, reordered, edited, or created from ESP maker
+templates such as flashing firmware, recording a MAC address, verifying pin
+assignments, testing Wi-Fi, fixing known problems, and saving device config.
 
 Deleting a project does not delete its boards. It only clears their project
 assignment.
@@ -117,9 +127,9 @@ ESP32 Partition Builder, Video Conversion Studio, and Arduino Maker Workshop.
 ESP Board Vault is local-first. There are no accounts, cloud sync, telemetry,
 payments, or hosted services.
 
-Backup & Restore exports one ZIP file containing the vault database plus copied
-images. Importing a backup replaces the current local vault only after you review
-and confirm the backup summary.
+Backup & Restore exports one ZIP file containing the vault database, project
+checklists, and copied images. Importing a backup replaces the current local
+vault only after you review and confirm the backup summary.
 
 Settings includes tools to:
 
