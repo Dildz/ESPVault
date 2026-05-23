@@ -354,7 +354,7 @@ const allProjectInsightMetrics = computed<ProjectInsightMetric[]>(() =>
     )
 );
 const projectInsightMetrics = computed<ProjectInsightMetric[]>(() =>
-  allProjectInsightMetrics.value.slice(0, 5)
+  allProjectInsightMetrics.value.slice(0, 4)
 );
 const projectsNeedingAttention = computed(
   () =>
@@ -2144,6 +2144,8 @@ function getCssVariable(name: string, fallback: string): string {
 }
 
 .project-insights-title {
+  min-height: 52px;
+  padding: 12px 16px !important;
   background:
     radial-gradient(circle at 10% 22%, rgba(var(--v-theme-primary), 0.16), transparent 32%),
     rgba(var(--v-theme-surface), 0.38);
@@ -2151,9 +2153,10 @@ function getCssVariable(name: string, fallback: string): string {
 
 .project-insights-grid {
   display: grid;
-  grid-template-columns: minmax(360px, 1fr) minmax(220px, 0.55fr) minmax(360px, 1fr);
-  gap: 16px;
-  padding: 20px;
+  grid-template-columns: minmax(520px, 0.95fr) minmax(420px, 1.05fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px 16px 16px;
   background:
     radial-gradient(circle at 12% 32%, rgba(var(--v-theme-primary), 0.1), transparent 28%),
     radial-gradient(circle at 78% 16%, rgba(var(--v-theme-accent), 0.08), transparent 28%),
@@ -2170,15 +2173,16 @@ function getCssVariable(name: string, fallback: string): string {
 
 .project-status-visual {
   display: grid;
-  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: minmax(118px, 150px) minmax(0, 1fr);
+  gap: 12px;
   align-items: center;
-  padding: 18px;
+  grid-column: 1;
+  padding: 12px;
 }
 
 .project-status-chart-wrap {
   position: relative;
-  width: min(184px, 46vw);
+  width: min(142px, 38vw);
   aspect-ratio: 1;
   justify-self: center;
 }
@@ -2216,7 +2220,7 @@ function getCssVariable(name: string, fallback: string): string {
 
 .project-status-chart-center strong {
   color: var(--vault-text);
-  font-size: 1.35rem;
+  font-size: 1.08rem;
   font-weight: 850;
   line-height: 1;
 }
@@ -2224,20 +2228,20 @@ function getCssVariable(name: string, fallback: string): string {
 .project-status-chart-center span {
   margin-top: 4px;
   color: var(--vault-muted);
-  font-size: 0.65rem;
+  font-size: 0.58rem;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .project-status-copy {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
 }
 
 .project-status-headline {
   color: var(--vault-text);
-  font-size: 1.18rem;
+  font-size: 1rem;
   font-weight: 850;
   line-height: 1.22;
 }
@@ -2245,20 +2249,22 @@ function getCssVariable(name: string, fallback: string): string {
 .project-status-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .project-kpi-grid {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-column: 1;
+  gap: 8px;
 }
 
 .project-kpi {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 86px;
-  padding: 14px;
+  gap: 8px;
+  min-height: 60px;
+  padding: 10px;
 }
 
 .project-kpi :deep(.v-icon) {
@@ -2273,21 +2279,23 @@ function getCssVariable(name: string, fallback: string): string {
 
 .project-kpi strong {
   color: var(--vault-text);
-  font-size: 1.18rem;
+  font-size: 1.02rem;
   font-weight: 850;
 }
 
 .project-kpi span {
   color: var(--vault-muted);
-  font-size: 0.78rem;
+  font-size: 0.66rem;
   font-weight: 750;
   text-transform: uppercase;
 }
 
 .project-focus-list {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  gap: 8px;
+  padding: 12px;
   min-width: 0;
 }
 
@@ -2300,25 +2308,25 @@ function getCssVariable(name: string, fallback: string): string {
 
 .project-focus-heading strong {
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
   color: var(--vault-text);
-  font-size: 1rem;
+  font-size: 0.92rem;
 }
 
 .project-focus-rows {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .project-focus-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(90px, 0.28fr) auto;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(86px, 0.25fr) auto;
+  gap: 8px;
   align-items: center;
   width: 100%;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: 8px;
-  padding: 10px;
+  padding: 8px 10px;
   background: rgba(var(--v-theme-surface), 0.4);
   color: inherit;
   cursor: pointer;
@@ -2349,18 +2357,19 @@ function getCssVariable(name: string, fallback: string): string {
 
 .project-focus-name {
   color: var(--vault-text);
+  font-size: 0.9rem;
   font-weight: 800;
 }
 
 .project-focus-meta {
   margin-top: 2px;
   color: var(--vault-muted);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
 }
 
 .project-focus-progress {
   overflow: hidden;
-  height: 8px;
+  height: 7px;
   border-radius: 999px;
   background: rgba(var(--v-theme-surface-variant), 0.78);
 }
@@ -3291,6 +3300,7 @@ function getCssVariable(name: string, fallback: string): string {
   }
 
   .chip-family-insights-grid,
+  .project-kpi-grid,
   .capability-grid {
     grid-template-columns: 1fr;
   }
@@ -3302,7 +3312,6 @@ function getCssVariable(name: string, fallback: string): string {
 }
 
 @media (max-width: 1500px) and (min-width: 1181px) {
-  .project-insights-grid,
   .partition-insights-grid {
     grid-template-columns: 1fr;
   }
@@ -3314,6 +3323,11 @@ function getCssVariable(name: string, fallback: string): string {
   .dashboard-snapshot,
   .partition-insights-grid {
     grid-template-columns: 1fr;
+  }
+
+  .project-focus-list {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .dashboard-insights {
