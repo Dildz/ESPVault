@@ -14,6 +14,12 @@ files:
 asar: true
 npmRebuild: false
 afterPack: scripts/after-pack-icons.cjs
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
 
 win:
   artifactName: ${productName}-${version}-windows-${arch}.${ext}
