@@ -1460,122 +1460,6 @@ function getCssVariable(name: string, fallback: string): string {
       </div>
     </div>
 
-    <v-card class="panel-card dashboard-panel project-insights-panel" flat>
-      <v-card-title class="text-subtitle-1 font-weight-bold project-insights-title">
-        <v-icon class="mr-2" color="primary" icon="mdi-folder-chart-outline" />
-        Project insights
-      </v-card-title>
-      <v-divider />
-
-      <div v-if="projects.length" class="project-insights-grid">
-        <div class="project-status-visual">
-          <div class="project-status-chart-wrap">
-            <canvas
-              ref="projectStatusChartCanvas"
-              aria-label="Project status distribution chart"
-            />
-            <div class="project-status-chart-center">
-              <strong>{{ projects.length }}</strong>
-              <span>projects</span>
-            </div>
-          </div>
-
-          <div class="project-status-copy">
-            <div class="metric-label">Status mix</div>
-            <div class="project-status-headline">
-              {{ activeProjects }} active /
-              {{ projectsNeedingAttention }} needing attention
-            </div>
-            <div class="project-status-legend">
-              <v-chip
-                v-for="metric in projectStatusMetrics"
-                :key="metric.status"
-                :color="PROJECT_STATUS_COLORS[metric.status]"
-                :prepend-icon="metric.status === 'needs_repair' ? 'mdi-wrench-outline' : 'mdi-folder-outline'"
-                size="small"
-                variant="tonal"
-              >
-                {{ metric.count }} {{ metric.label }}
-              </v-chip>
-            </div>
-          </div>
-        </div>
-
-        <div class="project-kpi-grid">
-          <div class="project-kpi">
-            <v-icon color="success" icon="mdi-folder-check-outline" />
-            <div>
-              <strong>{{ projectCoveragePercent }}%</strong>
-              <span>with assigned boards</span>
-            </div>
-          </div>
-          <div class="project-kpi">
-            <v-icon color="info" icon="mdi-format-list-checks" />
-            <div>
-              <strong>{{ openProjectChecklistItems }}</strong>
-              <span>open checklist tasks</span>
-            </div>
-          </div>
-          <div class="project-kpi">
-            <v-icon color="warning" icon="mdi-alert-outline" />
-            <div>
-              <strong>{{ projectsNeedingAttention }}</strong>
-              <span>projects to review</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="project-focus-list">
-          <div class="project-focus-heading">
-            <div>
-              <div class="metric-label">Project focus</div>
-              <strong>Boards, tasks, and repair pressure</strong>
-            </div>
-          </div>
-
-          <div class="project-focus-rows">
-            <button
-              v-for="metric in projectInsightMetrics"
-              :key="metric.project.id"
-              class="project-focus-row"
-              type="button"
-              @click="emit('open-project', metric.project.id)"
-            >
-              <div class="project-focus-main">
-                <div class="project-focus-name">
-                  {{ metric.project.name }}
-                </div>
-                <div class="project-focus-meta">
-                  {{ metric.assignedBoards }} board{{ metric.assignedBoards === 1 ? "" : "s" }} /
-                  {{ metric.openChecklistItems }} open task{{ metric.openChecklistItems === 1 ? "" : "s" }}
-                </div>
-              </div>
-              <div class="project-focus-progress">
-                <span
-                  :style="{ width: `${projectChecklistPercent(metric)}%` }"
-                />
-              </div>
-              <v-chip
-                :color="projectInsightColor(metric)"
-                size="x-small"
-                variant="tonal"
-              >
-                {{ projectInsightLabel(metric) }}
-              </v-chip>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div v-else class="empty-state ma-4">
-        <v-icon icon="mdi-folder-plus-outline" size="34" color="primary" />
-        <div class="text-subtitle-1 font-weight-bold mt-2">No project insights yet.</div>
-        <div class="text-body-2 muted mt-1">
-          Create projects and assign boards to see status, task, and repair pressure.
-        </div>
-      </div>
-    </v-card>
-
     <div class="dashboard-main-grid">
       <v-card class="panel-card dashboard-panel chip-family-panel" flat>
           <v-card-title class="text-subtitle-1 font-weight-bold chip-family-title">
@@ -1856,6 +1740,122 @@ function getCssVariable(name: string, fallback: string): string {
         </div>
       </v-card>
     </div>
+
+    <v-card class="panel-card dashboard-panel project-insights-panel" flat>
+      <v-card-title class="text-subtitle-1 font-weight-bold project-insights-title">
+        <v-icon class="mr-2" color="primary" icon="mdi-folder-chart-outline" />
+        Project insights
+      </v-card-title>
+      <v-divider />
+
+      <div v-if="projects.length" class="project-insights-grid">
+        <div class="project-status-visual">
+          <div class="project-status-chart-wrap">
+            <canvas
+              ref="projectStatusChartCanvas"
+              aria-label="Project status distribution chart"
+            />
+            <div class="project-status-chart-center">
+              <strong>{{ projects.length }}</strong>
+              <span>projects</span>
+            </div>
+          </div>
+
+          <div class="project-status-copy">
+            <div class="metric-label">Status mix</div>
+            <div class="project-status-headline">
+              {{ activeProjects }} active /
+              {{ projectsNeedingAttention }} needing attention
+            </div>
+            <div class="project-status-legend">
+              <v-chip
+                v-for="metric in projectStatusMetrics"
+                :key="metric.status"
+                :color="PROJECT_STATUS_COLORS[metric.status]"
+                :prepend-icon="metric.status === 'needs_repair' ? 'mdi-wrench-outline' : 'mdi-folder-outline'"
+                size="small"
+                variant="tonal"
+              >
+                {{ metric.count }} {{ metric.label }}
+              </v-chip>
+            </div>
+          </div>
+        </div>
+
+        <div class="project-kpi-grid">
+          <div class="project-kpi">
+            <v-icon color="success" icon="mdi-folder-check-outline" />
+            <div>
+              <strong>{{ projectCoveragePercent }}%</strong>
+              <span>with assigned boards</span>
+            </div>
+          </div>
+          <div class="project-kpi">
+            <v-icon color="info" icon="mdi-format-list-checks" />
+            <div>
+              <strong>{{ openProjectChecklistItems }}</strong>
+              <span>open checklist tasks</span>
+            </div>
+          </div>
+          <div class="project-kpi">
+            <v-icon color="warning" icon="mdi-alert-outline" />
+            <div>
+              <strong>{{ projectsNeedingAttention }}</strong>
+              <span>projects to review</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="project-focus-list">
+          <div class="project-focus-heading">
+            <div>
+              <div class="metric-label">Project focus</div>
+              <strong>Boards, tasks, and repair pressure</strong>
+            </div>
+          </div>
+
+          <div class="project-focus-rows">
+            <button
+              v-for="metric in projectInsightMetrics"
+              :key="metric.project.id"
+              class="project-focus-row"
+              type="button"
+              @click="emit('open-project', metric.project.id)"
+            >
+              <div class="project-focus-main">
+                <div class="project-focus-name">
+                  {{ metric.project.name }}
+                </div>
+                <div class="project-focus-meta">
+                  {{ metric.assignedBoards }} board{{ metric.assignedBoards === 1 ? "" : "s" }} /
+                  {{ metric.openChecklistItems }} open task{{ metric.openChecklistItems === 1 ? "" : "s" }}
+                </div>
+              </div>
+              <div class="project-focus-progress">
+                <span
+                  :style="{ width: `${projectChecklistPercent(metric)}%` }"
+                />
+              </div>
+              <v-chip
+                :color="projectInsightColor(metric)"
+                size="x-small"
+                variant="tonal"
+              >
+                {{ projectInsightLabel(metric) }}
+              </v-chip>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="empty-state ma-4">
+        <v-icon icon="mdi-folder-plus-outline" size="34" color="primary" />
+        <div class="text-subtitle-1 font-weight-bold mt-2">No project insights yet.</div>
+        <div class="text-body-2 muted mt-1">
+          Create projects and assign boards to see status, task, and repair pressure.
+        </div>
+      </div>
+    </v-card>
 
     <div class="dashboard-snapshot">
       <div class="snapshot-panel snapshot-panel--memory">
