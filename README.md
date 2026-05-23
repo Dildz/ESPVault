@@ -50,6 +50,11 @@ Dashboard charts help you understand the lab at a glance:
 - partition layout, open flash, OTA readiness, and filesystem footprint when
   partition maps are available
 
+The Project insights panel summarizes project status, assigned-board coverage,
+open checklist tasks, and projects that need review. It also highlights the
+project focus list so you can quickly spot builds with repair pressure, open
+tasks, or boards needing attention.
+
 The Dashboard also shows scan freshness, PSRAM readiness, top-capacity boards,
 and recent board activity so you can quickly spot stale records or hardware that
 needs follow-up.
