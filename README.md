@@ -27,6 +27,24 @@ I get it working again?"
 - View and change the app data location from Settings.
 - Reset the remembered app window size from Settings.
 
+## Dashboard
+
+The Dashboard is the quick overview for your ESP board vault. It highlights total
+boards, projects, available boards, and boards that need attention.
+
+Dashboard charts help you understand the lab at a glance:
+
+- board mix by chip family
+- known flash and PSRAM capacity
+- board status distribution
+- project assignment and unassigned boards
+- partition layout, open flash, OTA readiness, and filesystem footprint when
+  partition maps are available
+
+The Dashboard also shows scan freshness, PSRAM readiness, top-capacity boards,
+and recent board activity so you can quickly spot stale records or hardware that
+needs follow-up.
+
 ## Boards
 
 The Boards view is the main inventory table. It shows the board name, status,
