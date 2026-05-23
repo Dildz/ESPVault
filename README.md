@@ -1,8 +1,8 @@
-# ESP Vault
+# ESP Board Vault
 
-ESP Vault is a local desktop inventory for ESP32 makers. It helps you keep
-track of ESP boards, hardware details, projects, firmware notes, physical locations,
-and recovery information without using a cloud service.
+ESP Board Vault is a local desktop inventory for ESP32 makers. It helps you keep
+track of ESP boards, hardware details, projects, firmware notes, physical
+locations, and recovery information without using a cloud service.
 
 The app is designed for the common maker problem: months later, you can answer
 "what is this board, where is it used, what firmware did I put on it, and how do
@@ -11,6 +11,9 @@ I get it working again?"
 ## What You Can Do
 
 - Keep a local inventory of ESP boards.
+- Search boards and projects from the app header.
+- Use dashboard charts to understand board status, memory, projects, and flash
+  layouts.
 - Scan connected ESP boards over Web Serial.
 - Detect board metadata such as chip model, revision, MAC address, flash size,
   flash chip details, PSRAM when available, security flags, and bootloader
@@ -23,7 +26,10 @@ I get it working again?"
   project view.
 - See project health, assigned boards, board status, hardware metadata, and
   locations in one place.
+- Add cover images to board and project records.
+- Open curated ESP32 maker tools from inside the app.
 - Export a local backup and import it later.
+- Switch between light and dark mode.
 - View and change the app data location from Settings.
 - Reset the remembered app window size from Settings.
 
@@ -53,6 +59,7 @@ chip, MAC address, flash, PSRAM, location, and last update time.
 Each board can store:
 
 - name and notes
+- cover image
 - status
 - chip and revision
 - MAC address
@@ -96,16 +103,31 @@ The Projects view shows:
 Deleting a project does not delete its boards. It only clears their project
 assignment.
 
+## Tools And Navigation
+
+The app header includes quick actions for adding a board, scanning connected
+boards, refreshing app data, and switching between light and dark mode. The
+global search field opens matching board and project records directly.
+
+The Tools page links to curated ESP32 and maker utilities, including ESPConnect,
+ESP32 Partition Builder, Video Conversion Studio, and Arduino Maker Workshop.
+
 ## Backups And Local Data
 
 ESP Board Vault is local-first. There are no accounts, cloud sync, telemetry,
 payments, or hosted services.
 
+Backup & Restore exports one ZIP file containing the vault database plus copied
+images. Importing a backup replaces the current local vault only after you review
+and confirm the backup summary.
+
 Settings includes tools to:
 
 - export a backup
 - import a backup
+- switch appearance mode
 - see the current app data location
+- copy the app data location
 - move the app data location
 - reset the remembered window size
 
