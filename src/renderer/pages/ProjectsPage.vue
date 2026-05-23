@@ -187,6 +187,7 @@ const checklistTemplates: ChecklistTemplate[] = [
   { title: "Label board", category: "hardware" },
   { title: "Verify pin assignments", category: "testing" },
   { title: "Test Wi-Fi connection", category: "testing" },
+  { title: "Fix known problems", category: "testing" },
   { title: "Capture firmware version", category: "documentation" },
   { title: "Document enclosure/location", category: "enclosure" },
   { title: "Save device config", category: "documentation" }
