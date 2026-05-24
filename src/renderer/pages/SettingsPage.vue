@@ -8,7 +8,7 @@ import {
 import { repositories } from "../repositories";
 import {
   getBackupReminder,
-  getLastBackupAt
+  getBackupStatus
 } from "../services/backupStatus";
 
 const backupRepository = repositories.backups;
@@ -23,12 +23,19 @@ const resettingWindowSize = ref(false);
 const copyingDatabaseLocation = ref(false);
 const changingDatabaseLocation = ref(false);
 const confirmingAppDataMove = ref(false);
+const currentAppVersion = ref<string | null>(null);
 const error = ref<string | null>(null);
+const lastBackupAppVersion = ref<string | null>(null);
 const lastBackupAt = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const backupReminderSnackbar = ref(false);
 const databaseLocation = ref<DatabaseLocation | null>(null);
-const backupReminder = computed(() => getBackupReminder(lastBackupAt.value));
+const backupReminder = computed(() =>
+  getBackupReminder(lastBackupAt.value, undefined, {
+    currentAppVersion: currentAppVersion.value,
+    lastBackupAppVersion: lastBackupAppVersion.value
+  })
+);
 const backupReminderMessage = computed(() => backupReminder.value.message ?? "");
 const themeOptions: {
   title: string;
@@ -70,9 +77,20 @@ async function loadDatabaseLocation(): Promise<void> {
 
 async function loadLastBackupStatus(): Promise<void> {
   try {
-    lastBackupAt.value = await getLastBackupAt();
+    const backupStatus = await getBackupStatus();
+    lastBackupAt.value = backupStatus.lastBackupAt;
+    lastBackupAppVersion.value = backupStatus.lastBackupAppVersion;
   } catch {
     lastBackupAt.value = null;
+    lastBackupAppVersion.value = null;
+  }
+}
+
+async function loadCurrentAppVersion(): Promise<void> {
+  try {
+    currentAppVersion.value = await window.api.app.getVersion();
+  } catch {
+    currentAppVersion.value = null;
   }
 }
 
@@ -147,6 +165,7 @@ async function changeDatabaseLocation(): Promise<void> {
 
 onMounted(() => {
   void loadDatabaseLocation();
+  void loadCurrentAppVersion();
   void loadLastBackupStatus();
 });
 </script>

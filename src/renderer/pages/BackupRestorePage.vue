@@ -12,7 +12,7 @@ import { repositories } from "../repositories";
 import {
   BACKUP_STALE_AFTER_DAYS,
   getBackupReminder,
-  getLastBackupAt,
+  getBackupStatus,
   recordBackupExportedAt
 } from "../services/backupStatus";
 import { useBoardStore } from "../stores/boardStore";
@@ -25,6 +25,8 @@ const openingBackup = ref(false);
 const importingBackup = ref(false);
 const error = ref<string | null>(null);
 const backupStatusLoaded = ref(false);
+const currentAppVersion = ref<string | null>(null);
+const lastBackupAppVersion = ref<string | null>(null);
 const lastBackupAt = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const pendingImport = ref<{
@@ -32,7 +34,12 @@ const pendingImport = ref<{
   filePath: string;
   summary: VaultBackupSummary;
 } | null>(null);
-const backupReminder = computed(() => getBackupReminder(lastBackupAt.value));
+const backupReminder = computed(() =>
+  getBackupReminder(lastBackupAt.value, undefined, {
+    currentAppVersion: currentAppVersion.value,
+    lastBackupAppVersion: lastBackupAppVersion.value
+  })
+);
 const lastBackupLabel = computed(() =>
   lastBackupAt.value ? formatDate(lastBackupAt.value) : "No backup recorded yet"
 );
@@ -49,7 +56,13 @@ const lastBackupStatusLabel = computed(() => {
     return "Never";
   }
 
-  return backupReminder.value.status === "stale" ? "Stale" : "Current";
+  if (backupReminder.value.status === "stale") {
+    return "Stale";
+  }
+
+  return backupReminder.value.status === "version_mismatch"
+    ? "Version"
+    : "Current";
 });
 
 async function exportBackup(): Promise<void> {
@@ -65,7 +78,7 @@ async function exportBackup(): Promise<void> {
     );
 
     if (!result.canceled) {
-      await updateLastBackupAfterExport(backup.exportedAt);
+      await updateLastBackupAfterExport(backup.exportedAt, backup.appVersion);
       const fileCount = result.includedFileCount ?? 0;
       notice.value =
         fileCount > 0
@@ -140,8 +153,8 @@ async function importBackup(): Promise<void> {
     );
     const backup = parseVaultBackup(JSON.parse(restoredBackup.content) as unknown);
     const summary = await backupRepository.importBackup(backup);
+    await updateLastBackupAfterExport(backup.exportedAt, backup.appVersion);
     await boardStore.refresh();
-    await loadLastBackupStatus();
     pendingImport.value = null;
     notice.value =
       restoredBackup.restoredFileCount > 0
@@ -168,23 +181,41 @@ function totalRecords(summary: VaultBackupSummary): number {
 
 async function loadLastBackupStatus(): Promise<void> {
   try {
-    lastBackupAt.value = await getLastBackupAt();
+    const backupStatus = await getBackupStatus();
+    lastBackupAt.value = backupStatus.lastBackupAt;
+    lastBackupAppVersion.value = backupStatus.lastBackupAppVersion;
   } catch {
     lastBackupAt.value = null;
+    lastBackupAppVersion.value = null;
   } finally {
     backupStatusLoaded.value = true;
   }
 }
 
-async function updateLastBackupAfterExport(exportedAt: string): Promise<void> {
+async function loadCurrentAppVersion(): Promise<void> {
   try {
-    lastBackupAt.value = await recordBackupExportedAt(exportedAt);
+    currentAppVersion.value = await window.api.app.getVersion();
+  } catch {
+    currentAppVersion.value = null;
+  }
+}
+
+async function updateLastBackupAfterExport(
+  exportedAt: string,
+  appVersion: string | null
+): Promise<void> {
+  try {
+    const backupStatus = await recordBackupExportedAt(exportedAt, appVersion);
+    lastBackupAt.value = backupStatus.lastBackupAt;
+    lastBackupAppVersion.value = backupStatus.lastBackupAppVersion;
   } catch {
     lastBackupAt.value = exportedAt;
+    lastBackupAppVersion.value = appVersion;
   }
 }
 
 onMounted(() => {
+  void loadCurrentAppVersion();
   void loadLastBackupStatus();
 });
 </script>
@@ -225,6 +256,12 @@ onMounted(() => {
               class="text-caption muted mt-1"
             >
               Backup recommended every {{ BACKUP_STALE_AFTER_DAYS }} days.
+            </div>
+            <div
+              v-if="backupStatusLoaded && backupReminder.status === 'version_mismatch'"
+              class="text-caption muted mt-1"
+            >
+              Export a backup for this app version.
             </div>
           </div>
         </div>

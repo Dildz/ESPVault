@@ -16,7 +16,7 @@ import lightBrandLogo from "./assets/esp-board-vault-logo-light.png";
 import { useVaultTheme } from "./composables/useVaultTheme";
 import {
   getBackupReminder,
-  getLastBackupAt
+  getBackupStatus
 } from "./services/backupStatus";
 import type { StartupIntegrityIssue } from "./services/startupIntegrity";
 import { useBoardStore } from "./stores/boardStore";
@@ -280,8 +280,21 @@ async function loadAppVersion(): Promise<void> {
 
 async function loadStartupBackupReminder(): Promise<void> {
   try {
-    const lastBackupAt = await getLastBackupAt();
-    const reminder = getBackupReminder(lastBackupAt);
+    const backupStatus = await getBackupStatus();
+    let currentAppVersion = appVersion.value;
+
+    if (!currentAppVersion) {
+      try {
+        currentAppVersion = await window.api.app.getVersion();
+      } catch {
+        currentAppVersion = null;
+      }
+    }
+
+    const reminder = getBackupReminder(backupStatus.lastBackupAt, undefined, {
+      currentAppVersion,
+      lastBackupAppVersion: backupStatus.lastBackupAppVersion
+    });
 
     if (reminder.shouldWarn && reminder.message) {
       startupBackupReminderMessage.value = reminder.message;
