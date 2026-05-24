@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import type {
   VaultBackup,
   VaultBackupSummary
@@ -9,6 +9,12 @@ import {
   summarizeVaultBackup
 } from "../../shared/types/backup";
 import { repositories } from "../repositories";
+import {
+  BACKUP_STALE_AFTER_DAYS,
+  getBackupReminder,
+  getLastBackupAt,
+  recordBackupExportedAt
+} from "../services/backupStatus";
 import { useBoardStore } from "../stores/boardStore";
 import { formatBytes, formatDate } from "../utils/boardDisplay";
 
@@ -18,12 +24,33 @@ const exportingBackup = ref(false);
 const openingBackup = ref(false);
 const importingBackup = ref(false);
 const error = ref<string | null>(null);
+const backupStatusLoaded = ref(false);
+const lastBackupAt = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const pendingImport = ref<{
   backup: VaultBackup;
   filePath: string;
   summary: VaultBackupSummary;
 } | null>(null);
+const backupReminder = computed(() => getBackupReminder(lastBackupAt.value));
+const lastBackupLabel = computed(() =>
+  lastBackupAt.value ? formatDate(lastBackupAt.value) : "No backup recorded yet"
+);
+const lastBackupStatusColor = computed(() =>
+  backupReminder.value.shouldWarn ? "warning" : "success"
+);
+const lastBackupStatusIcon = computed(() =>
+  backupReminder.value.shouldWarn
+    ? "mdi-shield-alert-outline"
+    : "mdi-shield-check-outline"
+);
+const lastBackupStatusLabel = computed(() => {
+  if (backupReminder.value.status === "never") {
+    return "Never";
+  }
+
+  return backupReminder.value.status === "stale" ? "Stale" : "Current";
+});
 
 async function exportBackup(): Promise<void> {
   exportingBackup.value = true;
@@ -38,6 +65,7 @@ async function exportBackup(): Promise<void> {
     );
 
     if (!result.canceled) {
+      await updateLastBackupAfterExport(backup.exportedAt);
       const fileCount = result.includedFileCount ?? 0;
       notice.value =
         fileCount > 0
@@ -113,6 +141,7 @@ async function importBackup(): Promise<void> {
     const backup = parseVaultBackup(JSON.parse(restoredBackup.content) as unknown);
     const summary = await backupRepository.importBackup(backup);
     await boardStore.refresh();
+    await loadLastBackupStatus();
     pendingImport.value = null;
     notice.value =
       restoredBackup.restoredFileCount > 0
@@ -136,6 +165,28 @@ function buildBackupFileName(): string {
 function totalRecords(summary: VaultBackupSummary): number {
   return Object.values(summary.counts).reduce((total, count) => total + count, 0);
 }
+
+async function loadLastBackupStatus(): Promise<void> {
+  try {
+    lastBackupAt.value = await getLastBackupAt();
+  } catch {
+    lastBackupAt.value = null;
+  } finally {
+    backupStatusLoaded.value = true;
+  }
+}
+
+async function updateLastBackupAfterExport(exportedAt: string): Promise<void> {
+  try {
+    lastBackupAt.value = await recordBackupExportedAt(exportedAt);
+  } catch {
+    lastBackupAt.value = exportedAt;
+  }
+}
+
+onMounted(() => {
+  void loadLastBackupStatus();
+});
 </script>
 
 <template>
@@ -156,6 +207,35 @@ function totalRecords(summary: VaultBackupSummary): number {
     <v-alert v-if="notice" type="success" variant="tonal" class="mb-4">
       {{ notice }}
     </v-alert>
+
+    <v-card class="panel-card backup-status-card mb-4" flat>
+      <v-card-text class="backup-status-row">
+        <div class="backup-status-detail">
+          <v-icon
+            :color="lastBackupStatusColor"
+            :icon="lastBackupStatusIcon"
+          />
+          <div>
+            <div class="font-weight-medium">Last backup</div>
+            <div class="text-body-2 muted mt-1">
+              {{ lastBackupLabel }}
+            </div>
+            <div
+              v-if="backupStatusLoaded && backupReminder.status === 'stale'"
+              class="text-caption muted mt-1"
+            >
+              Backup recommended every {{ BACKUP_STALE_AFTER_DAYS }} days.
+            </div>
+          </div>
+        </div>
+        <v-chip
+          :color="lastBackupStatusColor"
+          variant="tonal"
+        >
+          {{ lastBackupStatusLabel }}
+        </v-chip>
+      </v-card-text>
+    </v-card>
 
     <div class="backup-grid">
       <v-card class="panel-card" flat>
@@ -212,6 +292,14 @@ function totalRecords(summary: VaultBackupSummary): number {
         <v-card-title>Restore backup?</v-card-title>
         <v-divider />
         <v-card-text v-if="pendingImport">
+          <v-alert
+            v-if="backupReminder.shouldWarn"
+            type="warning"
+            variant="tonal"
+            class="mb-4"
+          >
+            {{ backupReminder.message }}
+          </v-alert>
           <p class="mt-0">
             This will replace the current local vault database.
           </p>
@@ -258,6 +346,7 @@ function totalRecords(summary: VaultBackupSummary): number {
         </v-card-actions>
       </v-card>
     </v-dialog>
+
   </section>
 </template>
 
@@ -266,6 +355,19 @@ function totalRecords(summary: VaultBackupSummary): number {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.backup-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.backup-status-detail {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .backup-card-body {
@@ -287,6 +389,11 @@ function totalRecords(summary: VaultBackupSummary): number {
 }
 
 @media (max-width: 720px) {
+  .backup-status-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .backup-card-body {
     align-items: stretch;
     flex-direction: column;

@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import type { DatabaseLocation } from "../../shared/types/api";
 import {
   useVaultTheme,
   type VaultThemeName
 } from "../composables/useVaultTheme";
 import { repositories } from "../repositories";
+import {
+  getBackupReminder,
+  getLastBackupAt
+} from "../services/backupStatus";
 
 const backupRepository = repositories.backups;
 const {
@@ -20,8 +24,12 @@ const copyingDatabaseLocation = ref(false);
 const changingDatabaseLocation = ref(false);
 const confirmingAppDataMove = ref(false);
 const error = ref<string | null>(null);
+const lastBackupAt = ref<string | null>(null);
 const notice = ref<string | null>(null);
+const backupReminderSnackbar = ref(false);
 const databaseLocation = ref<DatabaseLocation | null>(null);
+const backupReminder = computed(() => getBackupReminder(lastBackupAt.value));
+const backupReminderMessage = computed(() => backupReminder.value.message ?? "");
 const themeOptions: {
   title: string;
   value: VaultThemeName;
@@ -60,9 +68,25 @@ async function loadDatabaseLocation(): Promise<void> {
   }
 }
 
+async function loadLastBackupStatus(): Promise<void> {
+  try {
+    lastBackupAt.value = await getLastBackupAt();
+  } catch {
+    lastBackupAt.value = null;
+  }
+}
+
 function updateTheme(themeName: unknown): void {
   if (themeName === "vaultLight" || themeName === "vaultDark") {
     setTheme(themeName);
+  }
+}
+
+function openAppDataMoveConfirmation(): void {
+  confirmingAppDataMove.value = true;
+
+  if (backupReminder.value.shouldWarn) {
+    backupReminderSnackbar.value = true;
   }
 }
 
@@ -123,6 +147,7 @@ async function changeDatabaseLocation(): Promise<void> {
 
 onMounted(() => {
   void loadDatabaseLocation();
+  void loadLastBackupStatus();
 });
 </script>
 
@@ -232,7 +257,7 @@ onMounted(() => {
             variant="outlined"
             prepend-icon="mdi-folder-move-outline"
             :loading="changingDatabaseLocation"
-            @click="confirmingAppDataMove = true"
+            @click="openAppDataMoveConfirmation"
           >
             Change app data location
           </v-btn>
@@ -254,6 +279,14 @@ onMounted(() => {
         <v-card-title>Move app data location?</v-card-title>
         <v-divider />
         <v-card-text>
+          <v-alert
+            v-if="backupReminder.shouldWarn"
+            type="warning"
+            variant="tonal"
+            class="mb-4"
+          >
+            {{ backupReminder.message }}
+          </v-alert>
           <p class="mt-0">
             The selected folder becomes the Electron app data folder for ESP Board Vault.
           </p>
@@ -284,6 +317,23 @@ onMounted(() => {
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <v-snackbar
+      v-model="backupReminderSnackbar"
+      color="warning"
+      location="bottom right"
+      timeout="8000"
+    >
+      {{ backupReminderMessage }}
+      <template #actions>
+        <v-btn
+          variant="text"
+          @click="backupReminderSnackbar = false"
+        >
+          Dismiss
+        </v-btn>
+      </template>
+    </v-snackbar>
 
   </section>
 </template>

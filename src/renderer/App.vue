@@ -14,6 +14,10 @@ import ToolsPage from "./pages/ToolsPage.vue";
 import darkBrandLogo from "./assets/esp-board-vault-logo-dark.png";
 import lightBrandLogo from "./assets/esp-board-vault-logo-light.png";
 import { useVaultTheme } from "./composables/useVaultTheme";
+import {
+  getBackupReminder,
+  getLastBackupAt
+} from "./services/backupStatus";
 import type { StartupIntegrityIssue } from "./services/startupIntegrity";
 import { useBoardStore } from "./stores/boardStore";
 import { PROJECT_STATUS_LABELS, useProjectStore } from "./stores/projectStore";
@@ -59,6 +63,8 @@ const projectToOpenId = ref<string | null>(null);
 const scanRequestId = ref(0);
 const searchSelection = ref<SearchItem | null>(null);
 const searchQuery = ref("");
+const startupBackupReminderMessage = ref("");
+const startupBackupReminderSnackbar = ref(false);
 const appVersion = ref<string | null>(null);
 const viewportWidth = ref(typeof window === "undefined" ? 1280 : window.innerWidth);
 const { isDarkTheme, toggleTheme } = useVaultTheme();
@@ -184,6 +190,7 @@ const activeComponentProps = computed(() => {
 onMounted(() => {
   void refreshAppData();
   void loadAppVersion();
+  void loadStartupBackupReminder();
   window.addEventListener("resize", updateViewportWidth);
 });
 
@@ -271,6 +278,21 @@ async function loadAppVersion(): Promise<void> {
   }
 }
 
+async function loadStartupBackupReminder(): Promise<void> {
+  try {
+    const lastBackupAt = await getLastBackupAt();
+    const reminder = getBackupReminder(lastBackupAt);
+
+    if (reminder.shouldWarn && reminder.message) {
+      startupBackupReminderMessage.value = reminder.message;
+      startupBackupReminderSnackbar.value = true;
+    }
+  } catch {
+    startupBackupReminderMessage.value = "";
+    startupBackupReminderSnackbar.value = false;
+  }
+}
+
 function formatBoardSearchSubtitle(board: Board): string {
   return [
     "Board",
@@ -302,6 +324,11 @@ function openResource(item: ResourceItem): void {
 function openRecoveryTools(): void {
   currentView.value = "backup";
   closeTemporaryNavigation();
+}
+
+function openBackupRestoreFromReminder(): void {
+  startupBackupReminderSnackbar.value = false;
+  openRecoveryTools();
 }
 
 function closeTemporaryNavigation(): void {
@@ -524,6 +551,29 @@ function closeTemporaryNavigation(): void {
         @open-project="openProject"
       />
     </v-main>
+
+    <v-snackbar
+      v-model="startupBackupReminderSnackbar"
+      color="warning"
+      location="bottom right"
+      timeout="10000"
+    >
+      {{ startupBackupReminderMessage }}
+      <template #actions>
+        <v-btn
+          variant="text"
+          @click="openBackupRestoreFromReminder"
+        >
+          Open Backup & Restore
+        </v-btn>
+        <v-btn
+          variant="text"
+          @click="startupBackupReminderSnackbar = false"
+        >
+          Dismiss
+        </v-btn>
+      </template>
+    </v-snackbar>
   </v-app>
 </template>
 
