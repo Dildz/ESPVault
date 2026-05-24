@@ -14,6 +14,7 @@ import ToolsPage from "./pages/ToolsPage.vue";
 import darkBrandLogo from "./assets/esp-board-vault-logo-dark.png";
 import lightBrandLogo from "./assets/esp-board-vault-logo-light.png";
 import { useVaultTheme } from "./composables/useVaultTheme";
+import type { StartupIntegrityIssue } from "./services/startupIntegrity";
 import { useBoardStore } from "./stores/boardStore";
 import { PROJECT_STATUS_LABELS, useProjectStore } from "./stores/projectStore";
 
@@ -49,6 +50,9 @@ interface SearchItem {
   icon: string;
 }
 
+const props = defineProps<{
+  startupIntegrityIssue?: StartupIntegrityIssue | null;
+}>();
 const currentView = ref<ViewKey>("dashboard");
 const boardToOpenId = ref<string | null>(null);
 const projectToOpenId = ref<string | null>(null);
@@ -131,6 +135,7 @@ const isRailNavigation = computed(
 );
 const drawerOpen = ref(!isTemporaryNavigation.value);
 const appBarBusy = computed(() => boardsLoading.value || projectsLoading.value);
+const startupIntegrityIssue = computed(() => props.startupIntegrityIssue ?? null);
 const searchItems = computed<SearchItem[]>(() => [
   ...boards.value.map((board) => ({
     id: board.id,
@@ -292,6 +297,11 @@ function openResource(item: ResourceItem): void {
   void window.api.shell.openExternal(item.url).catch((caughtError: unknown) => {
     console.error("Resource link could not be opened.", caughtError);
   });
+}
+
+function openRecoveryTools(): void {
+  currentView.value = "backup";
+  closeTemporaryNavigation();
 }
 
 function closeTemporaryNavigation(): void {
@@ -476,6 +486,34 @@ function closeTemporaryNavigation(): void {
     </v-app-bar>
 
     <v-main>
+      <div v-if="startupIntegrityIssue" class="startup-integrity-banner">
+        <v-alert
+          border="start"
+          type="error"
+          variant="tonal"
+        >
+          <template #title>
+            {{ startupIntegrityIssue.title }}
+          </template>
+          <div>{{ startupIntegrityIssue.message }}</div>
+          <div
+            v-if="startupIntegrityIssue.detail"
+            class="startup-integrity-detail mono mt-2"
+          >
+            {{ startupIntegrityIssue.detail }}
+          </div>
+          <div class="startup-integrity-actions mt-3">
+            <v-btn
+              color="error"
+              prepend-icon="mdi-database-sync-outline"
+              variant="tonal"
+              @click="openRecoveryTools"
+            >
+              Open Backup & Restore
+            </v-btn>
+          </div>
+        </v-alert>
+      </div>
       <component
         :is="activeComponent"
         v-bind="activeComponentProps"
@@ -603,6 +641,21 @@ function closeTemporaryNavigation(): void {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.startup-integrity-banner {
+  padding: 18px 24px 0;
+}
+
+.startup-integrity-detail {
+  overflow-wrap: anywhere;
+  font-size: 0.84rem;
+}
+
+.startup-integrity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 @media (max-width: 1180px) {

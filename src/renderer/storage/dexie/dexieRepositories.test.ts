@@ -4,6 +4,7 @@ import type { BoardPartition } from "../../../shared/types/partition";
 import { DexieAppSettingsRepository } from "./DexieAppSettingsRepository";
 import { DexieBackupRepository } from "./DexieBackupRepository";
 import { DexieBoardRepository } from "./DexieBoardRepository";
+import { DexieDatabaseHealthRepository } from "./DexieDatabaseHealthRepository";
 import { DexieProjectChecklistRepository } from "./DexieProjectChecklistRepository";
 import { DexieProjectRepository } from "./DexieProjectRepository";
 import { VaultDatabase } from "./vaultDatabase";
@@ -55,6 +56,30 @@ describe("Dexie repositories", () => {
     expect(database.boards.schema.idxByName.projectId).toBeDefined();
     expect(database.projects.schema.idxByName.location).toBeDefined();
     expect(database.projectChecklistItems.schema.idxByName.projectId).toBeDefined();
+  });
+
+  it("checks database integrity against the expected tables", async () => {
+    const database = createTestDatabase();
+    const databaseHealth = new DexieDatabaseHealthRepository(database);
+
+    const result = await databaseHealth.checkIntegrity();
+
+    expect(result).toMatchObject({
+      databaseName: database.name,
+      missingTables: [],
+      ok: true,
+      schemaVersion: 4
+    });
+    expect(result.expectedTables.sort()).toEqual([
+      "appSettings",
+      "attachments",
+      "boardTags",
+      "boards",
+      "firmwareHistory",
+      "pinAssignments",
+      "projectChecklistItems",
+      "projects"
+    ]);
   });
 
   it("creates, lists, updates, and filters boards with scan metadata", async () => {

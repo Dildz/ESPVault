@@ -4,6 +4,11 @@ import { parseVaultBackup } from "../shared/types/backup";
 import App from "./App.vue";
 import { vuetify } from "./plugins/vuetify";
 import { repositories } from "./repositories";
+import {
+  checkStartupIntegrity,
+  createPendingMoveRestoreIssue,
+  type StartupIntegrityIssue
+} from "./services/startupIntegrity";
 import "./styles.css";
 
 async function restorePendingDatabaseMove(): Promise<void> {
@@ -19,13 +24,23 @@ async function restorePendingDatabaseMove(): Promise<void> {
 }
 
 async function bootstrap(): Promise<void> {
+  let startupIntegrityIssue: StartupIntegrityIssue | null = null;
+
   try {
     await restorePendingDatabaseMove();
   } catch (caughtError) {
     console.error("Pending database move could not be restored.", caughtError);
+    startupIntegrityIssue = createPendingMoveRestoreIssue(caughtError);
   }
 
-  createApp(App).use(createPinia()).use(vuetify).mount("#app");
+  if (!startupIntegrityIssue) {
+    startupIntegrityIssue = await checkStartupIntegrity();
+  }
+
+  createApp(App, { startupIntegrityIssue })
+    .use(createPinia())
+    .use(vuetify)
+    .mount("#app");
 }
 
 void bootstrap();
