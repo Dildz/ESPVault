@@ -215,6 +215,17 @@ userData/
 
 Create missing directories automatically. Never hard-code absolute user paths.
 
+Do not change app identity casually. These values determine where Electron and
+Chromium store user data and must remain stable across upgrades unless there is
+an explicit migration plan:
+
+```text
+electron-builder appId: com.thelastoutpostworkshop.espboardvault
+electron-builder productName: ESP Board Vault
+app.setName("ESP Board Vault")
+Dexie database name: esp-board-vault
+```
+
 The Settings page may let the user change the app data location. Be explicit in
 the UI that this moves Electron app data needed by the vault, not just one
 plain database file. Preserve window state across that move. The configured
