@@ -73,7 +73,7 @@ const lastBackupStatusLabel = computed(() => {
   }
 
   return backupReminder.value.status === "version_mismatch"
-    ? "Version"
+    ? "Version mismatch"
     : "Current";
 });
 
@@ -258,8 +258,18 @@ onMounted(() => {
             :color="lastBackupStatusColor"
             :icon="lastBackupStatusIcon"
           />
-          <div>
-            <div class="font-weight-medium">Last backup</div>
+          <div class="backup-status-content">
+            <div class="backup-status-heading">
+              <div class="font-weight-medium">Last backup</div>
+              <v-chip
+                class="backup-status-chip"
+                :color="lastBackupStatusColor"
+                size="small"
+                variant="tonal"
+              >
+                {{ lastBackupStatusLabel }}
+              </v-chip>
+            </div>
             <div class="text-body-2 muted mt-1">
               {{ lastBackupLabel }}
             </div>
@@ -292,12 +302,6 @@ onMounted(() => {
             </div>
           </div>
         </div>
-        <v-chip
-          :color="lastBackupStatusColor"
-          variant="tonal"
-        >
-          {{ lastBackupStatusLabel }}
-        </v-chip>
       </v-card-text>
     </v-card>
 
@@ -437,15 +441,29 @@ onMounted(() => {
 
 .backup-status-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: flex-start;
 }
 
 .backup-status-detail {
   display: flex;
-  align-items: center;
+  min-width: 0;
+  align-items: flex-start;
   gap: 12px;
+}
+
+.backup-status-content {
+  min-width: 0;
+}
+
+.backup-status-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.backup-status-chip {
+  flex: 0 0 auto;
 }
 
 .backup-version-row {
@@ -482,11 +500,6 @@ onMounted(() => {
 }
 
 @media (max-width: 720px) {
-  .backup-status-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .backup-card-body {
     align-items: stretch;
     flex-direction: column;
