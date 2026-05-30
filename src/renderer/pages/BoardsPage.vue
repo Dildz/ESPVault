@@ -37,9 +37,16 @@ import {
 } from "../utils/partitionDisplay";
 import { buildPartitionBuilderUrl } from "../utils/partitionBuilder";
 
+const UNASSIGNED_PROJECT_STATUS_FILTER = "unassigned_project";
+
+type BoardStatusFilter =
+  | BoardStatus
+  | "all"
+  | typeof UNASSIGNED_PROJECT_STATUS_FILTER;
+
 interface BoardFilters {
   search: string;
-  status: BoardStatus | "all";
+  status: BoardStatusFilter;
   chipModel: string;
 }
 
@@ -83,8 +90,12 @@ const filters = reactive<BoardFilters>({
   chipModel: ""
 });
 
-const statusOptions = [
+const statusOptions: Array<{ title: string; value: BoardStatusFilter }> = [
   { title: "All statuses", value: "all" },
+  {
+    title: "Unassigned to project",
+    value: UNASSIGNED_PROJECT_STATUS_FILTER
+  },
   ...BOARD_STATUSES.map((status) => ({
     title: BOARD_STATUS_LABELS[status],
     value: status
@@ -100,7 +111,15 @@ const activeBoardFilters = computed<ActiveBoardFilterChip[]>(() => {
   const status = filters.status;
   const chipModel = filters.chipModel.trim();
 
-  if (status !== "all") {
+  if (status === UNASSIGNED_PROJECT_STATUS_FILTER) {
+    activeFilters.push({
+      key: "status",
+      label: "Project",
+      value: "Unassigned",
+      icon: "mdi-link-variant-off",
+      color: "warning"
+    });
+  } else if (status !== "all") {
     activeFilters.push({
       key: "status",
       label: "Status",
@@ -147,7 +166,10 @@ const filteredBoards = computed(() => {
         .some((value) => value.toLowerCase().includes(search));
 
     const matchesStatus =
-      filters.status === "all" || board.status === filters.status;
+      filters.status === "all" ||
+      (filters.status === UNASSIGNED_PROJECT_STATUS_FILTER
+        ? !board.projectId
+        : board.status === filters.status);
     const matchesChipModel =
       !filters.chipModel || board.chipModel === filters.chipModel;
 
