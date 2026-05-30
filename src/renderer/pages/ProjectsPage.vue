@@ -38,6 +38,16 @@ interface ProjectFilters {
   status: ProjectStatus | "all";
 }
 
+type ActiveProjectFilterKey = "status";
+
+interface ActiveProjectFilterChip {
+  key: ActiveProjectFilterKey;
+  label: string;
+  value: string;
+  icon: string;
+  color: string;
+}
+
 interface ProjectForm {
   name: string;
   description: string;
@@ -142,6 +152,23 @@ const PROJECT_STATUS_ICONS: Record<ProjectStatus, string> = {
   completed: "mdi-check-circle-outline",
   archived: "mdi-archive-outline"
 };
+const activeProjectFilters = computed<ActiveProjectFilterChip[]>(() => {
+  const status = filters.status;
+
+  if (status === "all") {
+    return [];
+  }
+
+  return [
+    {
+      key: "status",
+      label: "Status",
+      value: PROJECT_STATUS_LABELS[status],
+      icon: PROJECT_STATUS_ICONS[status],
+      color: PROJECT_STATUS_COLORS[status]
+    }
+  ];
+});
 const CHECKLIST_CATEGORY_META: Record<
   ProjectChecklistCategory,
   { label: string; icon: string; color: string }
@@ -811,6 +838,12 @@ function selectProject(project: Project): void {
   selectedProjectId.value = project.id;
 }
 
+function clearProjectFilter(filterKey: ActiveProjectFilterKey): void {
+  if (filterKey === "status") {
+    filters.status = "all";
+  }
+}
+
 function openCoverImageViewer(): void {
   if (coverImageDataUrl.value) {
     coverImageViewerOpen.value = true;
@@ -1061,6 +1094,29 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
       >
         Refresh
       </v-btn>
+    </div>
+
+    <div
+      v-if="activeProjectFilters.length"
+      class="active-filter-chips"
+      role="list"
+      aria-label="Active project filters"
+    >
+      <v-chip
+        v-for="filter in activeProjectFilters"
+        :key="filter.key"
+        class="active-filter-chip"
+        :color="filter.color"
+        :prepend-icon="filter.icon"
+        size="small"
+        variant="tonal"
+        closable
+        role="listitem"
+        @click:close="clearProjectFilter(filter.key)"
+      >
+        <span class="active-filter-chip-label">{{ filter.label }}:</span>
+        <span class="active-filter-chip-value">{{ filter.value }}</span>
+      </v-chip>
     </div>
 
     <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-3" />
@@ -1821,7 +1877,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
   grid-template-columns: minmax(220px, 1fr) 220px auto;
   gap: 12px;
   align-items: start;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .projects-layout {

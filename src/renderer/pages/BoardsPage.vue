@@ -1193,37 +1193,6 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   margin-bottom: 10px;
 }
 
-.active-filter-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 18px;
-}
-
-.active-filter-chip {
-  max-width: 100%;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  font-weight: 700;
-}
-
-.active-filter-chip :deep(.v-chip__content) {
-  min-width: 0;
-  max-width: min(320px, 72vw);
-}
-
-.active-filter-chip-label {
-  flex: 0 0 auto;
-  opacity: 0.78;
-}
-
-.active-filter-chip-value {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .boards-layout {
   display: grid;
   grid-template-columns: minmax(360px, 0.85fr) minmax(560px, 1.4fr);
