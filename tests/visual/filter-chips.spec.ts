@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { chooseSelectOption, openHarness, openView, tableRow } from "./helpers";
 
 test.describe("filter chips", () => {
   test("shows and clears board status and chip model filters", async ({ page }) => {
@@ -27,6 +28,36 @@ test.describe("filter chips", () => {
     await expect(page.getByLabel("Active board filters")).toBeHidden();
   });
 
+  test("keeps combined board filters clear and individually removable", async ({
+    page
+  }) => {
+    await openHarness(page);
+    await openView(page, "Boards");
+
+    await page
+      .locator(".board-toolbar")
+      .getByRole("textbox", { name: "Search" })
+      .fill("Workbench");
+    await chooseSelectOption(page, "Status", "In use");
+    await chooseSelectOption(page, "Chip model", "ESP32");
+
+    const activeFilters = page.getByLabel("Active board filters");
+    await expect(activeFilters).toContainText("Status:In use");
+    await expect(activeFilters).toContainText("Chip model:ESP32");
+    await expect(tableRow(page, "Workbench ESP32 DevKit")).toBeVisible();
+    await expect(tableRow(page, "Sensor Node S3")).toBeHidden();
+
+    await page.getByLabel("Clear Status filter").click();
+    await expect(activeFilters).not.toContainText("Status:In use");
+    await expect(activeFilters).toContainText("Chip model:ESP32");
+    await expect(tableRow(page, "Workbench ESP32 DevKit")).toBeVisible();
+
+    await page.getByLabel("Clear Chip model filter").click();
+    await expect(activeFilters).toBeHidden();
+    await expect(tableRow(page, "Workbench ESP32 DevKit")).toBeVisible();
+    await expect(tableRow(page, "Sensor Node S3")).toBeHidden();
+  });
+
   test("shows and clears project status filters", async ({ page }) => {
     await openHarness(page);
     await openView(page, "Projects");
@@ -43,26 +74,3 @@ test.describe("filter chips", () => {
     await expect(tableRow(page, "Garage Monitor")).toBeVisible();
   });
 });
-
-async function openHarness(page: Page): Promise<void> {
-  await page.goto("/browser-harness.html");
-  await expect(page.getByRole("banner")).toContainText("Dashboard");
-}
-
-async function openView(page: Page, name: "Boards" | "Projects"): Promise<void> {
-  await page.getByText(name, { exact: true }).first().click();
-  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
-}
-
-async function chooseSelectOption(
-  page: Page,
-  label: "Chip model" | "Status",
-  option: string
-): Promise<void> {
-  await page.getByLabel(label, { exact: true }).click({ force: true });
-  await page.getByRole("option", { name: option, exact: true }).click();
-}
-
-function tableRow(page: Page, text: string) {
-  return page.getByRole("row").filter({ hasText: text });
-}
