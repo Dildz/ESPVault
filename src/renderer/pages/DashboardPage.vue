@@ -2244,15 +2244,15 @@ function getCssVariable(name: string, fallback: string): string {
 
       <div v-if="hasVaultActivity" class="vault-activity-body">
         <div class="vault-activity-summary">
-          <div>
+          <div class="vault-activity-summary-card">
             <span>Total events</span>
             <strong>{{ activityHeatmapTotal }}</strong>
           </div>
-          <div>
+          <div class="vault-activity-summary-card">
             <span>Active days</span>
             <strong>{{ activityHeatmapActiveDays }}</strong>
           </div>
-          <div>
+          <div class="vault-activity-summary-card">
             <span>Busiest day</span>
             <strong>{{ formatActivityHeatmapBusiestDay() }}</strong>
           </div>
@@ -2318,7 +2318,6 @@ function getCssVariable(name: string, fallback: string): string {
               </div>
             </div>
           </div>
-
           <div class="activity-heatmap-legend">
             <span>Less</span>
             <i
@@ -3084,7 +3083,7 @@ function getCssVariable(name: string, fallback: string): string {
   min-width: 0;
 }
 
-.vault-activity-summary div {
+.vault-activity-summary-card {
   display: grid;
   gap: 3px;
   min-width: 0;
@@ -3094,7 +3093,7 @@ function getCssVariable(name: string, fallback: string): string {
   background: rgba(var(--v-theme-surface), 0.44);
 }
 
-.vault-activity-summary span {
+.vault-activity-summary-card span {
   overflow: hidden;
   color: var(--vault-muted);
   font-size: 0.72rem;
@@ -3104,7 +3103,7 @@ function getCssVariable(name: string, fallback: string): string {
   white-space: nowrap;
 }
 
-.vault-activity-summary strong {
+.vault-activity-summary-card strong {
   min-width: 0;
   color: var(--vault-text);
   font-size: 1.05rem;
@@ -3204,10 +3203,11 @@ function getCssVariable(name: string, fallback: string): string {
 .activity-heatmap-legend {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 5px;
   min-width: max-content;
   margin-top: 12px;
+  margin-left: 40px;
   color: var(--vault-muted);
   font-size: 0.72rem;
 }
