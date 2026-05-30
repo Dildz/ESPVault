@@ -7,6 +7,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dev:browser": "node scripts/browser-harness.mjs",
     "build": "npm run typecheck && vite build && node scripts/build-electron.mjs",
     "package": "npm run build && electron-builder --publish never",
     "package:win": "npm run build && electron-builder --win --x64 --publish never",

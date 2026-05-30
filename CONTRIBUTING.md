@@ -7,6 +7,20 @@ npm install
 npm run dev
 ```
 
+## Browser Visual Checks
+
+Run the browser harness when you need to inspect the Vue renderer outside
+Electron:
+
+```bash
+npm run dev:browser
+```
+
+Open the printed `browser-harness.html` URL. The harness installs a typed mock
+preload API and seeds sample boards when the browser IndexedDB vault is empty,
+so pages such as Boards have statuses and chip models available for visual
+checks.
+
 ## Verify
 
 ```bash

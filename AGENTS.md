@@ -14,6 +14,17 @@ and no telemetry.
 
 Always include a short commit comment suggestion in the final response.
 
+For browser-based visual checks of the Vue renderer, use the browser harness
+instead of loading the normal Electron entry directly:
+
+```bash
+npm run dev:browser
+```
+
+Open the printed `browser-harness.html` URL. The harness provides a typed mock
+preload API and seeds sample boards in browser IndexedDB when empty, which lets
+renderer pages be inspected without Electron.
+
 ## UI Style Guidelines
 
 Keep the interface colorful, modern, and professional for ESP32 makers. The app
