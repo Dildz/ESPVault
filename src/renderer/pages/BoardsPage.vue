@@ -43,6 +43,16 @@ interface BoardFilters {
   chipModel: string;
 }
 
+type ActiveBoardFilterKey = "status" | "chipModel";
+
+interface ActiveBoardFilterChip {
+  key: ActiveBoardFilterKey;
+  label: string;
+  value: string;
+  icon: string;
+  color: string;
+}
+
 const boardStore = useBoardStore();
 const { boards, chipModels, error, loading } = storeToRefs(boardStore);
 const projectStore = useProjectStore();
@@ -85,6 +95,33 @@ const chipModelOptions = computed(() => [
   { title: "All chip models", value: "" },
   ...chipModels.value.map((model) => ({ title: model, value: model }))
 ]);
+const activeBoardFilters = computed<ActiveBoardFilterChip[]>(() => {
+  const activeFilters: ActiveBoardFilterChip[] = [];
+  const status = filters.status;
+  const chipModel = filters.chipModel.trim();
+
+  if (status !== "all") {
+    activeFilters.push({
+      key: "status",
+      label: "Status",
+      value: BOARD_STATUS_LABELS[status],
+      icon: BOARD_STATUS_ICONS[status],
+      color: BOARD_STATUS_COLORS[status]
+    });
+  }
+
+  if (chipModel) {
+    activeFilters.push({
+      key: "chipModel",
+      label: "Chip model",
+      value: chipModel,
+      icon: "mdi-chip",
+      color: "secondary"
+    });
+  }
+
+  return activeFilters;
+});
 const locationOptions = computed(() =>
   uniqueLocationOptions([
     ...boards.value.map((board) => board.physicalLocation),
@@ -192,6 +229,15 @@ function openEditDialog(board: Board): void {
 
 function selectBoard(board: Board): void {
   selectedBoardId.value = board.id;
+}
+
+function clearBoardFilter(filterKey: ActiveBoardFilterKey): void {
+  if (filterKey === "status") {
+    filters.status = "all";
+    return;
+  }
+
+  filters.chipModel = "";
 }
 
 function openBoardFromProp(): void {
@@ -544,7 +590,7 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
       {{ boardCoverError }}
     </v-alert>
 
-    <div class="toolbar-band">
+    <div class="toolbar-band board-toolbar">
       <v-text-field
         v-model="filters.search"
         clearable
@@ -572,6 +618,29 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
       >
         Refresh
       </v-btn>
+    </div>
+
+    <div
+      v-if="activeBoardFilters.length"
+      class="active-filter-chips"
+      role="list"
+      aria-label="Active board filters"
+    >
+      <v-chip
+        v-for="filter in activeBoardFilters"
+        :key="filter.key"
+        class="active-filter-chip"
+        :color="filter.color"
+        :prepend-icon="filter.icon"
+        size="small"
+        variant="tonal"
+        closable
+        role="listitem"
+        @click:close="clearBoardFilter(filter.key)"
+      >
+        <span class="active-filter-chip-label">{{ filter.label }}:</span>
+        <span class="active-filter-chip-value">{{ filter.value }}</span>
+      </v-chip>
     </div>
 
     <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-3" />
@@ -1117,6 +1186,41 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
 .metadata-mono {
   font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
   font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.board-toolbar.toolbar-band {
+  margin-bottom: 10px;
+}
+
+.active-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.active-filter-chip {
+  max-width: 100%;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  font-weight: 700;
+}
+
+.active-filter-chip :deep(.v-chip__content) {
+  min-width: 0;
+  max-width: min(320px, 72vw);
+}
+
+.active-filter-chip-label {
+  flex: 0 0 auto;
+  opacity: 0.78;
+}
+
+.active-filter-chip-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
