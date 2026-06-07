@@ -7,6 +7,8 @@ interface ToolItem {
   icon: string;
   url: string;
   description: string;
+  actionIcon?: string;
+  actionLabel?: string;
   sourceUrl?: string;
   sourceLabel?: string;
 }
@@ -43,6 +45,18 @@ const toolItems: ToolItem[] = [
       "Video Conversion Studio converts video assets for embedded displays, maker interfaces, and web-friendly output formats. It is useful when preparing media for ESP32 display projects, dashboard demos, or device UI experiments where resolution, format, and file size need to be controlled. Use it as a focused workspace for turning source video into project-ready assets.",
     sourceUrl: "https://github.com/thelastoutpostworkshop/video_conversion",
     sourceLabel: "thelastoutpostworkshop/video_conversion"
+  },
+  {
+    key: "gpio-viewer",
+    title: "GPIOViewer",
+    icon: "mdi-chip",
+    url: "https://www.youtube.com/watch?v=JJzRXcQrl3I",
+    actionIcon: "mdi-youtube",
+    actionLabel: "Watch tutorial",
+    description:
+      "GPIOViewer is a visual GPIO state viewer for embedded projects. Use it when you need to inspect pins, confirm board behavior, or make wiring and signal states easier to understand while documenting an ESP32 build.",
+    sourceUrl: "https://github.com/thelastoutpostworkshop/gpio_viewer",
+    sourceLabel: "thelastoutpostworkshop/gpio_viewer"
   },
   {
     key: "arduino-maker-workshop",
@@ -116,10 +130,10 @@ async function openExternal(url: string): Promise<void> {
           <v-spacer />
           <v-btn
             color="primary"
-            prepend-icon="mdi-open-in-new"
+            :prepend-icon="tool.actionIcon ?? 'mdi-open-in-new'"
             @click="openExternal(tool.url)"
           >
-            Open tool
+            {{ tool.actionLabel ?? "Open tool" }}
           </v-btn>
         </v-card-actions>
       </v-card>
