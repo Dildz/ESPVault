@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
-type AppView = "Boards" | "Projects" | "Settings";
+type AppView = "Boards" | "Dashboard" | "Projects" | "Settings";
 
 export async function openHarness(page: Page): Promise<void> {
   await page.goto("/browser-harness.html");
@@ -9,6 +9,11 @@ export async function openHarness(page: Page): Promise<void> {
 
 export async function openView(page: Page, name: AppView): Promise<void> {
   await page.getByText(name, { exact: true }).first().click();
+  if (name === "Dashboard") {
+    await expect(page.getByRole("banner")).toContainText("Dashboard");
+    return;
+  }
+
   await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
 }
 

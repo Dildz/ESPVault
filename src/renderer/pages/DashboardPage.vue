@@ -26,6 +26,12 @@ import {
   useProjectStore
 } from "../stores/projectStore";
 import {
+  DEFAULT_SCAN_FRESHNESS_THRESHOLD_DAYS,
+  formatScanFreshnessThresholdDetail,
+  getScanFreshnessCutoffMs,
+  loadScanFreshnessThresholdDays
+} from "../services/scanFreshnessThreshold";
+import {
   BOARD_STATUS_COLORS,
   BOARD_STATUS_ICONS,
   BOARD_STATUS_LABELS,
@@ -154,6 +160,7 @@ const openFlashChartCanvas = ref<HTMLCanvasElement | null>(null);
 const knownMemoryChartCanvas = ref<HTMLCanvasElement | null>(null);
 const boardStateChartCanvas = ref<HTMLCanvasElement | null>(null);
 const labOrganizationChartCanvas = ref<HTMLCanvasElement | null>(null);
+const scanFreshnessThresholdDays = ref(DEFAULT_SCAN_FRESHNESS_THRESHOLD_DAYS);
 let chipFamilyChart: Chart<"doughnut"> | null = null;
 let projectStatusChart: Chart<"doughnut"> | null = null;
 let partitionFlashChart: Chart<"doughnut"> | null = null;
@@ -441,8 +448,10 @@ const dominantChipFamily = computed(() => chipFamilyMetrics.value[0]?.label ?? "
 const chipFamilyCount = computed(() => chipFamilyMetrics.value.length);
 const scanFreshnessMetrics = computed<ScanFreshnessMetric[]>(() => {
   const total = boards.value.length;
-  const now = Date.now();
-  const freshThresholdMs = 14 * 24 * 60 * 60 * 1000;
+  const freshCutoffMs = getScanFreshnessCutoffMs(
+    Date.now(),
+    scanFreshnessThresholdDays.value
+  );
   let fresh = 0;
   let stale = 0;
   let never = 0;
@@ -455,7 +464,7 @@ const scanFreshnessMetrics = computed<ScanFreshnessMetric[]>(() => {
       continue;
     }
 
-    if (now - scannedAt <= freshThresholdMs) {
+    if (scannedAt >= freshCutoffMs) {
       fresh += 1;
     } else {
       stale += 1;
@@ -466,7 +475,9 @@ const scanFreshnessMetrics = computed<ScanFreshnessMetric[]>(() => {
     {
       key: "fresh",
       label: "Fresh scans",
-      detail: "Last 14 days",
+      detail: formatScanFreshnessThresholdDetail(
+        scanFreshnessThresholdDays.value
+      ),
       count: fresh,
       percent: getPercent(fresh, total),
       color: "#2dd4bf"
@@ -759,6 +770,7 @@ const hasVaultActivity = computed(() => activityHeatmapTotal.value > 0);
 
 onMounted(() => {
   void refreshDashboard();
+  void loadScanFreshnessThresholdSetting();
   themeObserver = new MutationObserver(() => {
     void nextTick(renderDashboardCharts);
   });
@@ -1313,6 +1325,14 @@ async function refreshDashboard(): Promise<void> {
     projectStore.loadProjects(),
     checklistStore.loadItems()
   ]);
+}
+
+async function loadScanFreshnessThresholdSetting(): Promise<void> {
+  try {
+    scanFreshnessThresholdDays.value = await loadScanFreshnessThresholdDays();
+  } catch {
+    scanFreshnessThresholdDays.value = DEFAULT_SCAN_FRESHNESS_THRESHOLD_DAYS;
+  }
 }
 
 function formatRecordedCount(count: number): string {

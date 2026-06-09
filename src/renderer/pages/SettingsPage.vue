@@ -10,6 +10,13 @@ import {
   getBackupReminder,
   getBackupStatus
 } from "../services/backupStatus";
+import {
+  DEFAULT_SCAN_FRESHNESS_THRESHOLD_DAYS,
+  MAX_SCAN_FRESHNESS_THRESHOLD_DAYS,
+  MIN_SCAN_FRESHNESS_THRESHOLD_DAYS,
+  loadScanFreshnessThresholdDays,
+  saveScanFreshnessThresholdDays
+} from "../services/scanFreshnessThreshold";
 
 const backupRepository = repositories.backups;
 const {
@@ -30,6 +37,11 @@ const lastBackupAt = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const backupReminderSnackbar = ref(false);
 const databaseLocation = ref<DatabaseLocation | null>(null);
+const scanFreshnessThresholdInput = ref(
+  String(DEFAULT_SCAN_FRESHNESS_THRESHOLD_DAYS)
+);
+const scanFreshnessThresholdLoaded = ref(false);
+const savingScanFreshnessThreshold = ref(false);
 const backupReminder = computed(() =>
   getBackupReminder(lastBackupAt.value, undefined, {
     currentAppVersion: currentAppVersion.value,
@@ -91,6 +103,20 @@ async function loadCurrentAppVersion(): Promise<void> {
     currentAppVersion.value = await window.api.app.getVersion();
   } catch {
     currentAppVersion.value = null;
+  }
+}
+
+async function loadScanFreshnessThresholdSetting(): Promise<void> {
+  try {
+    scanFreshnessThresholdInput.value = String(
+      await loadScanFreshnessThresholdDays()
+    );
+  } catch {
+    scanFreshnessThresholdInput.value = String(
+      DEFAULT_SCAN_FRESHNESS_THRESHOLD_DAYS
+    );
+  } finally {
+    scanFreshnessThresholdLoaded.value = true;
   }
 }
 
@@ -163,10 +189,39 @@ async function changeDatabaseLocation(): Promise<void> {
   }
 }
 
+async function saveScanFreshnessThreshold(): Promise<void> {
+  savingScanFreshnessThreshold.value = true;
+  error.value = null;
+  notice.value = null;
+
+  try {
+    const days = await saveScanFreshnessThresholdDays(
+      scanFreshnessThresholdInput.value
+    );
+    scanFreshnessThresholdInput.value = String(days);
+    notice.value = "Stale scan threshold saved.";
+  } catch (caughtError) {
+    error.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The stale scan threshold could not be saved.";
+  } finally {
+    savingScanFreshnessThreshold.value = false;
+  }
+}
+
+async function resetScanFreshnessThreshold(): Promise<void> {
+  scanFreshnessThresholdInput.value = String(
+    DEFAULT_SCAN_FRESHNESS_THRESHOLD_DAYS
+  );
+  await saveScanFreshnessThreshold();
+}
+
 onMounted(() => {
   void loadDatabaseLocation();
   void loadCurrentAppVersion();
   void loadLastBackupStatus();
+  void loadScanFreshnessThresholdSetting();
 });
 </script>
 
@@ -225,6 +280,61 @@ onMounted(() => {
             {{ option.title }}
           </v-btn>
         </v-btn-toggle>
+      </v-card-text>
+    </v-card>
+
+    <v-card class="panel-card mt-4" flat>
+      <v-card-title class="text-subtitle-1 font-weight-bold">
+        Dashboard
+      </v-card-title>
+      <v-divider />
+      <v-card-text class="settings-row">
+        <div class="settings-detail">
+          <div class="settings-detail-heading">
+            <v-icon icon="mdi-clock-alert-outline" color="primary" />
+            <div>
+              <div class="font-weight-medium">Stale scan threshold</div>
+              <div class="text-body-2 muted mt-1">
+                Dashboard scan freshness uses this day count.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-actions settings-threshold-actions">
+          <v-text-field
+            v-model="scanFreshnessThresholdInput"
+            class="settings-number-input"
+            density="comfortable"
+            hide-details
+            label="Stale scan threshold"
+            :min="MIN_SCAN_FRESHNESS_THRESHOLD_DAYS"
+            :max="MAX_SCAN_FRESHNESS_THRESHOLD_DAYS"
+            step="1"
+            suffix="days"
+            type="number"
+            variant="outlined"
+            :disabled="!scanFreshnessThresholdLoaded || savingScanFreshnessThreshold"
+            @keydown.enter.prevent="saveScanFreshnessThreshold"
+          />
+          <v-btn
+            color="primary"
+            variant="outlined"
+            prepend-icon="mdi-content-save"
+            :disabled="!scanFreshnessThresholdLoaded"
+            :loading="savingScanFreshnessThreshold"
+            @click="saveScanFreshnessThreshold"
+          >
+            Save threshold
+          </v-btn>
+          <v-btn
+            variant="text"
+            prepend-icon="mdi-restore"
+            :disabled="!scanFreshnessThresholdLoaded || savingScanFreshnessThreshold"
+            @click="resetScanFreshnessThreshold"
+          >
+            Use default
+          </v-btn>
+        </div>
       </v-card-text>
     </v-card>
 
@@ -372,6 +482,15 @@ onMounted(() => {
   gap: 10px;
 }
 
+.settings-threshold-actions {
+  align-items: center;
+}
+
+.settings-number-input {
+  flex: 0 0 190px;
+  width: 190px;
+}
+
 .settings-detail {
   min-width: 0;
 }
@@ -401,6 +520,11 @@ onMounted(() => {
 
   .settings-actions {
     justify-content: stretch;
+  }
+
+  .settings-number-input {
+    flex: 1 1 auto;
+    width: 100%;
   }
 
   .theme-toggle {
