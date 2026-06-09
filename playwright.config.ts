@@ -24,7 +24,7 @@ export default defineConfig({
       BROWSER_HARNESS_PORT: String(harnessPort),
       BROWSER_HARNESS_STRICT_PORT: "true"
     },
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 30_000,
     url: baseURL
   }

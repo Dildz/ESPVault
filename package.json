@@ -14,8 +14,8 @@
     "package:mac": "npm run build && electron-builder --mac --x64 --arm64 --publish never",
     "package:linux": "npm run build && electron-builder --linux --x64 --publish never",
     "test": "vitest run",
-    "test:visual": "playwright test",
-    "test:visual:headed": "playwright test --headed",
+    "test:visual": "node scripts/test-visual.mjs",
+    "test:visual:headed": "node scripts/test-visual.mjs --headed",
     "typecheck": "vue-tsc --noEmit -p tsconfig.renderer.json && tsc --noEmit -p tsconfig.electron.json",
     "preview": "vite preview"
   },

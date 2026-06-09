@@ -27,12 +27,15 @@ export async function chooseSelectOption(
   option: string,
   scope?: Locator
 ): Promise<void> {
-  const select = scope
-    ? scope.getByLabel(label, { exact: true })
-    : page.getByLabel(label, { exact: true });
+  const selectScope = scope ?? page.locator("body");
+  const select = selectScope
+    .getByRole("combobox", { name: label, exact: true })
+    .first();
+  const optionLocator = page.getByRole("option", { name: option, exact: true });
 
-  await select.click({ force: true });
-  await page.getByRole("option", { name: option, exact: true }).click();
+  await clickVuetifySelectActivator(select);
+  await expect(optionLocator).toBeVisible();
+  await optionLocator.click();
 }
 
 export async function chooseSelectOptionContaining(
@@ -40,10 +43,23 @@ export async function chooseSelectOptionContaining(
   select: Locator,
   optionText: string
 ): Promise<void> {
-  await select.click({ force: true });
-  await page.getByRole("option").filter({ hasText: optionText }).first().click();
+  const option = page.getByRole("option").filter({ hasText: optionText }).first();
+
+  await clickVuetifySelectActivator(select);
+  await expect(option).toBeVisible();
+  await option.click();
 }
 
 export function tableRow(page: Page, text: string): Locator {
   return page.getByRole("row").filter({ hasText: text });
+}
+
+async function clickVuetifySelectActivator(select: Locator): Promise<void> {
+  const field = select
+    .locator(
+      "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' v-field ')][1]"
+    )
+    .first();
+
+  await field.click();
 }
