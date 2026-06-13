@@ -960,9 +960,13 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
             </v-alert>
 
             <template v-if="selectedPartitionRows.length">
-              <div class="partition-map" aria-label="Board flash partition map">
+              <div
+                :key="`partition-map-${selectedBoard.id}`"
+                class="partition-map"
+                aria-label="Board flash partition map"
+              >
                 <v-tooltip
-                  v-for="segment in selectedPartitionSegments"
+                  v-for="(segment, index) in selectedPartitionSegments"
                   :key="segment.key"
                   location="top"
                 >
@@ -978,7 +982,8 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
                         width: segment.width,
                         flexBasis: segment.width,
                         backgroundColor: segment.color,
-                        backgroundImage: segment.backgroundImage || undefined
+                        backgroundImage: segment.backgroundImage || undefined,
+                        '--partition-segment-delay': `${index * 58}ms`
                       }"
                     >
                       <span v-if="segment.showLabel" class="partition-segment-label">
@@ -1571,6 +1576,7 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
 }
 
 .partition-map {
+  position: relative;
   display: flex;
   width: 100%;
   min-height: 104px;
@@ -1579,6 +1585,26 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   border: 1px solid var(--vault-border);
   border-radius: 8px;
   background: rgba(var(--v-theme-surface), 0.6);
+  isolation: isolate;
+  animation: partition-map-enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.partition-map::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 38%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.14) 62%,
+    transparent 100%
+  );
+  transform: translateX(-115%);
+  animation: partition-map-sweep 760ms ease-out 120ms both;
 }
 
 .partition-map-segment {
@@ -1594,6 +1620,10 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   color: rgba(255, 255, 255, 0.96);
   text-align: center;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.38);
+  animation: partition-segment-reveal 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(90ms + var(--partition-segment-delay, 0ms));
+  clip-path: inset(0 100% 0 0 round 0);
+  will-change: clip-path, opacity;
 }
 
 .partition-map-segment:first-child {
@@ -1677,6 +1707,62 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   border: 1px dashed var(--vault-border);
   border-radius: 8px;
   background: rgba(var(--v-theme-surface), 0.42);
+}
+
+@keyframes partition-map-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes partition-map-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-115%);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(115%);
+  }
+}
+
+@keyframes partition-segment-reveal {
+  from {
+    opacity: 0.38;
+    clip-path: inset(0 100% 0 0 round 0);
+  }
+
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .partition-map,
+  .partition-map::after,
+  .partition-map-segment {
+    animation: none;
+  }
+
+  .partition-map::after {
+    content: none;
+  }
+
+  .partition-map-segment {
+    clip-path: inset(0 0 0 0 round 0);
+  }
 }
 
 .board-detail-row {
