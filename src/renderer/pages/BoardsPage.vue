@@ -898,6 +898,12 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
               </div>
             </div>
             <div>
+              <div class="metric-label">PSRAM</div>
+              <div class="board-fact-value">
+                {{ formatPsramSize(selectedBoard.psramSizeBytes, selectedBoard.psramDetected) }}
+              </div>
+            </div>
+            <div>
               <div class="metric-label">Project</div>
               <button
                 v-if="selectedBoard.projectId"
@@ -1483,7 +1489,7 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
 
 .board-facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
