@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import arduinoMakerWorkshopThumbnail from "../assets/tool-thumbnails/arduino-maker-workshop.jpg";
+import espConnectThumbnail from "../assets/tool-thumbnails/espconnect.jpg";
+import gpioViewerThumbnail from "../assets/tool-thumbnails/gpio-viewer.jpg";
+import partitionBuilderThumbnail from "../assets/tool-thumbnails/partition-builder.jpg";
+import videoConversionThumbnail from "../assets/tool-thumbnails/video-conversion.jpg";
 
 interface ToolItem {
   key: string;
@@ -14,8 +19,20 @@ interface ToolItem {
   tutorialUrl?: string;
 }
 
+interface ToolCardItem extends ToolItem {
+  tutorialActionUrl: string | null;
+  tutorialThumbnailSrc: string | null;
+}
+
 const error = ref<string | null>(null);
 const coffeeUrl = "https://buymeacoffee.com/thelastoutpostworkshop";
+const tutorialThumbnailsByVideoId: Record<string, string> = {
+  "-nhDKzBxHiI": espConnectThumbnail,
+  EuHxodrye6E: partitionBuilderThumbnail,
+  bFq05qXqin0: videoConversionThumbnail,
+  JJzRXcQrl3I: gpioViewerThumbnail,
+  rduTUUVkzqM: arduinoMakerWorkshopThumbnail
+};
 
 const toolItems: ToolItem[] = [
   {
@@ -75,6 +92,19 @@ const toolItems: ToolItem[] = [
   }
 ];
 
+const toolCards: ToolCardItem[] = toolItems.map((tool) => {
+  const tutorialActionUrl = getTutorialActionUrl(tool);
+  const videoId = getYoutubeVideoId(tutorialActionUrl);
+
+  return {
+    ...tool,
+    tutorialActionUrl,
+    tutorialThumbnailSrc: videoId
+      ? tutorialThumbnailsByVideoId[videoId] ?? null
+      : null
+  };
+});
+
 async function openExternal(url: string): Promise<void> {
   error.value = null;
 
@@ -86,6 +116,51 @@ async function openExternal(url: string): Promise<void> {
         ? caughtError.message
         : "The external link could not be opened.";
   }
+}
+
+function getTutorialActionUrl(tool: ToolItem): string | null {
+  if (tool.tutorialUrl) {
+    return tool.tutorialUrl;
+  }
+
+  return getYoutubeVideoId(tool.url) ? tool.url : null;
+}
+
+function getYoutubeVideoId(url: string | null | undefined): string | null {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.toLowerCase().replace(/^www\./, "");
+
+    if (hostname === "youtu.be") {
+      return normalizeYoutubeVideoId(
+        parsedUrl.pathname.split("/").filter(Boolean)[0]
+      );
+    }
+
+    if (hostname === "youtube.com" || hostname.endsWith(".youtube.com")) {
+      if (parsedUrl.pathname === "/watch") {
+        return normalizeYoutubeVideoId(parsedUrl.searchParams.get("v"));
+      }
+
+      const pathMatch = parsedUrl.pathname.match(
+        /^\/(?:embed|shorts|live)\/([^/?#]+)/
+      );
+      return normalizeYoutubeVideoId(pathMatch?.[1]);
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function normalizeYoutubeVideoId(value: string | null | undefined): string | null {
+  const videoId = value?.trim();
+  return videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : null;
 }
 </script>
 
@@ -128,14 +203,35 @@ async function openExternal(url: string): Promise<void> {
 
     <div class="tools-grid">
       <v-card
-        v-for="tool in toolItems"
+        v-for="tool in toolCards"
         :key="tool.key"
         class="panel-card tool-card"
         flat
       >
         <v-card-text class="tool-card-body">
-          <div class="tool-icon" aria-hidden="true">
-            <v-icon :icon="tool.icon" size="28" />
+          <div class="tool-media">
+            <button
+              v-if="tool.tutorialThumbnailSrc && tool.tutorialActionUrl"
+              class="tool-thumbnail-button"
+              type="button"
+              :aria-label="`Watch ${tool.title} tutorial`"
+              @click="openExternal(tool.tutorialActionUrl)"
+            >
+              <img
+                :src="tool.tutorialThumbnailSrc"
+                :alt="`${tool.title} tutorial thumbnail`"
+                loading="lazy"
+              />
+              <span class="tool-thumbnail-icon" aria-hidden="true">
+                <v-icon :icon="tool.icon" size="18" />
+              </span>
+              <span class="tool-play-badge" aria-hidden="true">
+                <v-icon icon="mdi-play" size="24" />
+              </span>
+            </button>
+            <div v-else class="tool-icon" aria-hidden="true">
+              <v-icon :icon="tool.icon" size="28" />
+            </div>
           </div>
           <div class="tool-copy">
             <div class="tool-title">{{ tool.title }}</div>
@@ -233,8 +329,88 @@ async function openExternal(url: string): Promise<void> {
 .tool-card-body {
   display: grid;
   flex: 1 1 auto;
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
   gap: 16px;
+  align-items: start;
+}
+
+.tool-media {
+  min-width: 0;
+}
+
+.tool-thumbnail-button {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.16), rgba(var(--v-theme-accent), 0.12)),
+    rgba(var(--v-theme-surface), 0.8);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.tool-thumbnail-button img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition:
+    filter 180ms ease,
+    transform 180ms ease;
+}
+
+.tool-thumbnail-button::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(180deg, rgba(5, 20, 18, 0.1), rgba(5, 20, 18, 0.34)),
+    linear-gradient(90deg, rgba(var(--v-theme-primary), 0.16), transparent 44%);
+}
+
+.tool-thumbnail-button:hover img {
+  filter: saturate(1.08) contrast(1.03);
+  transform: scale(1.025);
+}
+
+.tool-thumbnail-button:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 3px;
+}
+
+.tool-thumbnail-icon,
+.tool-play-badge {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 10px 24px rgba(3, 13, 10, 0.22);
+}
+
+.tool-thumbnail-icon {
+  top: 8px;
+  left: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(5, 20, 18, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.tool-play-badge {
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-primary), 0.92);
+  transform: translate(-50%, -50%);
 }
 
 .tool-icon {
@@ -299,6 +475,10 @@ async function openExternal(url: string): Promise<void> {
 
   .tool-card-body {
     grid-template-columns: 1fr;
+  }
+
+  .tool-thumbnail-button {
+    max-width: 420px;
   }
 }
 </style>
