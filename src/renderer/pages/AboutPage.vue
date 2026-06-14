@@ -66,7 +66,11 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
     </v-alert>
 
     <div class="about-layout">
-      <v-card class="panel-card" flat>
+      <v-card
+        class="panel-card about-animated-card"
+        flat
+        style="--about-card-delay: 0ms"
+      >
         <v-card-text class="about-intro">
           <div class="about-label">Application</div>
           <div class="about-title-row">
@@ -115,13 +119,17 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
         </v-card-text>
       </v-card>
 
-      <v-card class="panel-card" flat>
+      <v-card
+        class="panel-card about-animated-card"
+        flat
+        style="--about-card-delay: 90ms"
+      >
         <v-card-title class="text-subtitle-1 font-weight-bold">
           <v-icon class="mr-2" color="primary" icon="mdi-shield-home-outline" />
           Local-first by design
         </v-card-title>
         <v-divider />
-        <v-list density="compact" lines="two">
+        <v-list class="about-animated-list" density="compact" lines="two">
           <v-list-item
             prepend-icon="mdi-database-lock-outline"
             title="Local inventory"
@@ -147,13 +155,17 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
     </div>
 
     <div class="about-detail-grid mt-4">
-      <v-card class="panel-card" flat>
+      <v-card
+        class="panel-card about-animated-card"
+        flat
+        style="--about-card-delay: 180ms"
+      >
         <v-card-title class="text-subtitle-1 font-weight-bold">
           <v-icon class="mr-2" color="primary" icon="mdi-developer-board" />
           What you can track
         </v-card-title>
         <v-divider />
-        <v-list density="compact" lines="two">
+        <v-list class="about-animated-list" density="compact" lines="two">
           <v-list-item
             prepend-icon="mdi-memory"
             title="Board inventory"
@@ -177,13 +189,17 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
         </v-list>
       </v-card>
 
-      <v-card class="panel-card" flat>
+      <v-card
+        class="panel-card about-animated-card"
+        flat
+        style="--about-card-delay: 250ms"
+      >
         <v-card-title class="text-subtitle-1 font-weight-bold">
           <v-icon class="mr-2" color="primary" icon="mdi-database-sync-outline" />
           Data and recovery
         </v-card-title>
         <v-divider />
-        <v-list density="compact" lines="two">
+        <v-list class="about-animated-list" density="compact" lines="two">
           <v-list-item
             prepend-icon="mdi-folder-cog-outline"
             title="App data location"
@@ -207,7 +223,11 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
         </v-list>
       </v-card>
 
-      <v-card class="panel-card support-card" flat>
+      <v-card
+        class="panel-card support-card about-animated-card"
+        flat
+        style="--about-card-delay: 320ms"
+      >
         <v-card-text class="support-card-body">
           <div class="support-icon" aria-hidden="true">
             <v-icon icon="mdi-coffee-outline" size="30" />
@@ -230,7 +250,11 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
         </v-card-text>
       </v-card>
 
-      <v-card class="panel-card about-wide-card" flat>
+      <v-card
+        class="panel-card about-wide-card about-animated-card"
+        flat
+        style="--about-card-delay: 390ms"
+      >
         <v-card-title class="text-subtitle-1 font-weight-bold">
           <v-icon class="mr-2" color="primary" icon="mdi-usb-port" />
           Scanning notes
@@ -274,6 +298,13 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
   align-items: start;
 }
 
+.about-animated-card {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: about-card-enter 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--about-card-delay, 0ms);
+}
+
 .about-intro {
   padding: 28px;
 }
@@ -302,6 +333,8 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
 }
 
 .about-version-chip {
+  transform-origin: left center;
+  animation: about-chip-pop 460ms cubic-bezier(0.2, 0.8, 0.2, 1) 180ms both;
   font-weight: 800;
 }
 
@@ -334,6 +367,25 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
   gap: 16px;
 }
 
+.about-animated-list :deep(.v-list-item) {
+  opacity: 0;
+  transform: translateX(-6px);
+  animation: about-list-item-enter 380ms ease-out both;
+  animation-delay: calc(var(--about-card-delay, 0ms) + 180ms);
+}
+
+.about-animated-list :deep(.v-list-item:nth-child(2)) {
+  animation-delay: calc(var(--about-card-delay, 0ms) + 240ms);
+}
+
+.about-animated-list :deep(.v-list-item:nth-child(3)) {
+  animation-delay: calc(var(--about-card-delay, 0ms) + 300ms);
+}
+
+.about-animated-list :deep(.v-list-item:nth-child(4)) {
+  animation-delay: calc(var(--about-card-delay, 0ms) + 360ms);
+}
+
 .about-wide-card {
   grid-column: 1 / -1;
 }
@@ -346,16 +398,36 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
 }
 
 .support-icon {
+  position: relative;
   display: grid;
   width: 52px;
   height: 52px;
   place-items: center;
+  overflow: hidden;
   border: 1px solid rgba(var(--v-theme-accent), 0.28);
   border-radius: 8px;
   background:
     linear-gradient(135deg, rgba(var(--v-theme-accent), 0.18), rgba(var(--v-theme-primary), 0.1)),
     rgba(var(--v-theme-surface), 0.76);
   color: rgb(var(--v-theme-accent));
+  animation: support-icon-glow 900ms ease-out 520ms both;
+}
+
+.support-icon::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 44%,
+    rgba(255, 255, 255, 0.34) 50%,
+    rgba(255, 255, 255, 0.12) 56%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: support-icon-sweep 780ms ease-out 620ms both;
 }
 
 .support-copy {
@@ -377,6 +449,95 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+}
+
+@keyframes about-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes about-chip-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes about-list-item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes support-icon-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-accent), 0);
+    transform: scale(1);
+  }
+
+  42% {
+    box-shadow: 0 0 0 5px rgba(var(--v-theme-accent), 0.12);
+    transform: scale(1.035);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-accent), 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes support-icon-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+
+  22% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-animated-card,
+  .about-version-chip,
+  .about-animated-list :deep(.v-list-item),
+  .support-icon,
+  .support-icon::after {
+    animation: none;
+  }
+
+  .about-animated-card,
+  .about-animated-list :deep(.v-list-item) {
+    opacity: 1;
+    transform: none;
+  }
+
+  .support-icon::after {
+    content: none;
+  }
 }
 
 @media (max-width: 980px) {
