@@ -859,6 +859,10 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
                   {{ selectedBoard.macAddress || "Not set" }}
                 </strong>
               </div>
+              <div class="board-cover-meta">
+                <div class="metric-label">Location</div>
+                <strong>{{ selectedBoard.physicalLocation || "Not set" }}</strong>
+              </div>
               <div class="board-cover-actions">
                 <v-btn
                   color="primary"
