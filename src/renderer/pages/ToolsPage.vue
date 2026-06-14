@@ -203,7 +203,7 @@ function normalizeYoutubeVideoId(value: string | null | undefined): string | nul
 
     <div class="tools-grid">
       <v-card
-        v-for="tool in toolCards"
+        v-for="(tool, index) in toolCards"
         :key="tool.key"
         class="panel-card tool-card"
         flat
@@ -215,6 +215,7 @@ function normalizeYoutubeVideoId(value: string | null | undefined): string | nul
               class="tool-thumbnail-button"
               type="button"
               :aria-label="`Watch ${tool.title} tutorial`"
+              :style="{ '--tool-thumbnail-delay': `${index * 70}ms` }"
               @click="openExternal(tool.tutorialActionUrl)"
             >
               <img
@@ -352,6 +353,10 @@ function normalizeYoutubeVideoId(value: string | null | undefined): string | nul
     rgba(var(--v-theme-surface), 0.8);
   color: #ffffff;
   cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  animation: tool-thumbnail-enter 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--tool-thumbnail-delay, 0ms);
 }
 
 .tool-thumbnail-button img {
@@ -359,14 +364,36 @@ function normalizeYoutubeVideoId(value: string | null | undefined): string | nul
   width: 100%;
   height: 100%;
   object-fit: cover;
+  animation: tool-thumbnail-image-settle 680ms ease-out both;
+  animation-delay: var(--tool-thumbnail-delay, 0ms);
   transition:
     filter 180ms ease,
     transform 180ms ease;
 }
 
+.tool-thumbnail-button::before {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.16) 42%,
+    rgba(255, 255, 255, 0.34) 50%,
+    rgba(255, 255, 255, 0.12) 58%,
+    transparent 100%
+  );
+  transform: translateX(-115%);
+  animation: tool-thumbnail-sweep 720ms ease-out both;
+  animation-delay: calc(var(--tool-thumbnail-delay, 0ms) + 140ms);
+}
+
 .tool-thumbnail-button::after {
   position: absolute;
   inset: 0;
+  z-index: 1;
   content: "";
   background:
     linear-gradient(180deg, rgba(5, 20, 18, 0.1), rgba(5, 20, 18, 0.34)),
@@ -386,7 +413,7 @@ function normalizeYoutubeVideoId(value: string | null | undefined): string | nul
 .tool-thumbnail-icon,
 .tool-play-badge {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   display: grid;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.28);
@@ -411,6 +438,76 @@ function normalizeYoutubeVideoId(value: string | null | undefined): string | nul
   border-radius: 999px;
   background: rgba(var(--v-theme-primary), 0.92);
   transform: translate(-50%, -50%);
+  animation: tool-play-badge-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--tool-thumbnail-delay, 0ms) + 190ms);
+}
+
+@keyframes tool-thumbnail-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tool-thumbnail-image-settle {
+  from {
+    transform: scale(1.035);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes tool-thumbnail-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-115%);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(115%);
+  }
+}
+
+@keyframes tool-play-badge-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.82);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-thumbnail-button,
+  .tool-thumbnail-button img,
+  .tool-thumbnail-button::before,
+  .tool-play-badge {
+    animation: none;
+  }
+
+  .tool-thumbnail-button {
+    opacity: 1;
+    transform: none;
+  }
+
+  .tool-thumbnail-button::before {
+    content: none;
+  }
 }
 
 .tool-icon {
