@@ -519,12 +519,24 @@ function getDroppedImageFile(event: DragEvent): File | null {
                 label="Status"
               />
             </v-col>
-            <v-col cols="12" md="4">
-              <v-select
-                v-model="form.projectId"
-                :items="projectOptions"
-                label="Project"
+            <v-col cols="12" md="6">
+              <v-text-field v-model="form.boardType" label="Board type" />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field v-model="form.manufacturer" label="Manufacturer" />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-combobox
+                v-model="form.physicalLocation"
+                :items="locationOptions"
+                auto-select-first
+                clearable
+                label="Location"
+                prepend-inner-icon="mdi-map-marker-outline"
               />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field v-model="form.purchaseUrl" label="Purchase URL" />
             </v-col>
             <v-col cols="12">
               <v-textarea
@@ -539,6 +551,13 @@ function getDroppedImageFile(event: DragEvent): File | null {
             </v-col>
             <v-col cols="12" md="6">
               <v-text-field v-model="form.macAddress" label="MAC address" />
+            </v-col>
+            <v-col cols="12" md="4">
+              <v-select
+                v-model="form.projectId"
+                :items="projectOptions"
+                label="Project"
+              />
             </v-col>
 
             <template v-if="isEditing">
@@ -734,25 +753,6 @@ function getDroppedImageFile(event: DragEvent): File | null {
               </v-col>
             </template>
 
-            <v-col cols="12" md="4">
-              <v-text-field v-model="form.boardType" label="Board type" />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field v-model="form.manufacturer" label="Manufacturer" />
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-combobox
-                v-model="form.physicalLocation"
-                :items="locationOptions"
-                auto-select-first
-                clearable
-                label="Location"
-                prepend-inner-icon="mdi-map-marker-outline"
-              />
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-text-field v-model="form.purchaseUrl" label="Purchase URL" />
-            </v-col>
             <template v-if="isEditing">
               <v-col cols="12">
                 <div class="section-title">Record</div>
