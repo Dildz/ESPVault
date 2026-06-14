@@ -10,25 +10,28 @@ permissions:
 
 jobs:
   package:
-    name: Build ${{ matrix.name }}
+    name: Build ${{ matrix.artifact_name }}
     runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Windows
-            os: windows-latest
-            script: package:win
-            artifact: esp-board-vault-windows
-          - name: macOS
-            os: macos-latest
-            script: package:mac
-            artifact: esp-board-vault-macos
-          - name: Linux
-            os: ubuntu-latest
-            script: package:linux
-            artifact: esp-board-vault-linux
+          # Windows
+          - os: windows-latest
+            platform: win
+            arch: x64
+            artifact_name: windows
+          # macOS
+          - os: macos-latest
+            platform: mac
+            arch: x64 --arm64
+            artifact_name: macos
+          # Linux
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            artifact_name: linux
 
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -50,12 +53,12 @@ jobs:
         run: npm test
 
       - name: Package desktop app
-        run: npm run ${{ matrix.script }}
+        run: npm run package -- --${{ matrix.platform }} --${{ matrix.arch }}
 
       - name: Upload packaged app
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
+          name: esp-board-vault-${{ matrix.artifact_name }}
           path: |
             release/*.AppImage
             release/*.blockmap

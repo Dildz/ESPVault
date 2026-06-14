@@ -56,6 +56,7 @@ linux:
   artifactName: ${productName}-${version}-linux-${arch}.${ext}
   category: Development
   icon: icon.png
+  maintainer: The Last Outpost Workshop <noreply@github.com>
   target:
     - target: AppImage
       arch:
