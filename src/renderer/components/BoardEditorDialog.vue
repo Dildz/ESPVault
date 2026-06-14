@@ -85,6 +85,7 @@ const projectStore = useProjectStore();
 const { projects } = storeToRefs(projectStore);
 const isEditing = computed(() => Boolean(props.board));
 const title = computed(() => (isEditing.value ? "Edit board" : "Add board"));
+const scanDetectedTooltip = "Detected automatically during a board scan";
 const statusOptions = BOARD_STATUSES.map((status) => ({
   title: BOARD_STATUS_LABELS[status],
   value: status
@@ -547,10 +548,22 @@ function getDroppedImageFile(event: DragEvent): File | null {
               />
             </v-col>
             <v-col cols="12" md="6">
-              <v-text-field v-model="form.chipModel" label="Chip model" />
+              <v-text-field
+                v-model="form.chipModel"
+                append-inner-icon="mdi-radar"
+                class="scan-detected-input"
+                :hint="scanDetectedTooltip"
+                label="Chip model"
+              />
             </v-col>
             <v-col cols="12" md="6">
-              <v-text-field v-model="form.macAddress" label="MAC address" />
+              <v-text-field
+                v-model="form.macAddress"
+                append-inner-icon="mdi-radar"
+                class="scan-detected-input"
+                :hint="scanDetectedTooltip"
+                label="MAC address"
+              />
             </v-col>
             <v-col cols="12" md="4">
               <v-select
@@ -563,35 +576,68 @@ function getDroppedImageFile(event: DragEvent): File | null {
             <template v-if="isEditing">
               <v-col cols="12">
                 <v-divider class="my-2" />
-                <div class="section-title">Detected chip</div>
+                <div class="section-title section-title--with-icon">
+                  <span>Detected chip</span>
+                  <v-tooltip :text="scanDetectedTooltip" location="top">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-icon
+                        v-bind="tooltipProps"
+                        class="scan-detected-section-icon"
+                        icon="mdi-radar"
+                        size="16"
+                      />
+                    </template>
+                  </v-tooltip>
+                </div>
               </v-col>
               <v-col cols="12" md="3">
                 <v-text-field
                   v-model="form.chipRevision"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Chip revision"
                   type="number"
                   min="0"
                 />
               </v-col>
               <v-col cols="12" md="3">
-                <v-text-field v-model="form.chipVariant" label="Chip variant" />
+                <v-text-field
+                  v-model="form.chipVariant"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
+                  label="Chip variant"
+                />
               </v-col>
               <v-col cols="12" md="3">
                 <v-text-field
                   v-model="form.chipFamily"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Chip family constant"
                   type="number"
                   min="0"
                 />
               </v-col>
               <v-col cols="12" md="3">
-                <v-text-field v-model="form.chipFamilyHex" label="Chip family hex" />
+                <v-text-field
+                  v-model="form.chipFamilyHex"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
+                  label="Chip family hex"
+                />
               </v-col>
             </template>
 
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="form.flashSizeBytes"
+                append-inner-icon="mdi-radar"
+                class="scan-detected-input"
+                :hint="scanDetectedTooltip"
                 label="Flash size bytes"
                 type="number"
                 min="0"
@@ -599,25 +645,55 @@ function getDroppedImageFile(event: DragEvent): File | null {
             </v-col>
             <template v-if="isEditing">
               <v-col cols="12" md="6">
-                <v-text-field v-model="form.flashSizeLabel" label="Flash size label" />
+                <v-text-field
+                  v-model="form.flashSizeLabel"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
+                  label="Flash size label"
+                />
               </v-col>
               <v-col cols="12">
-                <div class="section-title">Flash chip</div>
+                <div class="section-title section-title--with-icon">
+                  <span>Flash chip</span>
+                  <v-tooltip :text="scanDetectedTooltip" location="top">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-icon
+                        v-bind="tooltipProps"
+                        class="scan-detected-section-icon"
+                        icon="mdi-radar"
+                        size="16"
+                      />
+                    </template>
+                  </v-tooltip>
+                </div>
               </v-col>
               <v-col cols="12" md="3">
                 <v-text-field
                   v-model="form.flashChipId"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Flash chip ID"
                   type="number"
                   min="0"
                 />
               </v-col>
               <v-col cols="12" md="3">
-                <v-text-field v-model="form.flashChipIdHex" label="Flash chip ID hex" />
+                <v-text-field
+                  v-model="form.flashChipIdHex"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
+                  label="Flash chip ID hex"
+                />
               </v-col>
               <v-col cols="12" md="3">
                 <v-text-field
                   v-model="form.flashManufacturerId"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Flash manufacturer ID"
                   type="number"
                   min="0"
@@ -626,31 +702,49 @@ function getDroppedImageFile(event: DragEvent): File | null {
               <v-col cols="12" md="3">
                 <v-text-field
                   v-model="form.flashManufacturerIdHex"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Flash manufacturer hex"
                 />
               </v-col>
               <v-col cols="12" md="4">
                 <v-text-field
                   v-model="form.flashManufacturerName"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Flash manufacturer"
                 />
               </v-col>
               <v-col cols="12" md="4">
                 <v-text-field
                   v-model="form.flashDeviceId"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Flash device ID"
                   type="number"
                   min="0"
                 />
               </v-col>
               <v-col cols="12" md="4">
-                <v-text-field v-model="form.flashDeviceIdHex" label="Flash device ID hex" />
+                <v-text-field
+                  v-model="form.flashDeviceIdHex"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
+                  label="Flash device ID hex"
+                />
               </v-col>
             </template>
 
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="form.psramSizeBytes"
+                append-inner-icon="mdi-radar"
+                class="scan-detected-input"
+                :hint="scanDetectedTooltip"
                 label="PSRAM size bytes"
                 type="number"
                 min="0"
@@ -660,23 +754,44 @@ function getDroppedImageFile(event: DragEvent): File | null {
               <v-select
                 v-model="form.psramDetected"
                 :items="booleanOptions"
+                class="scan-detected-input"
+                prepend-inner-icon="mdi-radar"
+                :hint="scanDetectedTooltip"
                 label="PSRAM detected"
               />
             </v-col>
             <v-col cols="12" md="4">
               <v-text-field
                 v-model="form.crystalFrequency"
+                append-inner-icon="mdi-radar"
+                class="scan-detected-input"
+                :hint="scanDetectedTooltip"
                 label="Crystal frequency"
               />
             </v-col>
             <template v-if="isEditing">
               <v-col cols="12">
-                <div class="section-title">Security</div>
+                <div class="section-title section-title--with-icon">
+                  <span>Security</span>
+                  <v-tooltip :text="scanDetectedTooltip" location="top">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-icon
+                        v-bind="tooltipProps"
+                        class="scan-detected-section-icon"
+                        icon="mdi-radar"
+                        size="16"
+                      />
+                    </template>
+                  </v-tooltip>
+                </div>
               </v-col>
               <v-col cols="12" md="4">
                 <v-select
                   v-model="form.secureBootEnabled"
                   :items="booleanOptions"
+                  class="scan-detected-input"
+                  prepend-inner-icon="mdi-radar"
+                  :hint="scanDetectedTooltip"
                   label="Secure boot"
                 />
               </v-col>
@@ -684,12 +799,18 @@ function getDroppedImageFile(event: DragEvent): File | null {
                 <v-select
                   v-model="form.flashEncryptionEnabled"
                   :items="booleanOptions"
+                  class="scan-detected-input"
+                  prepend-inner-icon="mdi-radar"
+                  :hint="scanDetectedTooltip"
                   label="Flash encryption"
                 />
               </v-col>
               <v-col cols="12" md="4">
                 <v-text-field
                   v-model="form.securityApiVersion"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Security API version"
                   type="number"
                   min="0"
@@ -698,17 +819,29 @@ function getDroppedImageFile(event: DragEvent): File | null {
               <v-col cols="12" md="3">
                 <v-text-field
                   v-model="form.securityFlags"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Security flags"
                   type="number"
                   min="0"
                 />
               </v-col>
               <v-col cols="12" md="3">
-                <v-text-field v-model="form.securityFlagsHex" label="Security flags hex" />
+                <v-text-field
+                  v-model="form.securityFlagsHex"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
+                  label="Security flags hex"
+                />
               </v-col>
               <v-col cols="12" md="3">
                 <v-text-field
                   v-model="form.flashCryptCnt"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Flash crypt count"
                   type="number"
                   min="0"
@@ -717,29 +850,53 @@ function getDroppedImageFile(event: DragEvent): File | null {
               <v-col cols="12" md="3">
                 <v-text-field
                   v-model="form.flashCryptCntHex"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Flash crypt count hex"
                 />
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model="form.securityKeyPurposes"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Security key purposes"
                 />
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model="form.securityChipId"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Security chip ID"
                   type="number"
                   min="0"
                 />
               </v-col>
               <v-col cols="12">
-                <div class="section-title">Bootloader</div>
+                <div class="section-title section-title--with-icon">
+                  <span>Bootloader</span>
+                  <v-tooltip :text="scanDetectedTooltip" location="top">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-icon
+                        v-bind="tooltipProps"
+                        class="scan-detected-section-icon"
+                        icon="mdi-radar"
+                        size="16"
+                      />
+                    </template>
+                  </v-tooltip>
+                </div>
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model="form.bootloaderOffset"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Bootloader offset"
                   type="number"
                   min="0"
@@ -748,6 +905,9 @@ function getDroppedImageFile(event: DragEvent): File | null {
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model="form.bootloaderOffsetHex"
+                  append-inner-icon="mdi-radar"
+                  class="scan-detected-input"
+                  :hint="scanDetectedTooltip"
                   label="Bootloader offset hex"
                 />
               </v-col>
@@ -821,6 +981,19 @@ function getDroppedImageFile(event: DragEvent): File | null {
   font-weight: 700;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.section-title--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scan-detected-section-icon,
+.scan-detected-input :deep(.v-field__append-inner .v-icon),
+.scan-detected-input :deep(.v-field__prepend-inner .v-icon) {
+  color: rgb(var(--v-theme-primary));
+  opacity: 0.9;
 }
 
 .board-cover-panel {
