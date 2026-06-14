@@ -4,11 +4,9 @@ Download the installer for your operating system. The `.blockmap`, `latest*.yml`
 
 ### Windows
 
-1. Download the [Windows x64 installer](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-windows-x64.exe).
-2. Run the installer and follow the prompts.
-3. If Windows SmartScreen warns that the app is unrecognized, choose **More info** and then **Run anyway** if you trust this release.
-
-Portable option: download the [Windows x64 portable zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-windows-x64.zip), extract it, and run the app from the extracted folder.
+1. Download the [Windows x64 portable zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-windows-x64.zip).
+2. Extract the zip file.
+3. Run **ESP Board Vault** from the extracted folder.
 
 ### macOS
 
