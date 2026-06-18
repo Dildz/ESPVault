@@ -28,9 +28,14 @@ import {
   type VaultBackup,
   type VaultBackupFile
 } from "../shared/types/backup";
+import type {
+  SerialPortSelection,
+  SerialPortSelectionPort
+} from "../shared/types/api";
 import { prepareUpgradeSnapshot } from "./upgradeSnapshots";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
+const SERIAL_SELECTION_CHANNEL = "serial:get-last-selection";
 const SERIAL_SELECTION_COUNT_CHANNEL = "serial:get-last-selection-count";
 const APP_GET_VERSION_CHANNEL = "app:get-version";
 const CLIPBOARD_WRITE_TEXT_CHANNEL = "clipboard:write-text";
@@ -67,18 +72,19 @@ const MIN_WINDOW_SIZE: WindowSize = {
   height: 680
 };
 
-let pendingSelectedSerialPortIds: string[] = [];
-let lastSerialPortSelectionCount = 0;
+let lastSerialPortSelection: SerialPortSelection = createEmptySerialPortSelection();
 let mainWindow: BrowserWindow | null = null;
 let windowSizeSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 interface SelectableSerialPort {
   portId: string;
   portName?: string;
+  deviceInstanceId?: string;
   displayName?: string;
   vendorId?: string;
   productId?: string;
   serialNumber?: string;
+  usbDriverName?: string;
 }
 
 interface BackupPackage {
@@ -114,7 +120,11 @@ app.setName(isDevelopment ? "ESP Board Vault Dev" : "ESP Board Vault");
 applyConfiguredUserDataPath();
 
 ipcMain.handle(APP_GET_VERSION_CHANNEL, () => app.getVersion());
-ipcMain.handle(SERIAL_SELECTION_COUNT_CHANNEL, () => lastSerialPortSelectionCount);
+ipcMain.handle(SERIAL_SELECTION_CHANNEL, () => lastSerialPortSelection);
+ipcMain.handle(
+  SERIAL_SELECTION_COUNT_CHANNEL,
+  () => lastSerialPortSelection.selectedCount
+);
 ipcMain.handle(CLIPBOARD_WRITE_TEXT_CHANNEL, (_event, text: unknown) => {
   if (typeof text !== "string") {
     throw new Error("Clipboard text must be a string.");
@@ -1706,6 +1716,10 @@ function showOpenDialogForSender(
 function configureWebSerial(window: BrowserWindow): void {
   const session = window.webContents.session;
 
+  session.setDevicePermissionHandler((details) => {
+    return details.deviceType === "serial" && isTrustedAppOrigin(details.origin);
+  });
+
   session.setPermissionCheckHandler((_webContents, permission, origin) => {
     if ((permission as string) === "serial") {
       return isTrustedAppOrigin(origin);
@@ -1726,23 +1740,53 @@ function configureWebSerial(window: BrowserWindow): void {
   session.on("select-serial-port", async (event, portList, _webContents, callback) => {
     event.preventDefault();
 
-    const queuedPortId = pendingSelectedSerialPortIds.shift();
-    if (queuedPortId) {
-      callback(queuedPortId);
-      return;
-    }
-
     if (portList.length <= 1) {
-      lastSerialPortSelectionCount = portList.length;
+      rememberSerialPortSelection(portList, portList);
       callback(portList[0]?.portId ?? "");
       return;
     }
 
     const selectedPorts = await showSerialPortPicker(window, portList);
-    lastSerialPortSelectionCount = selectedPorts.length;
-    pendingSelectedSerialPortIds = selectedPorts.slice(1).map((port) => port.portId);
+    rememberSerialPortSelection(portList, selectedPorts);
     callback(selectedPorts[0]?.portId ?? "");
   });
+}
+
+function rememberSerialPortSelection(
+  availablePorts: SelectableSerialPort[],
+  selectedPorts: SelectableSerialPort[]
+): void {
+  lastSerialPortSelection = {
+    availableCount: availablePorts.length,
+    selectedCount: selectedPorts.length,
+    selectedPorts: selectedPorts.map(toSerialPortSelectionPort)
+  };
+}
+
+function toSerialPortSelectionPort(
+  port: SelectableSerialPort
+): SerialPortSelectionPort {
+  return {
+    usbProductId: parseUsbId(port.productId),
+    usbVendorId: parseUsbId(port.vendorId)
+  };
+}
+
+function createEmptySerialPortSelection(): SerialPortSelection {
+  return {
+    availableCount: 0,
+    selectedCount: 0,
+    selectedPorts: []
+  };
+}
+
+function parseUsbId(value: string | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value.replace(/^0x/i, ""), 16);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function isTrustedAppOrigin(origin: string | undefined): boolean {

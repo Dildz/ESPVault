@@ -39,6 +39,11 @@ export function installBrowserHarnessApi(): void {
     boardImages: createCoverImageApi("board"),
     projectImages: createCoverImageApi("project"),
     serial: {
+      getLastSelection: async () => ({
+        availableCount: 0,
+        selectedCount: 0,
+        selectedPorts: []
+      }),
       getLastSelectionCount: async () => 0
     },
     shell: {

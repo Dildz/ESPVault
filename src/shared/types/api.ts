@@ -37,6 +37,7 @@ export interface EspBoardVaultApi {
     readCoverDataUrl(localPath: string): Promise<string | null>;
   };
   serial: {
+    getLastSelection(): Promise<SerialPortSelection>;
     getLastSelectionCount(): Promise<number>;
   };
   shell: {
@@ -101,4 +102,15 @@ export interface CoverImageFileInput {
   data: ArrayBuffer;
   filename: string;
   mimeType?: string | null;
+}
+
+export interface SerialPortSelection {
+  availableCount: number;
+  selectedCount: number;
+  selectedPorts: SerialPortSelectionPort[];
+}
+
+export interface SerialPortSelectionPort {
+  usbProductId: number | null;
+  usbVendorId: number | null;
 }

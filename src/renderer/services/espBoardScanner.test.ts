@@ -32,19 +32,25 @@ describe("ESP board scanner", () => {
   it("scans selected ports sequentially and maps read-only loader data", async () => {
     const failingPort = { id: "port-a" };
     const workingPort = { id: "port-b" };
-    const requestPort = vi
-      .fn()
-      .mockResolvedValueOnce(failingPort)
-      .mockResolvedValueOnce(workingPort);
+    const requestPort = vi.fn().mockResolvedValueOnce(failingPort);
+    const getPorts = vi.fn().mockResolvedValue([failingPort, workingPort]);
     const { bootloaderLoader, scanLoader } = createSuccessfulLoader();
     const logs: string[] = [];
 
     vi.stubGlobal("navigator", {
-      serial: { requestPort }
+      serial: { requestPort, getPorts }
     });
     vi.stubGlobal("window", {
       api: {
         serial: {
+          getLastSelection: vi.fn(async () => ({
+            availableCount: 2,
+            selectedCount: 2,
+            selectedPorts: [
+              { usbProductId: null, usbVendorId: null },
+              { usbProductId: null, usbVendorId: null }
+            ]
+          })),
           getLastSelectionCount: vi.fn(async () => 2)
         }
       }
@@ -61,7 +67,8 @@ describe("ESP board scanner", () => {
       logs.push(`${level}:${message}`);
     });
 
-    expect(requestPort).toHaveBeenCalledTimes(2);
+    expect(requestPort).toHaveBeenCalledTimes(1);
+    expect(getPorts).toHaveBeenCalledOnce();
     expect(connectWithPortMock).toHaveBeenCalledTimes(2);
     expect(logs).toContain("log:Scanning selected serial port 1 of 2.");
     expect(logs).toContain(
@@ -133,6 +140,40 @@ describe("ESP board scanner", () => {
     vi.stubGlobal("navigator", {});
 
     await expect(scanEspBoards()).rejects.toThrow("Web Serial is not available");
+  });
+
+  it("closes a partially opened serial port when connection fails", async () => {
+    const close = vi.fn(async () => undefined);
+    const failingPort = {
+      close,
+      id: "port-a",
+      readable: {},
+      writable: null
+    };
+    const requestPort = vi.fn().mockResolvedValueOnce(failingPort);
+
+    vi.stubGlobal("navigator", {
+      serial: { requestPort }
+    });
+    vi.stubGlobal("window", {
+      api: {
+        serial: {
+          getLastSelection: vi.fn(async () => ({
+            availableCount: 1,
+            selectedCount: 1,
+            selectedPorts: [{ usbProductId: null, usbVendorId: null }]
+          })),
+          getLastSelectionCount: vi.fn(async () => 1)
+        }
+      }
+    });
+    connectWithPortMock.mockRejectedValueOnce(new Error("open failed"));
+
+    await expect(scanEspBoards()).rejects.toThrow(
+      "No selected boards could be scanned"
+    );
+
+    expect(close).toHaveBeenCalledOnce();
   });
 });
 

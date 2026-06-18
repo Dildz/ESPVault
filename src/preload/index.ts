@@ -123,6 +123,15 @@ const api: EspBoardVaultApi = {
       ) as Promise<string | null>
   },
   serial: {
+    getLastSelection: () =>
+      ipcRenderer.invoke("serial:get-last-selection") as Promise<{
+        availableCount: number;
+        selectedCount: number;
+        selectedPorts: Array<{
+          usbProductId: number | null;
+          usbVendorId: number | null;
+        }>;
+      }>,
     getLastSelectionCount: () =>
       ipcRenderer.invoke("serial:get-last-selection-count") as Promise<number>
   },

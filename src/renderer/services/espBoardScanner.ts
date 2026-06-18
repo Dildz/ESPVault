@@ -6,6 +6,10 @@ import {
   type Logger
 } from "tasmota-webserial-esptool";
 import type { DetectedEspBoard } from "../../shared/types/serial";
+import type {
+  SerialPortSelection,
+  SerialPortSelectionPort
+} from "../../shared/types/api";
 import { readChipMetadata, type ChipMetadata } from "./chipMetadata";
 import { readBoardPartitionTable } from "./espPartitionScanner";
 
@@ -94,7 +98,7 @@ export async function scanEspBoards(
     );
   }
 
-  const ports = await requestSelectedSerialPorts();
+  const ports = await requestSelectedSerialPorts(onLog);
   const detectedBoards: DetectedEspBoard[] = [];
 
   for (const [index, port] of ports.entries()) {
@@ -117,16 +121,143 @@ export async function scanEspBoards(
   return detectedBoards;
 }
 
-async function requestSelectedSerialPorts(): Promise<SerialPort[]> {
+async function requestSelectedSerialPorts(
+  onLog?: (level: ScannerLogLevel, message: string) => void
+): Promise<SerialPort[]> {
   const firstPort = await navigator.serial.requestPort();
-  const selectionCount = await getLastSerialSelectionCount();
-  const ports = [firstPort];
+  const selection = await getLastSerialSelection();
+  const selectionCount = selection.selectedCount || 1;
 
-  while (ports.length < selectionCount) {
-    ports.push(await navigator.serial.requestPort());
+  if (selectionCount <= 1) {
+    return [firstPort];
   }
 
-  return ports;
+  const grantedPorts = dedupeSerialPorts(await navigator.serial.getPorts());
+  const selectedPorts = selectRequestedSerialPorts(
+    firstPort,
+    grantedPorts,
+    selection
+  );
+
+  if (selectedPorts.length < selectionCount) {
+    onLog?.(
+      "error",
+      `Only ${selectedPorts.length} of ${selectionCount} selected serial ports were made available by Web Serial.`
+    );
+  }
+
+  return selectedPorts;
+}
+
+function dedupeSerialPorts(ports: SerialPort[]): SerialPort[] {
+  return ports.filter((port, index) => ports.indexOf(port) === index);
+}
+
+function selectRequestedSerialPorts(
+  firstPort: SerialPort,
+  grantedPorts: SerialPort[],
+  selection: SerialPortSelection
+): SerialPort[] {
+  if (
+    selection.availableCount > 0 &&
+    selection.selectedCount === selection.availableCount &&
+    grantedPorts.length >= selection.selectedCount
+  ) {
+    return grantedPorts.slice(0, selection.selectedCount);
+  }
+
+  const matchedPorts = matchSelectedSerialPorts(grantedPorts, selection);
+  return dedupeSerialPorts([firstPort, ...matchedPorts]).slice(
+    0,
+    selection.selectedCount || 1
+  );
+}
+
+function matchSelectedSerialPorts(
+  ports: SerialPort[],
+  selection: SerialPortSelection
+): SerialPort[] {
+  const remainingSelectionCounts = new Map<string, number>();
+
+  for (const selectedPort of selection.selectedPorts) {
+    const key = getSerialPortSelectionKey(selectedPort);
+    if (key) {
+      remainingSelectionCounts.set(
+        key,
+        (remainingSelectionCounts.get(key) ?? 0) + 1
+      );
+    }
+  }
+
+  const matchedPorts: SerialPort[] = [];
+
+  for (const port of ports) {
+    const key = getSerialPortInfoKey(port.getInfo());
+    const remainingCount = key ? remainingSelectionCounts.get(key) ?? 0 : 0;
+
+    if (!key || remainingCount <= 0) {
+      continue;
+    }
+
+    matchedPorts.push(port);
+    remainingSelectionCounts.set(key, remainingCount - 1);
+  }
+
+  return matchedPorts;
+}
+
+function getSerialPortSelectionKey(port: SerialPortSelectionPort): string | null {
+  return getUsbSerialPortKey(port.usbVendorId, port.usbProductId);
+}
+
+function getSerialPortInfoKey(portInfo: SerialPortInfo): string | null {
+  return getUsbSerialPortKey(portInfo.usbVendorId ?? null, portInfo.usbProductId ?? null);
+}
+
+function getUsbSerialPortKey(
+  usbVendorId: number | null,
+  usbProductId: number | null
+): string | null {
+  if (usbVendorId === null && usbProductId === null) {
+    return null;
+  }
+
+  return `${usbVendorId ?? ""}:${usbProductId ?? ""}`;
+}
+
+async function getLastSerialSelection(): Promise<SerialPortSelection> {
+  try {
+    return normalizeSerialPortSelection(await window.api.serial.getLastSelection());
+  } catch {
+    return {
+      availableCount: 0,
+      selectedCount: await getLastSerialSelectionCount(),
+      selectedPorts: []
+    };
+  }
+}
+
+function normalizeSerialPortSelection(
+  selection: SerialPortSelection
+): SerialPortSelection {
+  return {
+    availableCount: normalizeCount(selection.availableCount),
+    selectedCount: normalizeCount(selection.selectedCount),
+    selectedPorts: Array.isArray(selection.selectedPorts)
+      ? selection.selectedPorts.map((port) => ({
+          usbProductId: normalizeUsbId(port.usbProductId),
+          usbVendorId: normalizeUsbId(port.usbVendorId)
+        }))
+      : []
+  };
+}
+
+function normalizeCount(value: number): number {
+  return Number.isInteger(value) && value > 0 ? value : 0;
+}
+
+function normalizeUsbId(value: number | null): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 async function getLastSerialSelectionCount(): Promise<number> {
@@ -192,6 +323,8 @@ async function scanEspBoardFromPort(
   } finally {
     if (loader) {
       await resetAndDisconnect(loader, logger);
+    } else {
+      await closeSerialPort(port, logger);
     }
   }
 }
@@ -518,6 +651,18 @@ async function resetAndDisconnect(loader: ESPLoader, logger: Logger): Promise<vo
     await loader.disconnect();
   } catch (error) {
     logger.debug(`Disconnect after scan failed: ${getErrorMessage(error)}`);
+  }
+}
+
+async function closeSerialPort(port: SerialPort, logger: Logger): Promise<void> {
+  if (!port.readable && !port.writable) {
+    return;
+  }
+
+  try {
+    await port.close();
+  } catch (error) {
+    logger.debug(`Close after failed scan failed: ${getErrorMessage(error)}`);
   }
 }
 
