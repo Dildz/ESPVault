@@ -41,7 +41,7 @@ const toolItems: ToolItem[] = [
     icon: "mdi-connection",
     url: "https://thelastoutpostworkshop.github.io/ESPConnect/",
     description:
-      "ESPConnect is a browser-based utility for working with ESP devices over a serial connection. It is useful when you need a quick way to connect, inspect, and interact with a board without setting up a full local toolchain first. Keep it nearby for maker bench workflows where fast device access matters.",
+      "ESPConnect is a browser-based utility for working with ESP devices.  It runs entirely inside a modern Chromium browser so you can inspect hardware details, manage SPIFFS, Fat, LittleFS files, back up flash, and deploy firmware.",
     sourceUrl: "https://github.com/thelastoutpostworkshop/ESPConnect",
     sourceLabel: "thelastoutpostworkshop/ESPConnect",
     tutorialUrl: "https://www.youtube.com/watch?v=-nhDKzBxHiI"
@@ -52,7 +52,7 @@ const toolItems: ToolItem[] = [
     icon: "mdi-table-cog",
     url: "https://thelastoutpostworkshop.github.io/ESP32PartitionBuilder/",
     description:
-      "ESP32 Partition Builder helps plan and review ESP32 flash partition layouts for firmware projects. Use it when a project needs a clear split between app slots, storage, OTA space, SPIFFS, LittleFS, or other data regions. It is a practical companion when documenting how a board is configured and how firmware should be reproduced later.",
+      "ESP32 Partition Builder helps plan and create custom partitions layout for ESP32 boards.",
     sourceUrl: "https://github.com/thelastoutpostworkshop/ESP32PartitionBuilder",
     sourceLabel: "thelastoutpostworkshop/ESP32PartitionBuilder",
     tutorialUrl: "https://www.youtube.com/watch?v=EuHxodrye6E"
@@ -63,7 +63,7 @@ const toolItems: ToolItem[] = [
     icon: "mdi-movie-cog-outline",
     url: "https://thelastoutpostworkshop.github.io/video_conversion/",
     description:
-      "Video Conversion Studio converts video assets for embedded displays, maker interfaces, and web-friendly output formats. It is useful when preparing media for ESP32 display projects, dashboard demos, or device UI experiments where resolution, format, and file size need to be controlled. Use it as a focused workspace for turning source video into project-ready assets.",
+      "Video Conversion Studio converts video assets for embedded displays.  You take regular video or audio files and turn them into output that fits ESP32 display projects.",
     sourceUrl: "https://github.com/thelastoutpostworkshop/video_conversion",
     sourceLabel: "thelastoutpostworkshop/video_conversion",
     tutorialUrl: "https://www.youtube.com/watch?v=bFq05qXqin0"
@@ -76,7 +76,7 @@ const toolItems: ToolItem[] = [
     actionIcon: "mdi-youtube",
     actionLabel: "Watch tutorial",
     description:
-      "GPIOViewer is a visual GPIO state viewer for embedded projects. Use it when you need to inspect pins, confirm board behavior, or make wiring and signal states easier to understand while documenting an ESP32 build.",
+      "GPIO Viewer offers real-time visualization of GPIO pin activities, directly in any web browser, to inspect pin states, confirm board behavior, and make wiring or signal activity easier to understand and troobleshoot.",
     sourceUrl: "https://github.com/thelastoutpostworkshop/gpio_viewer",
     sourceLabel: "thelastoutpostworkshop/gpio_viewer"
   },
