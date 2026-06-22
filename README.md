@@ -2,6 +2,9 @@
 
 [![ESP Board Vault banner](https://raw.githubusercontent.com/thelastoutpostworkshop/images/main/ESPBoardVaultBanner.png)](https://youtu.be/YwYP-eET9Oo)
 
+If you want to contribute to the project, you can support it on
+[Buy Me a Coffee](https://buymeacoffee.com/thelastoutpostworkshop).
+
 ## Installation
 
 Download the latest desktop installer from the
