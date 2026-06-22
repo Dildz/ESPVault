@@ -4,20 +4,20 @@ Download the installer for your operating system. The `.blockmap`, `latest*.yml`
 
 ### Windows
 
-1. Download the [Windows x64 portable zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-windows-x64.zip).
-2. Extract the zip file.
-3. Run **ESP Board Vault** from the extracted folder.
+1. Download the [Windows x64 installer](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-windows-x64.exe), or the [Windows x64 portable zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-windows-x64.zip).
+2. Run the installer, or extract the zip file.
+3. Launch **ESP Board Vault** from the Start menu, or run **ESP Board Vault.exe** from the extracted portable folder.
 
 ### macOS
 
 1. Download the [Apple Silicon DMG](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.dmg), or the [Intel Mac DMG](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-x64.dmg).
 2. Open the `.dmg` file.
 3. Drag **ESP Board Vault** into **Applications**.
-4. Open the app from **Applications**.
+4. Launch **ESP Board Vault** from **Applications**.
 
 If macOS blocks the app because it is not notarized, Control-click the app, choose **Open**, and confirm. You can also allow it from **System Settings > Privacy & Security**.
 
-Portable option: download the [Apple Silicon zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.zip), or the [Intel Mac zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-x64.zip).
+Portable option: download the [Apple Silicon zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.zip), or the [Intel Mac zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-x64.zip), extract it, and launch **ESP Board Vault.app**.
 
 ### Linux
 
@@ -30,17 +30,36 @@ Ubuntu or Debian:
    sudo apt install ./ESP.Board.Vault-{{VERSION}}-linux-amd64.deb
    ```
 
+3. Launch **ESP Board Vault** from your app menu, or run:
+
+   ```bash
+   esp-board-vault
+   ```
+
+Ubuntu / WSL troubleshooting: if the app installs but fails to launch with `error while loading shared libraries: libasound.so.2: cannot open shared object file`, install the ALSA runtime package and try again:
+
+```bash
+sudo apt update
+sudo apt install libasound2t64
+```
+
+On older Ubuntu releases, use:
+
+```bash
+sudo apt install libasound2
+```
+
 Most Linux distributions:
 
 1. Download the [Linux AppImage](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-linux-x86_64.AppImage).
-2. Make it executable and run it:
+2. Launch **ESP Board Vault** by making the AppImage executable and running it:
 
    ```bash
    chmod +x ESP.Board.Vault-{{VERSION}}-linux-x86_64.AppImage
    ./ESP.Board.Vault-{{VERSION}}-linux-x86_64.AppImage
    ```
 
-Portable archive option: download the [Linux x64 tarball](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-linux-x64.tar.gz), extract it, and run the app from the extracted folder.
+Portable archive option: download the [Linux x64 tarball](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-linux-x64.tar.gz), extract it, and run **esp-board-vault** from the extracted folder.
 
 ### Source Code
 
