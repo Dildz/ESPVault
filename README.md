@@ -2,8 +2,9 @@
 
 [![ESP Board Vault banner](https://raw.githubusercontent.com/thelastoutpostworkshop/images/main/ESPBoardVaultBanner.png)](https://youtu.be/YwYP-eET9Oo)
 
-If you want to contribute to the project, you can support it on
-[Buy Me a Coffee](https://buymeacoffee.com/thelastoutpostworkshop).
+<a href="https://www.buymeacoffee.com/thelastoutpostworkshop" target="_blank">
+<img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee">
+</a>
 
 ## Installation
 
