@@ -1,5 +1,3 @@
-# ESP Board Vault
-
 [![ESP Board Vault banner](https://raw.githubusercontent.com/thelastoutpostworkshop/images/main/ESPBoardVaultBanner.png)](https://youtu.be/YwYP-eET9Oo)
 
 <a href="https://www.buymeacoffee.com/thelastoutpostworkshop" target="_blank">
