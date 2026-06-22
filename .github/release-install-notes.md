@@ -61,6 +61,17 @@ Most Linux distributions:
 
 Portable archive option: download the [Linux x64 tarball](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-linux-x64.tar.gz), extract it, and run **esp-board-vault** from the extracted folder.
 
+### Updating
+
+ESP Board Vault does not update itself automatically yet. To update, download the newest release for your operating system and install it over your current version. Your local vault data is kept separately from the app files and should remain in place across updates.
+
+- Windows installer: download the newest `.exe` installer and run it.
+- Windows portable zip: download the newest zip, extract it, and replace your old portable folder.
+- macOS DMG: download the newest `.dmg`, drag **ESP Board Vault** into **Applications**, and choose **Replace** if macOS asks.
+- Linux `.deb`: download the newest package and run `sudo apt install ./ESP.Board.Vault-{{VERSION}}-linux-amd64.deb`.
+- Linux AppImage: download the newest AppImage, make it executable, and run it. You can delete the older AppImage after confirming the new one works.
+- Linux tarball: download the newest tarball, extract it, and replace your old extracted folder.
+
 ### Source Code
 
 The automatically generated **Source code (zip)** and **Source code (tar.gz)** downloads contain the project source for developers. They are not prebuilt desktop app installers.
