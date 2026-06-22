@@ -2,6 +2,14 @@
 
 [![ESP Board Vault banner](https://raw.githubusercontent.com/thelastoutpostworkshop/images/main/ESPBoardVaultBanner.png)](https://youtu.be/YwYP-eET9Oo)
 
+## Installation
+
+Download the latest desktop installer from the
+[ESP Board Vault latest release](https://github.com/thelastoutpostworkshop/ESPVault/releases/latest).
+
+Open the release, download the installer or package for your operating system
+from the release assets, then run it to install ESP Board Vault.
+
 ESP Board Vault is a local desktop inventory for ESP32 makers. It helps you keep
 track of ESP boards, hardware details, projects, firmware notes, physical
 locations, and recovery information without using a cloud service.
