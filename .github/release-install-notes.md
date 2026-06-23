@@ -10,14 +10,16 @@ Download the installer for your operating system. The `.blockmap`, `latest*.yml`
 
 ### macOS
 
-1. Download the [Apple Silicon DMG](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.dmg), or the [Intel Mac DMG](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-x64.dmg).
+1. Download the correct DMG for your Mac:
+   - Apple Silicon Macs with M1, M2, M3, or newer chips: [macos-arm64 DMG](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.dmg).
+   - Intel Macs: [macos-x64 DMG](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-x64.dmg).
 2. Open the `.dmg` file.
 3. Drag **ESP Board Vault** into **Applications**.
 4. Launch **ESP Board Vault** from **Applications**.
 
 If macOS blocks the app because it is not notarized, Control-click the app, choose **Open**, and confirm. You can also allow it from **System Settings > Privacy & Security**.
 
-Portable option: download the [Apple Silicon zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.zip), or the [Intel Mac zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-x64.zip), extract it, and launch **ESP Board Vault.app**.
+Portable option: download the [macos-arm64 zip for Apple Silicon](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.zip), or the [macos-x64 zip for Intel Macs](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-x64.zip), extract it, and launch **ESP Board Vault.app**.
 
 ### Linux
 
