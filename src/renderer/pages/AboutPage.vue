@@ -5,7 +5,6 @@ const channelUrl =
   "https://www.youtube.com/channel/UCnnU_HGvTr8ewpqvHe2llDw";
 const repositoryUrl =
   "https://github.com/thelastoutpostworkshop/ESPVault";
-const coffeeUrl = "https://buymeacoffee.com/thelastoutpostworkshop";
 const error = ref<string | null>(null);
 const appVersion = ref<string | null>(null);
 
@@ -30,10 +29,6 @@ async function openRepository(): Promise<void> {
     repositoryUrl,
     "The project repository could not be opened."
   );
-}
-
-async function openCoffeeLink(): Promise<void> {
-  await openExternalLink(coffeeUrl, "The support link could not be opened.");
 }
 
 async function openExternalLink(url: string, fallbackMessage: string): Promise<void> {
@@ -107,13 +102,6 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
               @click="openRepository"
             >
               GitHub
-            </v-btn>
-            <v-btn
-              prepend-icon="mdi-coffee-outline"
-              variant="outlined"
-              @click="openCoffeeLink"
-            >
-              Support
             </v-btn>
           </div>
         </v-card-text>
@@ -221,33 +209,6 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
             subtitle="Importing a backup replaces the current local vault only after confirmation."
           />
         </v-list>
-      </v-card>
-
-      <v-card
-        class="panel-card support-card about-animated-card"
-        flat
-        style="--about-card-delay: 320ms"
-      >
-        <v-card-text class="support-card-body">
-          <div class="support-icon" aria-hidden="true">
-            <v-icon icon="mdi-coffee-outline" size="30" />
-          </div>
-          <div class="support-copy">
-            <div class="support-title">Support the project</div>
-            <p>
-              ESP Board Vault is free, local-first, and built for maker bench
-              workflows. If it saves time in your ESP32 projects, a coffee helps
-              keep development moving.
-            </p>
-          </div>
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-coffee-outline"
-            @click="openCoffeeLink"
-          >
-            Buy me a coffee
-          </v-btn>
-        </v-card-text>
       </v-card>
 
       <v-card
@@ -390,61 +351,6 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
   grid-column: 1 / -1;
 }
 
-.support-card-body {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: center;
-}
-
-.support-icon {
-  position: relative;
-  display: grid;
-  width: 52px;
-  height: 52px;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-accent), 0.28);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(var(--v-theme-accent), 0.18), rgba(var(--v-theme-primary), 0.1)),
-    rgba(var(--v-theme-surface), 0.76);
-  color: rgb(var(--v-theme-accent));
-  animation: support-icon-glow 900ms ease-out 520ms both;
-}
-
-.support-icon::after {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  content: "";
-  background: linear-gradient(
-    110deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.18) 44%,
-    rgba(255, 255, 255, 0.34) 50%,
-    rgba(255, 255, 255, 0.12) 56%,
-    transparent 100%
-  );
-  transform: translateX(-120%);
-  animation: support-icon-sweep 780ms ease-out 620ms both;
-}
-
-.support-copy {
-  min-width: 0;
-}
-
-.support-title {
-  color: var(--vault-text);
-  font-weight: 800;
-}
-
-.support-copy p {
-  margin: 6px 0 0;
-  color: var(--vault-muted);
-  line-height: 1.5;
-}
-
 .about-note-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -487,45 +393,10 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
   }
 }
 
-@keyframes support-icon-glow {
-  0% {
-    box-shadow: 0 0 0 0 rgba(var(--v-theme-accent), 0);
-    transform: scale(1);
-  }
-
-  42% {
-    box-shadow: 0 0 0 5px rgba(var(--v-theme-accent), 0.12);
-    transform: scale(1.035);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(var(--v-theme-accent), 0);
-    transform: scale(1);
-  }
-}
-
-@keyframes support-icon-sweep {
-  0% {
-    opacity: 0;
-    transform: translateX(-120%);
-  }
-
-  22% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(120%);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .about-animated-card,
   .about-version-chip,
-  .about-animated-list :deep(.v-list-item),
-  .support-icon,
-  .support-icon::after {
+  .about-animated-list :deep(.v-list-item) {
     animation: none;
   }
 
@@ -533,10 +404,6 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
   .about-animated-list :deep(.v-list-item) {
     opacity: 1;
     transform: none;
-  }
-
-  .support-icon::after {
-    content: none;
   }
 }
 
@@ -550,10 +417,6 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
   }
 
   .about-note-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .support-card-body {
     grid-template-columns: 1fr;
   }
 }
