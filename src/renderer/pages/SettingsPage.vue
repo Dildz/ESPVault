@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import type { DatabaseLocation } from "../../shared/types/api";
-import {
-  useVaultTheme,
-  type VaultThemeName
-} from "../composables/useVaultTheme";
+import { useVaultTheme } from "../composables/useVaultTheme";
 import { repositories } from "../repositories";
 import {
   getBackupReminder,
@@ -24,7 +21,8 @@ const {
   isDarkTheme,
   persistCurrentTheme,
   setTheme,
-  themeLabel
+  themeLabel,
+  themes
 } = useVaultTheme();
 const resettingWindowSize = ref(false);
 const copyingDatabaseLocation = ref(false);
@@ -49,14 +47,10 @@ const backupReminder = computed(() =>
   })
 );
 const backupReminderMessage = computed(() => backupReminder.value.message ?? "");
-const themeOptions: {
-  title: string;
-  value: VaultThemeName;
-  icon: string;
-}[] = [
-  { title: "Light", value: "vaultLight", icon: "mdi-weather-sunny" },
-  { title: "Dark", value: "vaultDark", icon: "mdi-weather-night" }
-];
+const themeSelectItems = themes.map((theme) => ({
+  title: theme.label,
+  value: theme.name
+}));
 
 async function resetWindowSize(): Promise<void> {
   resettingWindowSize.value = true;
@@ -121,8 +115,10 @@ async function loadScanFreshnessThresholdSetting(): Promise<void> {
 }
 
 function updateTheme(themeName: unknown): void {
-  if (themeName === "vaultLight" || themeName === "vaultDark") {
-    setTheme(themeName);
+  const match = themes.find((theme) => theme.name === themeName);
+
+  if (match) {
+    setTheme(match.name);
   }
 }
 
@@ -257,29 +253,20 @@ onMounted(() => {
             <div>
               <div class="font-weight-medium">{{ themeLabel }}</div>
               <div class="text-body-2 muted mt-1">
-                Choose the color mode for the vault interface.
+                Choose the color scheme for the vault interface.
               </div>
             </div>
           </div>
         </div>
-        <v-btn-toggle
-          class="theme-toggle"
+        <v-select
+          class="theme-select"
           :model-value="currentTheme"
-          mandatory
-          divided
-          color="primary"
+          :items="themeSelectItems"
+          density="comfortable"
           variant="outlined"
+          hide-details
           @update:model-value="updateTheme"
-        >
-          <v-btn
-            v-for="option in themeOptions"
-            :key="option.value"
-            :value="option.value"
-          >
-            <v-icon :icon="option.icon" class="mr-2" />
-            {{ option.title }}
-          </v-btn>
-        </v-btn-toggle>
+        />
       </v-card-text>
     </v-card>
 
@@ -508,8 +495,9 @@ onMounted(() => {
   font-size: 0.84rem;
 }
 
-.theme-toggle {
+.theme-select {
   flex: 0 0 auto;
+  min-width: 220px;
 }
 
 @media (max-width: 720px) {
@@ -527,12 +515,8 @@ onMounted(() => {
     width: 100%;
   }
 
-  .theme-toggle {
+  .theme-select {
     width: 100%;
-  }
-
-  .theme-toggle :deep(.v-btn) {
-    flex: 1 1 0;
   }
 }
 </style>

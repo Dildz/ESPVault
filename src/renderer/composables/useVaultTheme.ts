@@ -2,7 +2,34 @@ import { computed, ref, watch } from "vue";
 import { useTheme } from "vuetify";
 import { repositories } from "../repositories";
 
-export type VaultThemeName = "vaultLight" | "vaultDark";
+export interface VaultThemeOption {
+  name: VaultThemeName;
+  label: string;
+  dark: boolean;
+}
+
+export const VAULT_THEMES = [
+  { name: "vaultLight", label: "Vault Light", dark: false },
+  { name: "paperLight", label: "Paper Light", dark: false },
+  { name: "vaultDark", label: "Vault Dark", dark: true },
+  { name: "slateDark", label: "Slate Dark", dark: true },
+  { name: "midnightDark", label: "Midnight Dark", dark: true },
+  { name: "plumDark", label: "Plum Dark", dark: true },
+  { name: "githubDark", label: "GitHub Dark", dark: true }
+] as const satisfies readonly VaultThemeOption[];
+
+export type VaultThemeName =
+  | "vaultLight"
+  | "paperLight"
+  | "vaultDark"
+  | "slateDark"
+  | "midnightDark"
+  | "plumDark"
+  | "githubDark";
+
+function getThemeOption(name: VaultThemeName): VaultThemeOption {
+  return VAULT_THEMES.find((theme) => theme.name === name) ?? VAULT_THEMES[0];
+}
 
 const THEME_SETTING_KEY = "theme";
 const THEME_STORAGE_KEY = "esp-board-vault.theme";
@@ -35,19 +62,12 @@ export function useVaultTheme() {
     applyThemePreference(theme, currentTheme.value);
   }
 
-  const isDarkTheme = computed(() => currentTheme.value === "vaultDark");
-  const themeLabel = computed(() =>
-    isDarkTheme.value ? "Dark mode" : "Light mode"
-  );
+  const isDarkTheme = computed(() => getThemeOption(currentTheme.value).dark);
+  const themeLabel = computed(() => getThemeOption(currentTheme.value).label);
 
   function setTheme(themeName: VaultThemeName): void {
     markThemeChangedBeforeHydration();
     currentTheme.value = themeName;
-  }
-
-  function toggleTheme(): void {
-    markThemeChangedBeforeHydration();
-    currentTheme.value = isDarkTheme.value ? "vaultLight" : "vaultDark";
   }
 
   async function persistCurrentTheme(): Promise<void> {
@@ -61,7 +81,7 @@ export function useVaultTheme() {
     persistCurrentTheme,
     themeLabel,
     setTheme,
-    toggleTheme
+    themes: VAULT_THEMES
   };
 }
 
@@ -69,9 +89,10 @@ function applyThemePreference(
   theme: ReturnType<typeof useTheme>,
   themeName: VaultThemeName
 ): void {
-  theme.global.name.value = themeName;
-  document.documentElement.dataset.vaultTheme =
-    themeName === "vaultDark" ? "dark" : "light";
+  theme.change(themeName);
+  document.documentElement.dataset.vaultTheme = getThemeOption(themeName).dark
+    ? "dark"
+    : "light";
 }
 
 function hydrateThemePreferenceFromSettings(): void {
@@ -146,13 +167,15 @@ function getInitialTheme(): VaultThemeName {
 }
 
 function normalizeThemeName(value: unknown): VaultThemeName | null {
-  if (value === "vaultLight" || value === "light") {
+  if (value === "light") {
     return "vaultLight";
   }
 
-  if (value === "vaultDark" || value === "dark") {
+  if (value === "dark") {
     return "vaultDark";
   }
 
-  return null;
+  return VAULT_THEMES.some((theme) => theme.name === value)
+    ? (value as VaultThemeName)
+    : null;
 }

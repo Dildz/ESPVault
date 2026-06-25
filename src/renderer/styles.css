@@ -2,26 +2,26 @@
   --vault-radius: 8px;
   --vault-text: #18211d;
   --vault-muted: #61716a;
-  --vault-border: rgba(45, 67, 60, 0.16);
-  --vault-soft-border: rgba(45, 67, 60, 0.1);
+  --vault-border: rgba(var(--v-theme-on-surface), 0.16);
+  --vault-soft-border: rgba(var(--v-theme-on-surface), 0.1);
   --vault-card-shadow: 0 14px 36px rgba(24, 43, 34, 0.08);
   --vault-elevated-shadow: 0 18px 48px rgba(24, 43, 34, 0.12);
-  --vault-grid-line: rgba(8, 116, 94, 0.06);
-  --vault-cover-bg: #eef5ef;
-  --vault-field-bg: rgba(255, 255, 255, 0.72);
+  --vault-grid-line: rgba(var(--v-theme-primary), 0.06);
+  --vault-cover-bg: rgb(var(--v-theme-surface-variant));
+  --vault-field-bg: rgba(var(--v-theme-surface), 0.72);
   --vault-tooltip-bg: #14342d;
-  --vault-tooltip-border: rgba(8, 116, 94, 0.36);
+  --vault-tooltip-border: rgba(var(--v-theme-primary), 0.36);
   --vault-tooltip-shadow: 0 14px 32px rgba(20, 52, 45, 0.22);
   --vault-tooltip-text: #f4fff9;
-  --vault-dialog-bg: rgba(248, 253, 250, 0.98);
-  --vault-dialog-title-bg: linear-gradient(135deg, rgba(20, 184, 166, 0.16), rgba(255, 255, 255, 0.96));
-  --vault-dialog-actions-bg: rgba(241, 248, 245, 0.98);
-  --vault-dialog-border: rgba(5, 150, 125, 0.34);
+  --vault-dialog-bg: rgba(var(--v-theme-surface), 0.98);
+  --vault-dialog-title-bg: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.16), rgba(var(--v-theme-surface), 0.96));
+  --vault-dialog-actions-bg: rgba(var(--v-theme-surface-variant), 0.6);
+  --vault-dialog-border: rgba(var(--v-theme-primary), 0.34);
   --vault-dialog-scrim: rgba(3, 13, 10, 0.58);
   --vault-dialog-shadow:
     0 36px 110px rgba(3, 13, 10, 0.4),
-    0 0 0 1px rgba(5, 150, 125, 0.18),
-    0 0 54px rgba(20, 184, 166, 0.18);
+    0 0 0 1px rgba(var(--v-theme-primary), 0.18),
+    0 0 54px rgba(var(--v-theme-primary), 0.18);
   color: var(--vault-text);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -35,26 +35,26 @@
 html[data-vault-theme="dark"] {
   --vault-text: #eef6f2;
   --vault-muted: #a7b8b0;
-  --vault-border: rgba(196, 223, 211, 0.16);
-  --vault-soft-border: rgba(196, 223, 211, 0.1);
+  --vault-border: rgba(var(--v-theme-on-surface), 0.16);
+  --vault-soft-border: rgba(var(--v-theme-on-surface), 0.1);
   --vault-card-shadow: 0 18px 44px rgba(0, 0, 0, 0.26);
   --vault-elevated-shadow: 0 22px 54px rgba(0, 0, 0, 0.34);
-  --vault-grid-line: rgba(66, 214, 181, 0.08);
-  --vault-cover-bg: #1d2a27;
-  --vault-field-bg: rgba(23, 33, 31, 0.78);
+  --vault-grid-line: rgba(var(--v-theme-primary), 0.08);
+  --vault-cover-bg: rgb(var(--v-theme-surface-bright));
+  --vault-field-bg: rgba(var(--v-theme-surface), 0.78);
   --vault-tooltip-bg: #e8f7f1;
-  --vault-tooltip-border: rgba(66, 214, 181, 0.32);
+  --vault-tooltip-border: rgba(var(--v-theme-primary), 0.32);
   --vault-tooltip-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
   --vault-tooltip-text: #11241f;
-  --vault-dialog-bg: rgba(18, 31, 27, 0.99);
-  --vault-dialog-title-bg: linear-gradient(135deg, rgba(66, 214, 181, 0.18), rgba(13, 25, 22, 0.98));
-  --vault-dialog-actions-bg: rgba(14, 25, 22, 0.99);
-  --vault-dialog-border: rgba(66, 214, 181, 0.34);
+  --vault-dialog-bg: rgba(var(--v-theme-surface), 0.99);
+  --vault-dialog-title-bg: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.18), rgba(var(--v-theme-surface), 0.98));
+  --vault-dialog-actions-bg: rgba(var(--v-theme-background), 0.99);
+  --vault-dialog-border: rgba(var(--v-theme-primary), 0.34);
   --vault-dialog-scrim: rgba(1, 7, 6, 0.76);
   --vault-dialog-shadow:
     0 40px 120px rgba(0, 0, 0, 0.72),
-    0 0 0 1px rgba(66, 214, 181, 0.2),
-    0 0 64px rgba(66, 214, 181, 0.16);
+    0 0 0 1px rgba(var(--v-theme-primary), 0.2),
+    0 0 64px rgba(var(--v-theme-primary), 0.16);
   color-scheme: dark;
 }
 

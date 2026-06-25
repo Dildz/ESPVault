@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { openHarness, openView, openViewFromTemporaryNav } from "./helpers";
 
 test.describe("app smoke", () => {
-  test("navigates primary renderer views and toggles theme", async ({ page }) => {
+  test("navigates primary renderer views and switches theme", async ({ page }) => {
     await openHarness(page);
 
     await openView(page, "Boards");
@@ -12,10 +12,10 @@ test.describe("app smoke", () => {
     const html = page.locator("html");
     const initialTheme = await html.getAttribute("data-vault-theme");
     const nextTheme = initialTheme === "dark" ? "light" : "dark";
-    const toggleLabel =
-      initialTheme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+    const targetLabel = initialTheme === "dark" ? "Vault Light" : "Slate Dark";
 
-    await page.getByLabel(toggleLabel).click();
+    await page.locator(".theme-select").click();
+    await page.getByRole("option", { name: targetLabel }).click();
     await expect(html).toHaveAttribute("data-vault-theme", nextTheme);
   });
 

@@ -65,7 +65,7 @@ const startupBackupReminderMessage = ref("");
 const startupBackupReminderSnackbar = ref(false);
 const appVersion = ref<string | null>(null);
 const viewportWidth = ref(typeof window === "undefined" ? 1280 : window.innerWidth);
-const { isDarkTheme, toggleTheme } = useVaultTheme();
+useVaultTheme();
 const boardStore = useBoardStore();
 const projectStore = useProjectStore();
 const { boards, loading: boardsLoading } = storeToRefs(boardStore);
@@ -117,12 +117,6 @@ const activeTitle = computed(
   () =>
     [...navItems, ...resourceNavItems].find((item) => item.key === currentView.value)
       ?.title
-);
-const themeToggleIcon = computed(() =>
-  isDarkTheme.value ? "mdi-weather-sunny" : "mdi-weather-night"
-);
-const themeToggleLabel = computed(() =>
-  isDarkTheme.value ? "Switch to light mode" : "Switch to dark mode"
 );
 const isTemporaryNavigation = computed(() => viewportWidth.value < 960);
 const isRailNavigation = computed(
@@ -512,18 +506,6 @@ function closeTemporaryNavigation(): void {
           Refresh
         </v-btn>
       </div>
-      <v-tooltip :text="themeToggleLabel">
-        <template #activator="{ props: tooltipProps }">
-          <v-btn
-            v-bind="tooltipProps"
-            :icon="themeToggleIcon"
-            variant="tonal"
-            color="primary"
-            :aria-label="themeToggleLabel"
-            @click="toggleTheme"
-          />
-        </template>
-      </v-tooltip>
     </v-app-bar>
 
     <v-main>
