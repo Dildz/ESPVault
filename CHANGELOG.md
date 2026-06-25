@@ -2,7 +2,16 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
-## 1.0.27 - Unreleased
+## 1.0.28 - Unreleased
+
+### Fixed
+
+- Build macOS DMG artifacts with an APFS filesystem to avoid HFS+ disk image
+  mount failures on macOS Tahoe.
+- Let the native macOS GitHub Actions matrix control x64 and arm64 packaging so
+  each macOS job produces only its requested architecture.
+
+## 1.0.27 - 2026-06-25
 
 ### Changed
 

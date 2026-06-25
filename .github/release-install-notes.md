@@ -11,10 +11,10 @@ Download the installer for your operating system. The `.blockmap`, `latest*.yml`
 ### macOS
 
 1. Download the correct package for your Mac:
-   - Apple Silicon Macs with M1, M2, M3, or newer chips: [macos-arm64 zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.zip).
+   - Apple Silicon Macs with M1, M2, M3, or newer chips: [macos-arm64 DMG](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.dmg), or the [macos-arm64 zip](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-arm64.zip) if the DMG does not mount.
    - Intel Macs: [macos-x64 DMG](https://github.com/{{REPOSITORY}}/releases/download/{{TAG_NAME}}/ESP.Board.Vault-{{VERSION}}-macos-x64.dmg).
-2. On Apple Silicon, extract the zip file and move **ESP Board Vault.app** into **Applications**.
-3. On Intel Macs, open the `.dmg` file and drag **ESP Board Vault** into **Applications**.
+2. For DMG downloads, open the `.dmg` file and drag **ESP Board Vault** into **Applications**.
+3. For ZIP downloads, extract the zip file and move **ESP Board Vault.app** into **Applications**.
 4. Launch **ESP Board Vault** from **Applications**.
 
 If macOS blocks the app because it is not notarized, Control-click the app, choose **Open**, and confirm. You can also allow it from **System Settings > Privacy & Security**.
@@ -69,8 +69,8 @@ ESP Board Vault does not update itself automatically yet. To update, download th
 
 - Windows installer: download the newest `.exe` installer and run it.
 - Windows portable zip: download the newest zip, extract it, and replace your old portable folder.
-- macOS Apple Silicon zip: download the newest `macos-arm64.zip`, extract it, move **ESP Board Vault.app** into **Applications**, and choose **Replace** if macOS asks.
-- macOS Intel DMG: download the newest `macos-x64.dmg`, drag **ESP Board Vault** into **Applications**, and choose **Replace** if macOS asks.
+- macOS DMG: download the newest matching `macos-*.dmg`, drag **ESP Board Vault** into **Applications**, and choose **Replace** if macOS asks.
+- macOS zip: download the newest matching `macos-*.zip`, extract it, move **ESP Board Vault.app** into **Applications**, and choose **Replace** if macOS asks.
 - Linux `.deb`: download the newest package and run `sudo apt install ./ESP.Board.Vault-{{VERSION}}-linux-amd64.deb`.
 - Linux AppImage: download the newest AppImage, make it executable, and run it. You can delete the older AppImage after confirming the new one works.
 - Linux tarball: download the newest tarball, extract it, and replace your old extracted folder.
