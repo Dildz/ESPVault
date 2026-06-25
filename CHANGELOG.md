@@ -2,7 +2,14 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
-## 1.0.25 - Unreleased
+## 1.0.26 - Unreleased
+
+### Fixed
+
+- Generate macOS DMG artifacts with the `ULFO` disk image format to match the
+  working ESPConnect macOS release packaging path.
+
+## 1.0.25 - 2026-06-25
 
 ### Fixed
 
