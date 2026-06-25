@@ -38,6 +38,7 @@ import {
 import { useActivityHeatmap } from "../composables/dashboard/useActivityHeatmap";
 import { useScanFreshnessInsights } from "../composables/dashboard/useScanFreshnessInsights";
 import { usePartitionInsights } from "../composables/dashboard/usePartitionInsights";
+import { useChipFamilyInsights } from "../composables/dashboard/useChipFamilyInsights";
 
 Chart.register(
   ArcElement,
@@ -121,6 +122,12 @@ const {
   averagePartitionsPerBoard,
   partitionChartKey
 } = usePartitionInsights(boards);
+const {
+  chipFamilyMetrics,
+  chipFamilyChartMetrics,
+  dominantChipFamily,
+  chipFamilyCount
+} = useChipFamilyInsights(boards);
 const emit = defineEmits<{
   "open-boards": [];
   "open-board": [id: string];
@@ -393,21 +400,6 @@ const labOrganizationChartKey = computed(() =>
     )
     .join("|")
 );
-const chipFamilyMetrics = computed(() => {
-  const counts = new Map<string, number>();
-
-  for (const board of boards.value) {
-    const chipFamily = formatChipFamily(board);
-    counts.set(chipFamily, (counts.get(chipFamily) ?? 0) + 1);
-  }
-
-  return Array.from(counts, ([label, count]) => ({ label, count })).sort(
-    (left, right) => right.count - left.count || left.label.localeCompare(right.label)
-  );
-});
-const chipFamilyChartMetrics = computed(() => chipFamilyMetrics.value.slice(0, 7));
-const dominantChipFamily = computed(() => chipFamilyMetrics.value[0]?.label ?? "No chip data");
-const chipFamilyCount = computed(() => chipFamilyMetrics.value.length);
 const psramEquippedBoards = computed(
   () =>
     boards.value.filter(
@@ -1026,10 +1018,6 @@ async function loadScanFreshnessThresholdSetting(): Promise<void> {
 function formatRecordedCount(count: number): string {
   const total = boards.value.length;
   return total === 0 ? "No boards recorded" : `${count}/${total} boards recorded`;
-}
-
-function formatChipFamily(board: Board): string {
-  return board.chipModel?.trim() || board.chipFamilyHex || "Unknown";
 }
 
 function getPercent(value: number, total: number): number {
