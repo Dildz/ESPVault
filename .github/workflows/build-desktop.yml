@@ -23,10 +23,14 @@ jobs:
             arch: x64
             artifact_name: windows
           # macOS
-          - os: macos-latest
+          - os: macos-15-intel
             platform: mac
-            arch: x64 --arm64
-            artifact_name: macos
+            arch: x64
+            artifact_name: macos-x64
+          - os: macos-15
+            platform: mac
+            arch: arm64
+            artifact_name: macos-arm64
           # Linux
           - os: ubuntu-latest
             platform: linux
@@ -95,12 +99,55 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           VERSION="${TAG_NAME#v}"
-          RELEASE_NOTES_FILE="$RUNNER_TEMP/release-install-notes.md"
+          CHANGELOG_SECTION_FILE="$RUNNER_TEMP/release-changelog.md"
+          INSTALL_NOTES_FILE="$RUNNER_TEMP/release-install-notes.md"
+          RELEASE_NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+
+          if ! awk -v target="$VERSION" '
+            function trim(value) {
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+              return value
+            }
+            /^##[[:space:]]+/ {
+              heading = $0
+              sub(/^##[[:space:]]+/, "", heading)
+              heading = trim(heading)
+              version = heading
+              sub(/[[:space:]]+-.*/, "", version)
+              gsub(/^\[/, "", version)
+              gsub(/\]$/, "", version)
+              if (capture) exit
+              if (version == target || version == "v" target) {
+                capture = 1
+                found = 1
+                next
+              }
+            }
+            capture { print }
+            END { if (!found) exit 1 }
+          ' CHANGELOG.md > "$CHANGELOG_SECTION_FILE"; then
+            echo "::warning::No changelog section found for ${VERSION}; release notes will include install notes only."
+            : > "$CHANGELOG_SECTION_FILE"
+          fi
+
           sed \
             -e "s|{{REPOSITORY}}|$GH_REPO|g" \
             -e "s|{{TAG_NAME}}|$TAG_NAME|g" \
             -e "s|{{VERSION}}|$VERSION|g" \
-            .github/release-install-notes.md > "$RELEASE_NOTES_FILE"
+            .github/release-install-notes.md > "$INSTALL_NOTES_FILE"
+
+          {
+            echo "## Changes"
+            echo
+            if [ -s "$CHANGELOG_SECTION_FILE" ]; then
+              cat "$CHANGELOG_SECTION_FILE"
+            else
+              echo "_No changelog entry found for ${VERSION}._"
+            fi
+            echo
+            cat "$INSTALL_NOTES_FILE"
+          } > "$RELEASE_NOTES_FILE"
+
           echo "RELEASE_NOTES_FILE=$RELEASE_NOTES_FILE" >> "$GITHUB_ENV"
 
       - name: Create or update release

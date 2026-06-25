@@ -1,0 +1,56 @@
+# Changelog
+
+All notable changes to ESP Board Vault are documented in this file.
+
+## 1.0.24 - Unreleased
+
+### Changed
+
+- Build macOS x64 and arm64 release artifacts on separate native GitHub-hosted
+  macOS runners to reduce architecture-specific packaging risk.
+- Clarified macOS release architecture notes.
+- Include the matching changelog section in generated GitHub release notes.
+
+## 1.0.23 - 2026-06-22
+
+### Added
+
+- Added README support links, including the Buy Me a Coffee link.
+- Added release update instructions for installing newer app versions over an
+  existing install.
+
+### Changed
+
+- Refined README installation and release guidance.
+
+## 1.0.22 - 2026-06-22
+
+### Added
+
+- Added README installation instructions and a clickable README banner.
+- Added release install notes for desktop release assets.
+
+### Changed
+
+- Improved tooling descriptions.
+- Updated npm dependencies.
+- Moved board metadata fields higher in the editor for easier scan review.
+- Show board location in the detail summary.
+- Marked scan-detected board fields more clearly.
+
+### Fixed
+
+- Fixed serial scan permission handling for multi-port scan flows.
+
+## 1.0.21 - 2026-06-14
+
+### Changed
+
+- Preferred Windows portable ZIP instructions in release documentation.
+- Updated GitHub Actions release builds for newer Node runners.
+
+## 1.0.20 - 2026-06-14
+
+### Changed
+
+- Linked release notes directly to installer assets.
