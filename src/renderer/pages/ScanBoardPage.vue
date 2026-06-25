@@ -21,7 +21,6 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   "open-board": [id: string];
-  "scan-success": [detectedBoardCount: number];
 }>();
 const detectedBoards = ref<DetectedEspBoard[]>([]);
 const loading = ref(false);
@@ -108,7 +107,6 @@ async function runScan(): Promise<void> {
     });
     await boardStore.loadBoards();
     detectedBoards.value = scannedBoards;
-    emit("scan-success", scannedBoards.length);
   } catch (caughtError) {
     error.value =
       caughtError instanceof Error
