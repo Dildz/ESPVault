@@ -2,7 +2,14 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
-## 1.0.24 - Unreleased
+## 1.0.25 - Unreleased
+
+### Fixed
+
+- Reset the ad-hoc macOS app signature after flipping Electron fuses so unsigned
+  Apple Silicon builds are not killed by macOS code-signature validation.
+
+## 1.0.24 - 2026-06-25
 
 ### Changed
 

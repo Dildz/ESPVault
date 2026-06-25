@@ -15,6 +15,7 @@ asar: true
 npmRebuild: false
 afterPack: scripts/after-pack-icons.cjs
 electronFuses:
+  resetAdHocDarwinSignature: true
   runAsNode: false
   enableNodeOptionsEnvironmentVariable: false
   enableNodeCliInspectArguments: false
