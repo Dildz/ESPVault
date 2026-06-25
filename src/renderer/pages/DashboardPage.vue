@@ -39,6 +39,7 @@ import { useActivityHeatmap } from "../composables/dashboard/useActivityHeatmap"
 import { useScanFreshnessInsights } from "../composables/dashboard/useScanFreshnessInsights";
 import { usePartitionInsights } from "../composables/dashboard/usePartitionInsights";
 import { useChipFamilyInsights } from "../composables/dashboard/useChipFamilyInsights";
+import { useMemoryInsights } from "../composables/dashboard/useMemoryInsights";
 
 Chart.register(
   ArcElement,
@@ -59,14 +60,6 @@ interface LabOrganizationMetric {
   attentionCount: number;
   archivedCount: number;
   total: number;
-}
-
-interface MemoryInventoryMetric {
-  key: string;
-  label: string;
-  bytes: number;
-  knownBoards: number;
-  color: string;
 }
 
 interface BoardStateMetric {
@@ -128,6 +121,18 @@ const {
   dominantChipFamily,
   chipFamilyCount
 } = useChipFamilyInsights(boards);
+const {
+  totalFlashBytes,
+  totalPsramBytes,
+  boardsWithKnownFlash,
+  totalKnownMemoryBytes,
+  memoryInventoryMetrics,
+  hasKnownMemory,
+  knownMemoryChartKey,
+  psramEquippedBoards,
+  averageFlashBytes,
+  largestFlashBoard
+} = useMemoryInsights(boards);
 const emit = defineEmits<{
   "open-boards": [];
   "open-board": [id: string];
@@ -158,10 +163,6 @@ const chipFamilyPalette = [
   "#fb7185",
   "#84cc16"
 ];
-const memoryPalette = {
-  flash: "#2dd4bf",
-  psram: "#a78bfa"
-};
 const boardStatePalette: Record<Board["status"], string> = {
   available: "#22c55e",
   in_use: "#38bdf8",
@@ -195,45 +196,6 @@ const boardStatusChartOrder: Board["status"][] = [
 const totalBoards = computed(() => dashboardStats.value?.totalBoards ?? boards.value.length);
 const availableBoards = computed(() => dashboardStats.value?.availableBoards ?? 0);
 const inUseBoards = computed(() => dashboardStats.value?.inUseBoards ?? 0);
-const totalFlashBytes = computed(() =>
-  boards.value.reduce((total, board) => total + (board.flashSizeBytes ?? 0), 0)
-);
-const totalPsramBytes = computed(() =>
-  boards.value.reduce((total, board) => total + (board.psramSizeBytes ?? 0), 0)
-);
-const boardsWithKnownFlash = computed(
-  () => boards.value.filter((board) => board.flashSizeBytes !== null).length
-);
-const boardsWithKnownPsram = computed(
-  () => boards.value.filter((board) => board.psramSizeBytes !== null).length
-);
-const totalKnownMemoryBytes = computed(
-  () => totalFlashBytes.value + totalPsramBytes.value
-);
-const memoryInventoryMetrics = computed<MemoryInventoryMetric[]>(() => [
-  {
-    key: "flash",
-    label: "Flash",
-    bytes: totalFlashBytes.value,
-    knownBoards: boardsWithKnownFlash.value,
-    color: memoryPalette.flash
-  },
-  {
-    key: "psram",
-    label: "PSRAM",
-    bytes: totalPsramBytes.value,
-    knownBoards: boardsWithKnownPsram.value,
-    color: memoryPalette.psram
-  }
-]);
-const hasKnownMemory = computed(() =>
-  memoryInventoryMetrics.value.some((metric) => metric.bytes > 0)
-);
-const knownMemoryChartKey = computed(() =>
-  memoryInventoryMetrics.value
-    .map((metric) => `${metric.key}:${metric.bytes}:${metric.knownBoards}`)
-    .join("|")
-);
 const boardsNeedingAttention = computed(
   () =>
     boards.value.filter((board) =>
@@ -399,27 +361,6 @@ const labOrganizationChartKey = computed(() =>
         `${metric.key}:${metric.label}:${metric.detail}:${metric.availableCount}:${metric.inUseCount}:${metric.attentionCount}:${metric.archivedCount}`
     )
     .join("|")
-);
-const psramEquippedBoards = computed(
-  () =>
-    boards.value.filter(
-      (board) =>
-        (board.psramSizeBytes !== null && board.psramSizeBytes > 0) ||
-        board.psramDetected === true
-    ).length
-);
-const averageFlashBytes = computed(() =>
-  boardsWithKnownFlash.value > 0
-    ? Math.round(totalFlashBytes.value / boardsWithKnownFlash.value)
-    : 0
-);
-const largestFlashBoard = computed(() =>
-  boards.value
-    .filter(
-      (board): board is Board & { flashSizeBytes: number } =>
-        board.flashSizeBytes !== null && board.flashSizeBytes > 0
-    )
-    .sort((left, right) => right.flashSizeBytes - left.flashSizeBytes)[0] ?? null
 );
 const recentActivity = computed(() => {
   const activity = [
