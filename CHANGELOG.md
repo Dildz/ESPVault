@@ -18,6 +18,8 @@ All notable changes to ESP Board Vault are documented in this file.
 
 - The update notification message is now readable across all themes.
 - Enabling startup update checks no longer shows a redundant banner.
+- Fixed auto-update downloads returning a 404 by removing spaces from the release
+  asset file names (GitHub rewrote spaces differently from the update manifest).
 
 ## 2.0.1 - 2026-06-26
 

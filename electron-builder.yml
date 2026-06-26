@@ -28,7 +28,7 @@ electronFuses:
   onlyLoadAppFromAsar: true
 
 win:
-  artifactName: ${productName}-${version}-windows-${arch}.${ext}
+  artifactName: ESP-Board-Vault-${version}-windows-${arch}.${ext}
   icon: icon.ico
   signAndEditExecutable: false
   target:
@@ -45,7 +45,7 @@ nsis:
   allowToChangeInstallationDirectory: true
 
 mac:
-  artifactName: ${productName}-${version}-macos-${arch}.${ext}
+  artifactName: ESP-Board-Vault-${version}-macos-${arch}.${ext}
   category: public.app-category.developer-tools
   icon: icon.icns
   target:
@@ -57,7 +57,7 @@ dmg:
   filesystem: APFS
 
 linux:
-  artifactName: ${productName}-${version}-linux-${arch}.${ext}
+  artifactName: ESP-Board-Vault-${version}-linux-${arch}.${ext}
   category: Development
   icon: icon.png
   maintainer: The Last Outpost Workshop <noreply@github.com>
