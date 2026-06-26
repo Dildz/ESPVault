@@ -11,7 +11,6 @@ import {
   LinearScale,
   Tooltip
 } from "chart.js";
-import type { Board } from "../../shared/types/board";
 import { useBoardStore } from "../stores/boardStore";
 import { useProjectChecklistStore } from "../stores/projectChecklistStore";
 import {
@@ -36,6 +35,11 @@ import { useChipFamilyInsights } from "../composables/dashboard/useChipFamilyIns
 import { useMemoryInsights } from "../composables/dashboard/useMemoryInsights";
 import { useBoardStateInsights } from "../composables/dashboard/useBoardStateInsights";
 import { useProjectInsights } from "../composables/dashboard/useProjectInsights";
+import {
+  useLabOrganizationInsights,
+  labOrganizationPalette
+} from "../composables/dashboard/useLabOrganizationInsights";
+import { useRecentActivity } from "../composables/dashboard/useRecentActivity";
 
 Chart.register(
   ArcElement,
@@ -46,17 +50,6 @@ Chart.register(
   LinearScale,
   Tooltip
 );
-
-interface LabOrganizationMetric {
-  key: string;
-  label: string;
-  detail: string;
-  availableCount: number;
-  inUseCount: number;
-  attentionCount: number;
-  archivedCount: number;
-  total: number;
-}
 
 const boardStore = useBoardStore();
 const checklistStore = useProjectChecklistStore();
@@ -150,13 +143,6 @@ const chipFamilyPalette = [
   "#fb7185",
   "#84cc16"
 ];
-const labOrganizationPalette = {
-  available: "#22c55e",
-  inUse: "#38bdf8",
-  attention: "#f59e0b",
-  archived: "#94a3b8"
-};
-
 const totalBoards = computed(() => dashboardStats.value?.totalBoards ?? boards.value.length);
 const availableBoards = computed(() => dashboardStats.value?.availableBoards ?? 0);
 const inUseBoards = computed(() => dashboardStats.value?.inUseBoards ?? 0);
@@ -168,90 +154,14 @@ const boardsNeedingAttention = computed(
 );
 const readyBoards = computed(() => availableBoards.value + inUseBoards.value);
 const readyBoardPercent = computed(() => getPercent(readyBoards.value, totalBoards.value));
-const unassignedBoards = computed(
-  () => boards.value.filter((board) => !board.projectId).length
-);
-const assignedBoards = computed(() =>
-  Math.max(totalBoards.value - unassignedBoards.value, 0)
-);
-const organizedBoardPercent = computed(() =>
-  getPercent(assignedBoards.value, totalBoards.value)
-);
-const projectGroupsInUse = computed(
-  () =>
-    new Set(
-      boards.value
-        .map((board) => board.projectId)
-        .filter((projectId): projectId is string => Boolean(projectId))
-    ).size
-);
-const labOrganizationMetrics = computed<LabOrganizationMetric[]>(() => {
-  const metrics = new Map<string, LabOrganizationMetric>();
-  const projectMap = new Map(projects.value.map((project) => [project.id, project]));
-
-  for (const board of boards.value) {
-    const project = board.projectId ? projectMap.get(board.projectId) : null;
-    const key = project?.id ?? (board.projectId ? `missing-${board.projectId}` : "unassigned");
-    const metric =
-      metrics.get(key) ??
-      createLabOrganizationMetric(
-        key,
-        project?.name ?? (board.projectId ? "Missing project" : "Unassigned"),
-        project?.location ??
-          (project
-            ? projectStore.getStatusLabel(project.status)
-            : board.projectId
-              ? "Detached board"
-              : "Needs project")
-      );
-
-    countLabOrganizationBoard(metric, board);
-    metrics.set(key, metric);
-  }
-
-  return Array.from(metrics.values())
-    .sort((left, right) => {
-      if (left.key === "unassigned" && right.key !== "unassigned") return -1;
-      if (right.key === "unassigned" && left.key !== "unassigned") return 1;
-      return right.total - left.total || left.label.localeCompare(right.label);
-    })
-    .slice(0, 5);
-});
-const labOrganizationChartKey = computed(() =>
-  labOrganizationMetrics.value
-    .map(
-      (metric) =>
-        `${metric.key}:${metric.label}:${metric.detail}:${metric.availableCount}:${metric.inUseCount}:${metric.attentionCount}:${metric.archivedCount}`
-    )
-    .join("|")
-);
-const recentActivity = computed(() => {
-  const activity = [
-    ...(dashboardStats.value?.recentlyConnectedBoards ?? []).map((board) => ({
-      board,
-      kind: "Connection",
-      label: "Connected",
-      icon: "mdi-usb-port",
-      color: "info",
-      date: board.lastConnectedAt
-    })),
-    ...(dashboardStats.value?.recentlyUpdatedBoards ?? []).map((board) => ({
-      board,
-      kind: "Record update",
-      label: "Updated",
-      icon: "mdi-pencil-circle-outline",
-      color: "primary",
-      date: board.updatedAt
-    }))
-  ];
-
-  return activity
-    .sort(
-      (left, right) =>
-        new Date(right.date ?? 0).getTime() - new Date(left.date ?? 0).getTime()
-    )
-    .slice(0, 6);
-});
+const {
+  unassignedBoards,
+  organizedBoardPercent,
+  projectGroupsInUse,
+  labOrganizationMetrics,
+  labOrganizationChartKey
+} = useLabOrganizationInsights(boards, projects, totalBoards);
+const { recentActivity } = useRecentActivity(dashboardStats);
 onMounted(() => {
   void refreshDashboard();
   void loadScanFreshnessThresholdSetting();
@@ -826,44 +736,6 @@ function formatRecordedCount(count: number): string {
 
 function getPercent(value: number, total: number): number {
   return total > 0 ? Math.round((value / total) * 100) : 0;
-}
-
-function createLabOrganizationMetric(
-  key: string,
-  label: string,
-  detail: string
-): LabOrganizationMetric {
-  return {
-    key,
-    label,
-    detail,
-    availableCount: 0,
-    inUseCount: 0,
-    attentionCount: 0,
-    archivedCount: 0,
-    total: 0
-  };
-}
-
-function countLabOrganizationBoard(metric: LabOrganizationMetric, board: Board): void {
-  metric.total += 1;
-
-  if (board.status === "available") {
-    metric.availableCount += 1;
-    return;
-  }
-
-  if (board.status === "in_use") {
-    metric.inUseCount += 1;
-    return;
-  }
-
-  if (board.status === "archived") {
-    metric.archivedCount += 1;
-    return;
-  }
-
-  metric.attentionCount += 1;
 }
 
 function chipFamilyColor(index: number): string {
