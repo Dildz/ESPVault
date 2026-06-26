@@ -620,6 +620,7 @@ function closeTemporaryNavigation(): void {
 
     <v-snackbar
       v-model="updateResultSnackbar"
+      color="primary"
       location="bottom right"
       timeout="6000"
     >

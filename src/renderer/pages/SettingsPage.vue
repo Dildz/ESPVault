@@ -251,9 +251,6 @@ async function updateAutoUpdateOnStartup(value: boolean): Promise<void> {
 
   try {
     autoUpdateOnStartup.value = await saveAutoUpdateOnStartup(value);
-    notice.value = value
-      ? "Startup update checks enabled."
-      : "Startup update checks disabled.";
   } catch (caughtError) {
     autoUpdateOnStartup.value = !value;
     error.value =

@@ -50,22 +50,6 @@ export const vuetify = createVuetify({
           success: "#7bdc9b"
         }
       },
-      paperLight: {
-        dark: false,
-        colors: {
-          background: "#f6f5f2",
-          surface: "#ffffff",
-          "surface-bright": "#ffffff",
-          "surface-variant": "#ece9e3",
-          primary: "#466d8f",
-          secondary: "#5f5a52",
-          accent: "#c4621a",
-          error: "#ba1a1a",
-          warning: "#a15c00",
-          info: "#0e6d9f",
-          success: "#1f7a43"
-        }
-      },
       slateDark: {
         dark: true,
         colors: {

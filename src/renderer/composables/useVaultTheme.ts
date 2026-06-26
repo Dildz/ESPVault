@@ -10,7 +10,6 @@ export interface VaultThemeOption {
 
 export const VAULT_THEMES = [
   { name: "vaultLight", label: "Vault Light", dark: false },
-  { name: "paperLight", label: "Paper Light", dark: false },
   { name: "vaultDark", label: "Vault Dark", dark: true },
   { name: "slateDark", label: "Slate Dark", dark: true },
   { name: "midnightDark", label: "Midnight Dark", dark: true },
@@ -20,7 +19,6 @@ export const VAULT_THEMES = [
 
 export type VaultThemeName =
   | "vaultLight"
-  | "paperLight"
   | "vaultDark"
   | "slateDark"
   | "midnightDark"
