@@ -254,9 +254,9 @@ async function openExternalLink(url: string, fallbackMessage: string): Promise<v
 <style scoped>
 .about-layout {
   display: grid;
-  grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .about-animated-card {
