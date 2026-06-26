@@ -1,15 +1,16 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { app, BrowserWindow, ipcMain } from "electron";
-import electronUpdater from "electron-updater";
+// electron-updater is CommonJS with named exports and no default export; a
+// default import resolves to undefined once esbuild wraps it. Import the named
+// export directly.
+import { autoUpdater } from "electron-updater";
 import type {
   UpdateCapability,
   UpdateCheckResult,
   UpdateDownloadProgress,
   UpdateUnsupportedReason
 } from "../shared/types/api";
-
-const { autoUpdater } = electronUpdater;
 
 const UPDATER_GET_CAPABILITY_CHANNEL = "updater:get-capability";
 const UPDATER_CHECK_CHANNEL = "updater:check";

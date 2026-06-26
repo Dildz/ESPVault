@@ -12,6 +12,11 @@ All notable changes to ESP Board Vault are documented in this file.
   remind me later, or skip the version. The Updates section is disabled with a
   reason for builds that can't self-update (portable, Linux .deb/.tar.gz, macOS).
 
+### Fixed
+
+- Fixed a startup crash in packaged builds ("Cannot destructure property
+  'autoUpdater'...") caused by how electron-updater was imported.
+
 ## 2.0.0 - 2026-06-26
 
 First release of the customized fork (`Dildz/ESPVault`).
