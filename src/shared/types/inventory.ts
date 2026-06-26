@@ -14,6 +14,9 @@ export interface Project {
   description: string | null;
   location: string | null;
   status: ProjectStatus;
+  codeFolderPath: string | null;
+  repoUrl: string | null;
+  ide: string | null;
   coverImagePath: string | null;
   coverImageFilename: string | null;
   coverImageMimeType: string | null;
@@ -27,6 +30,9 @@ export interface CreateProjectInput {
   description?: string | null;
   location?: string | null;
   status?: ProjectStatus;
+  codeFolderPath?: string | null;
+  repoUrl?: string | null;
+  ide?: string | null;
   coverImagePath?: string | null;
   coverImageFilename?: string | null;
   coverImageMimeType?: string | null;

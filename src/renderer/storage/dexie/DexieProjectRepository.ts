@@ -38,6 +38,9 @@ export class DexieProjectRepository implements ProjectRepository {
       description: this.optionalText(input.description),
       location: this.optionalText(input.location),
       status: input.status ?? "active",
+      codeFolderPath: this.optionalText(input.codeFolderPath),
+      repoUrl: this.optionalText(input.repoUrl),
+      ide: this.optionalText(input.ide),
       coverImagePath: this.optionalText(input.coverImagePath),
       coverImageFilename: this.optionalText(input.coverImageFilename),
       coverImageMimeType: this.optionalText(input.coverImageMimeType),
@@ -73,6 +76,15 @@ export class DexieProjectRepository implements ProjectRepository {
           ? existing.location
           : this.optionalText(input.location),
       status: input.status ?? existing.status,
+      codeFolderPath:
+        input.codeFolderPath === undefined
+          ? existing.codeFolderPath
+          : this.optionalText(input.codeFolderPath),
+      repoUrl:
+        input.repoUrl === undefined
+          ? existing.repoUrl
+          : this.optionalText(input.repoUrl),
+      ide: input.ide === undefined ? existing.ide : this.optionalText(input.ide),
       coverImagePath:
         input.coverImagePath === undefined
           ? existing.coverImagePath
@@ -165,6 +177,9 @@ export class DexieProjectRepository implements ProjectRepository {
       description: project.description ?? null,
       location: project.location ?? null,
       status,
+      codeFolderPath: project.codeFolderPath ?? null,
+      repoUrl: project.repoUrl ?? null,
+      ide: project.ide ?? null,
       coverImagePath: project.coverImagePath ?? null,
       coverImageFilename: project.coverImageFilename ?? null,
       coverImageMimeType: project.coverImageMimeType ?? null,

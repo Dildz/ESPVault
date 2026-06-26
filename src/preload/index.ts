@@ -142,7 +142,16 @@ const api: EspBoardVaultApi = {
   },
   shell: {
     openExternal: (url) =>
-      ipcRenderer.invoke("shell:open-external", url) as Promise<void>
+      ipcRenderer.invoke("shell:open-external", url) as Promise<void>,
+    openPath: (path) =>
+      ipcRenderer.invoke("shell:open-path", path) as Promise<string>
+  },
+  dialog: {
+    chooseDirectory: () =>
+      ipcRenderer.invoke("dialog:choose-directory") as Promise<{
+        canceled: boolean;
+        path?: string;
+      }>
   },
   updater: {
     getCapability: () =>

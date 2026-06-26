@@ -42,6 +42,10 @@ export interface EspBoardVaultApi {
   };
   shell: {
     openExternal(url: string): Promise<void>;
+    openPath(path: string): Promise<string>;
+  };
+  dialog: {
+    chooseDirectory(): Promise<DirectorySelection>;
   };
   updater: {
     getCapability(): Promise<UpdateCapability>;
@@ -54,6 +58,11 @@ export interface EspBoardVaultApi {
   window: {
     resetSize(): Promise<void>;
   };
+}
+
+export interface DirectorySelection {
+  canceled: boolean;
+  path?: string;
 }
 
 export type UpdateUnsupportedReason =

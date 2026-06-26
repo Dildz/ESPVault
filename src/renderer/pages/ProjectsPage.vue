@@ -25,6 +25,7 @@ import {
   formatPsramSize
 } from "../utils/boardDisplay";
 import { rotateCoverImageDataUrl } from "../utils/imageRotation";
+import { isHttpUrl } from "../utils/projectLinks";
 import { useBoardStore } from "../stores/boardStore";
 import { useProjectChecklistStore } from "../stores/projectChecklistStore";
 import {
@@ -53,6 +54,9 @@ interface ProjectForm {
   description: string;
   location: string;
   status: ProjectStatus;
+  codeFolder: string;
+  repoUrl: string;
+  ide: string;
 }
 
 interface ChecklistForm {
@@ -129,6 +133,7 @@ const coverImageLoading = ref(false);
 const coverImageViewerOpen = ref(false);
 const coverImageDragActive = ref(false);
 const coverThumbnailUrls = ref<Record<string, string | null>>({});
+const codeLinkError = ref<string | null>(null);
 let coverImageLoadToken = 0;
 let coverThumbnailLoadToken = 0;
 
@@ -218,6 +223,15 @@ const checklistTemplates: ChecklistTemplate[] = [
   { title: "Capture firmware version", category: "documentation" },
   { title: "Document enclosure/location", category: "enclosure" },
   { title: "Save device config", category: "documentation" }
+];
+const IDE_SUGGESTIONS = [
+  "Arduino IDE",
+  "PlatformIO (VSCode)",
+  "ESP-IDF (VSCode)",
+  "Espressif IDE",
+  "Arduino Makers Workshop (VSCode)",
+  "Thonny (MicroPython)",
+  "mu Editor"
 ];
 
 const projectRows = computed<ProjectRow[]>(() =>
@@ -397,7 +411,10 @@ function emptyForm(): ProjectForm {
     name: "",
     description: "",
     location: "",
-    status: "active"
+    status: "active",
+    codeFolder: "",
+    repoUrl: "",
+    ide: ""
   };
 }
 
@@ -423,7 +440,10 @@ function openEditDialog(project: Project): void {
     name: project.name,
     description: project.description ?? "",
     location: project.location ?? "",
-    status: project.status
+    status: project.status,
+    codeFolder: project.codeFolderPath ?? "",
+    repoUrl: project.repoUrl ?? "",
+    ide: project.ide ?? ""
   });
   editorOpen.value = true;
 }
@@ -468,7 +488,10 @@ async function saveProject(): Promise<void> {
     name: form.name,
     description: form.description,
     location: form.location,
-    status: form.status
+    status: form.status,
+    codeFolderPath: form.codeFolder,
+    repoUrl: form.repoUrl,
+    ide: form.ide
   };
 
   try {
@@ -836,6 +859,52 @@ async function removeCoverImage(): Promise<void> {
 
 function selectProject(project: Project): void {
   selectedProjectId.value = project.id;
+}
+
+async function browseCodeFolder(): Promise<void> {
+  const result = await window.api.dialog.chooseDirectory();
+
+  if (!result.canceled && result.path) {
+    form.codeFolder = result.path;
+  }
+}
+
+async function openProjectFolder(folderPath: string | null): Promise<void> {
+  if (!folderPath) {
+    return;
+  }
+
+  codeLinkError.value = null;
+
+  try {
+    const openError = await window.api.shell.openPath(folderPath);
+
+    if (openError) {
+      codeLinkError.value = `The code folder could not be opened: ${openError}`;
+    }
+  } catch (caughtError) {
+    codeLinkError.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The code folder could not be opened.";
+  }
+}
+
+async function openProjectRepo(url: string | null): Promise<void> {
+  if (!isHttpUrl(url)) {
+    return;
+  }
+
+  codeLinkError.value = null;
+
+  try {
+    await window.api.shell.openExternal((url as string).trim());
+  } catch (caughtError) {
+    codeLinkError.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The repository link could not be opened.";
+  }
 }
 
 function clearProjectFilter(filterKey: ActiveProjectFilterKey): void {
@@ -1394,6 +1463,69 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
             </div>
           </div>
 
+          <div class="project-code-panel">
+            <div class="section-title">Code &amp; links</div>
+            <v-alert
+              v-if="codeLinkError"
+              type="error"
+              variant="tonal"
+              density="compact"
+              class="mt-2"
+            >
+              {{ codeLinkError }}
+            </v-alert>
+            <div class="project-code-rows">
+              <div class="project-code-row">
+                <div class="project-code-meta">
+                  <v-icon icon="mdi-folder-outline" size="18" color="primary" />
+                  <span class="project-code-value mono">
+                    {{ selectedRow.project.codeFolderPath || "No code folder set" }}
+                  </span>
+                </div>
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  prepend-icon="mdi-folder-open-outline"
+                  :disabled="!selectedRow.project.codeFolderPath"
+                  @click="openProjectFolder(selectedRow.project.codeFolderPath)"
+                >
+                  Open folder
+                </v-btn>
+              </div>
+              <div class="project-code-row">
+                <div class="project-code-meta">
+                  <v-icon icon="mdi-source-branch" size="18" color="primary" />
+                  <span class="project-code-value">
+                    {{ selectedRow.project.repoUrl || "No repository linked" }}
+                  </span>
+                </div>
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  prepend-icon="mdi-open-in-new"
+                  :disabled="!isHttpUrl(selectedRow.project.repoUrl)"
+                  @click="openProjectRepo(selectedRow.project.repoUrl)"
+                >
+                  Open repository
+                </v-btn>
+              </div>
+              <div class="project-code-row">
+                <div class="project-code-meta">
+                  <v-icon
+                    icon="mdi-application-brackets-outline"
+                    size="18"
+                    color="primary"
+                  />
+                  <span class="project-code-value">
+                    {{ selectedRow.project.ide || "No IDE set" }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="checklist-panel">
             <div class="checklist-header">
               <div>
@@ -1723,6 +1855,35 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
                   clearable
                   label="Project location"
                   prepend-inner-icon="mdi-map-marker-outline"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="form.codeFolder"
+                  label="Code folder"
+                  placeholder="Local working directory"
+                  prepend-inner-icon="mdi-folder-outline"
+                  append-inner-icon="mdi-folder-open-outline"
+                  clearable
+                  @click:append-inner="browseCodeFolder"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.repoUrl"
+                  label="Repository URL"
+                  placeholder="https://github.com/..."
+                  prepend-inner-icon="mdi-source-branch"
+                  clearable
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-combobox
+                  v-model="form.ide"
+                  :items="IDE_SUGGESTIONS"
+                  label="IDE / toolchain"
+                  prepend-inner-icon="mdi-application-brackets-outline"
+                  clearable
                 />
               </v-col>
               <v-col cols="12">
@@ -2190,6 +2351,40 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
 .project-fact-value {
   margin-top: 4px;
   font-weight: 700;
+}
+
+.project-code-panel {
+  margin-top: 20px;
+  border: 1px solid var(--vault-soft-border);
+  border-radius: 8px;
+  padding: 16px;
+  background: rgba(var(--v-theme-surface-variant), 0.22);
+}
+
+.project-code-rows {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.project-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.project-code-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-code-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .checklist-panel {

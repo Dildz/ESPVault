@@ -49,7 +49,14 @@ export function installBrowserHarnessApi(): void {
     shell: {
       openExternal: async (url) => {
         console.info("Browser harness blocked external open.", url);
+      },
+      openPath: async (path) => {
+        console.info("Browser harness blocked path open.", path);
+        return "";
       }
+    },
+    dialog: {
+      chooseDirectory: async () => ({ canceled: true })
     },
     updater: {
       getCapability: async () => ({

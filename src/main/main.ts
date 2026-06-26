@@ -49,6 +49,8 @@ const BACKUP_SAVE_CHANNEL = "backup:save";
 const BACKUP_OPEN_CHANNEL = "backup:open";
 const BACKUP_RESTORE_FILES_CHANNEL = "backup:restore-files";
 const SHELL_OPEN_EXTERNAL_CHANNEL = "shell:open-external";
+const SHELL_OPEN_PATH_CHANNEL = "shell:open-path";
+const DIALOG_CHOOSE_DIRECTORY_CHANNEL = "dialog:choose-directory";
 const BOARD_IMAGE_CHOOSE_COVER_CHANNEL = "board-image:choose-cover";
 const BOARD_IMAGE_COPY_COVER_CHANNEL = "board-image:copy-cover";
 const BOARD_IMAGE_DELETE_COVER_CHANNEL = "board-image:delete-cover";
@@ -330,6 +332,27 @@ ipcMain.handle(SHELL_OPEN_EXTERNAL_CHANNEL, async (_event, url: unknown) => {
   }
 
   await shell.openExternal(parsedUrl.toString());
+});
+ipcMain.handle(SHELL_OPEN_PATH_CHANNEL, async (_event, targetPath: unknown) => {
+  if (typeof targetPath !== "string" || !targetPath.trim()) {
+    throw new Error("A folder path is required.");
+  }
+
+  // shell.openPath resolves with an empty string on success or an error message.
+  return shell.openPath(path.resolve(targetPath));
+});
+ipcMain.handle(DIALOG_CHOOSE_DIRECTORY_CHANNEL, async (event) => {
+  const result = await showOpenDialogForSender(event.sender, {
+    title: "Choose project code folder",
+    buttonLabel: "Use folder",
+    properties: ["openDirectory"]
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { canceled: true };
+  }
+
+  return { canceled: false, path: result.filePaths[0] };
 });
 
 function createMainWindow(): BrowserWindow {
