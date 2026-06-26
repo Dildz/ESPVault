@@ -2,6 +2,23 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## 2.0.2 - 2026-06-26
+
+### Added
+
+- Projects can now record a code folder, a repository URL, and the IDE/toolchain
+  used. The project detail panel has buttons to open the code folder in your file
+  manager and the repository in your browser.
+
+### Changed
+
+- Removed the duplicate "Paper Light" theme.
+
+### Fixed
+
+- The update notification message is now readable across all themes.
+- Enabling startup update checks no longer shows a redundant banner.
+
 ## 2.0.1 - 2026-06-26
 
 ### Added
