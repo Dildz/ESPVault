@@ -30,10 +30,11 @@ Visual tests can show cold-start flakes (vite compiling the large pages exceeds
 the 5s harness banner timeout). They pass on retry: `npx playwright test --retries=2`.
 Playwright browsers: `npx playwright install chromium` if missing.
 
-## Dashboard refactor (in progress)
+## Dashboard refactor (done)
 
-`DashboardPage.vue` is being decomposed from a ~3,900-line god component into
-per-domain composables under `src/renderer/composables/dashboard/`. The pattern:
+`DashboardPage.vue` was decomposed from a ~3,900-line god component into
+per-domain composables under `src/renderer/composables/dashboard/`. The pattern,
+if you add another insight panel:
 
 - Move a domain's pure data computeds + helpers into `use<Domain>Insights.ts`,
   taking store refs as args and returning the computeds the panel needs.
@@ -42,6 +43,6 @@ per-domain composables under `src/renderer/composables/dashboard/`. The pattern:
 - Each extraction is behavior-preserving, independently committable, and gets a
   unit test (the payoff: logic that was untestable in the SFC now is).
 
-Done: `useActivityHeatmap`. Shared date helper lives in `utils/dateValue.ts`.
-Remaining domains: memory, board-state, projects, chip-family, scan-freshness,
-partition.
+All domains are extracted: activity-heatmap, scan-freshness, partition,
+chip-family, memory, board-state, projects, lab-organization, recent-activity.
+Shared date helper lives in `utils/dateValue.ts`.

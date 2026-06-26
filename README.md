@@ -1,13 +1,12 @@
 [![ESP Board Vault banner](https://raw.githubusercontent.com/thelastoutpostworkshop/images/main/ESPBoardVaultBanner.png)](https://youtu.be/YwYP-eET9Oo)
 
-<a href="https://www.buymeacoffee.com/thelastoutpostworkshop" target="_blank">
-<img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee">
-</a>
+This is a customized fork of
+[thelastoutpostworkshop/ESPVault](https://github.com/thelastoutpostworkshop/ESPVault).
 
 ## Installation
 
 Download the latest desktop installer from the
-[ESP Board Vault latest release](https://github.com/thelastoutpostworkshop/ESPVault/releases/latest).
+[ESP Board Vault latest release](https://github.com/Dildz/ESPVault/releases/latest).
 
 Open the release, download the installer or package for your operating system
 from the release assets, then run it to install ESP Board Vault.
@@ -34,6 +33,8 @@ I get it working again?"
 - Copy the scan log when you need to paste diagnostics elsewhere.
 - Save detected boards into the vault or update an existing saved board.
 - Group boards into projects.
+- Link a project to its code: a local code folder, a repository URL, and the
+  IDE/toolchain used, with one-click open from the project view.
 - Track project checklist items for build, firmware, testing, enclosure,
   documentation, install, and repair follow-up work.
 - Assign and remove boards from a project from either the board editor or the
@@ -43,7 +44,9 @@ I get it working again?"
 - Add cover images to board and project records.
 - Open curated ESP32 maker tools from inside the app.
 - Export a local backup and import it later.
-- Switch between light and dark mode.
+- Choose from multiple light and dark color themes.
+- Keep the app current with optional in-app updates (Windows installer and Linux
+  AppImage builds).
 - View and change the app data location from Settings.
 - Reset the remembered app window size from Settings.
 
@@ -127,14 +130,20 @@ linked to a board, marked complete, reordered, edited, or created from ESP maker
 templates such as flashing firmware, recording a MAC address, verifying pin
 assignments, testing Wi-Fi, fixing known problems, and saving device config.
 
+Each project can also record where its code lives: a local code folder, a
+repository URL, and the IDE/toolchain used (Arduino IDE, PlatformIO, ESP-IDF,
+Thonny, and others). The project view can open the code folder in your file
+manager or the repository in your browser, so you are one click from picking the
+work back up in your own editor.
+
 Deleting a project does not delete its boards. It only clears their project
 assignment.
 
 ## Tools And Navigation
 
 The app header includes quick actions for adding a board, scanning connected
-boards, refreshing app data, and switching between light and dark mode. The
-global search field opens matching board and project records directly.
+boards, and refreshing app data. The global search field opens matching board
+and project records directly. Color theme selection lives in Settings.
 
 The Tools page links to curated ESP32 and maker utilities, including ESPConnect,
 ESP32 Partition Builder, Video Conversion Studio, and Arduino Maker Workshop.
@@ -152,7 +161,8 @@ Settings includes tools to:
 
 - export a backup
 - import a backup
-- switch appearance mode
+- choose a color theme
+- check for application updates
 - see the current app data location
 - copy the app data location
 - move the app data location
@@ -160,6 +170,17 @@ Settings includes tools to:
 
 Changing the app data location moves the Electron app data needed by the vault,
 not just a single plain database file.
+
+## Updates
+
+ESP Board Vault can update itself in place. In Settings, the Updates section lets
+you check for a new version on startup or on demand. When an update is found you
+can download and install it, be reminded later, or skip that version; installing
+restarts the app on the new version.
+
+In-app updates apply to the installed builds — the Windows installer and the
+Linux AppImage. The portable Windows zip, the Linux `.deb` and tarball, and macOS
+builds update by downloading the newest release manually.
 
 ## Privacy
 
