@@ -2,6 +2,13 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## 2.0.3 - 2026-06-26
+
+### Fixed
+
+- Aligned the About page's top two cards with the detail cards below them (equal
+  height and matching column gap).
+
 ## 2.0.2 - 2026-06-26
 
 ### Added
