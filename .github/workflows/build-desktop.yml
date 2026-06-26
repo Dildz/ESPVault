@@ -113,6 +113,9 @@ jobs:
             release/*.tar.gz
             release/*.yml
             release/*.zip
+            !release/*macos*.blockmap
+            !release/latest-mac.yml
+            !release/builder-debug.yml
           if-no-files-found: error
           retention-days: 14
 

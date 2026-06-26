@@ -1,6 +1,6 @@
 ## Install ESP Board Vault
 
-Download the installer for your operating system. The `.blockmap`, `latest*.yml`, and `builder-debug.yml` files are release metadata and are not needed for a manual install.
+Download the installer for your operating system. The `.blockmap` and `latest*.yml` files are auto-update metadata and are not needed for a manual install.
 
 ### Windows
 
