@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import type { DatabaseLocation } from "../../shared/types/api";
+import type { DatabaseLocation, UpdateUnsupportedReason } from "../../shared/types/api";
 import { useVaultTheme } from "../composables/useVaultTheme";
+import { useAppUpdater } from "../composables/useAppUpdater";
 import { repositories } from "../repositories";
 import {
   getBackupReminder,
   getBackupStatus
 } from "../services/backupStatus";
+import {
+  loadAutoUpdateOnStartup,
+  saveAutoUpdateOnStartup
+} from "../services/appUpdateSettings";
 import {
   DEFAULT_SCAN_FRESHNESS_THRESHOLD_DAYS,
   MAX_SCAN_FRESHNESS_THRESHOLD_DAYS,
@@ -40,6 +45,22 @@ const scanFreshnessThresholdInput = ref(
 );
 const scanFreshnessThresholdLoaded = ref(false);
 const savingScanFreshnessThreshold = ref(false);
+const {
+  capability: updateCapability,
+  status: updateStatus,
+  initUpdater,
+  checkForUpdatesManually
+} = useAppUpdater();
+const autoUpdateOnStartup = ref(false);
+const autoUpdateSettingLoaded = ref(false);
+const savingAutoUpdateSetting = ref(false);
+const updateSupported = computed(() => updateCapability.value?.supported === true);
+const updateBusy = computed(
+  () => updateStatus.value === "checking" || updateStatus.value === "downloading"
+);
+const updateUnsupportedHint = computed(() =>
+  describeUpdateUnsupportedReason(updateCapability.value?.reason ?? null)
+);
 const backupReminder = computed(() =>
   getBackupReminder(lastBackupAt.value, undefined, {
     currentAppVersion: currentAppVersion.value,
@@ -213,11 +234,61 @@ async function resetScanFreshnessThreshold(): Promise<void> {
   await saveScanFreshnessThreshold();
 }
 
+async function loadAutoUpdateSetting(): Promise<void> {
+  try {
+    autoUpdateOnStartup.value = await loadAutoUpdateOnStartup();
+  } catch {
+    autoUpdateOnStartup.value = false;
+  } finally {
+    autoUpdateSettingLoaded.value = true;
+  }
+}
+
+async function updateAutoUpdateOnStartup(value: boolean): Promise<void> {
+  savingAutoUpdateSetting.value = true;
+  error.value = null;
+  notice.value = null;
+
+  try {
+    autoUpdateOnStartup.value = await saveAutoUpdateOnStartup(value);
+    notice.value = value
+      ? "Startup update checks enabled."
+      : "Startup update checks disabled.";
+  } catch (caughtError) {
+    autoUpdateOnStartup.value = !value;
+    error.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The update setting could not be saved.";
+  } finally {
+    savingAutoUpdateSetting.value = false;
+  }
+}
+
+function describeUpdateUnsupportedReason(
+  reason: UpdateUnsupportedReason | null
+): string {
+  switch (reason) {
+    case "windows-portable":
+      return "Auto-update isn't available for the portable build. Use the installer to get updates.";
+    case "linux-non-appimage":
+      return "Auto-update is only available for the Linux AppImage build.";
+    case "macos":
+      return "Auto-update isn't available on macOS builds.";
+    case "dev":
+      return "Auto-update isn't available in development.";
+    default:
+      return "Auto-update isn't available for this build.";
+  }
+}
+
 onMounted(() => {
   void loadDatabaseLocation();
   void loadCurrentAppVersion();
   void loadLastBackupStatus();
   void loadScanFreshnessThresholdSetting();
+  void loadAutoUpdateSetting();
+  void initUpdater();
 });
 </script>
 
@@ -320,6 +391,53 @@ onMounted(() => {
             @click="resetScanFreshnessThreshold"
           >
             Use default
+          </v-btn>
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <v-card class="panel-card mt-4" flat>
+      <v-card-title class="text-subtitle-1 font-weight-bold">
+        Updates
+      </v-card-title>
+      <v-divider />
+      <v-card-text class="settings-row">
+        <div class="settings-detail">
+          <div class="settings-detail-heading">
+            <v-icon icon="mdi-update" color="primary" />
+            <div>
+              <div class="font-weight-medium">Application updates</div>
+              <div class="text-body-2 muted mt-1">
+                <template v-if="updateSupported">
+                  Check GitHub for new versions and install them in place.
+                </template>
+                <template v-else>{{ updateUnsupportedHint }}</template>
+              </div>
+            </div>
+          </div>
+          <v-switch
+            class="mt-2"
+            :model-value="autoUpdateOnStartup"
+            color="primary"
+            density="comfortable"
+            hide-details
+            label="Check for updates on startup"
+            :disabled="
+              !updateSupported || !autoUpdateSettingLoaded || savingAutoUpdateSetting
+            "
+            @update:model-value="(value) => updateAutoUpdateOnStartup(value === true)"
+          />
+        </div>
+        <div class="settings-actions">
+          <v-btn
+            color="primary"
+            variant="outlined"
+            prepend-icon="mdi-refresh"
+            :disabled="!updateSupported || autoUpdateOnStartup || updateBusy"
+            :loading="updateBusy"
+            @click="checkForUpdatesManually"
+          >
+            Check for updates now
           </v-btn>
         </div>
       </v-card-text>

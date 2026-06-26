@@ -6,6 +6,11 @@ directories:
   buildResources: build
   output: release
 
+publish:
+  provider: github
+  owner: Dildz
+  repo: ESPVault
+
 files:
   - dist/**
   - dist-electron/**

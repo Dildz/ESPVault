@@ -12,6 +12,7 @@ import ScanBoardPage from "./pages/ScanBoardPage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 import ToolsPage from "./pages/ToolsPage.vue";
 import { useVaultTheme } from "./composables/useVaultTheme";
+import { useAppUpdater } from "./composables/useAppUpdater";
 import {
   getBackupReminder,
   getBackupStatus
@@ -70,6 +71,21 @@ const boardStore = useBoardStore();
 const projectStore = useProjectStore();
 const { boards, loading: boardsLoading } = storeToRefs(boardStore);
 const { projects, loading: projectsLoading } = storeToRefs(projectStore);
+const {
+  capability: updateCapability,
+  status: updateStatus,
+  availableVersion: updateAvailableVersion,
+  progressPercent: updateProgressPercent,
+  dialogOpen: updateDialogOpen,
+  resultSnackbar: updateResultSnackbar,
+  resultMessage: updateResultMessage,
+  initUpdater,
+  runStartupCheck,
+  downloadAndInstall: downloadAndInstallUpdate,
+  remindLater: remindAboutUpdateLater,
+  skipThisVersion: skipUpdateVersion
+} = useAppUpdater();
+const updateDownloading = computed(() => updateStatus.value === "downloading");
 
 const navItems: NavItem[] = [
   { key: "dashboard", title: "Dashboard", icon: "mdi-view-dashboard-outline" },
@@ -175,6 +191,7 @@ onMounted(() => {
   void refreshAppData();
   void loadAppVersion();
   void loadStartupBackupReminder();
+  void initUpdater().then(runStartupCheck);
   window.addEventListener("resize", updateViewportWidth);
 });
 
@@ -547,6 +564,72 @@ function closeTemporaryNavigation(): void {
         @open-project="openProject"
       />
     </v-main>
+
+    <v-dialog v-model="updateDialogOpen" max-width="480" persistent>
+      <v-card>
+        <v-card-title>Update available</v-card-title>
+        <v-divider />
+        <v-card-text>
+          <p class="mt-0">
+            Version <strong>{{ updateAvailableVersion }}</strong> is available.
+            You're on version
+            <strong>{{ updateCapability?.currentVersion ?? "unknown" }}</strong>.
+          </p>
+          <div v-if="updateDownloading" class="mt-4">
+            <div class="text-body-2 muted mb-2">
+              Downloading update... {{ updateProgressPercent }}%
+            </div>
+            <v-progress-linear
+              :model-value="updateProgressPercent"
+              color="primary"
+              height="8"
+              rounded
+            />
+            <div class="text-caption muted mt-2">
+              The app will restart to finish installing.
+            </div>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn
+            variant="text"
+            :disabled="updateDownloading"
+            @click="skipUpdateVersion"
+          >
+            Skip this version
+          </v-btn>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="updateDownloading"
+            @click="remindAboutUpdateLater"
+          >
+            Remind me later
+          </v-btn>
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-download"
+            :loading="updateDownloading"
+            @click="downloadAndInstallUpdate"
+          >
+            Download &amp; install
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-snackbar
+      v-model="updateResultSnackbar"
+      location="bottom right"
+      timeout="6000"
+    >
+      {{ updateResultMessage }}
+      <template #actions>
+        <v-btn variant="text" @click="updateResultSnackbar = false">
+          Dismiss
+        </v-btn>
+      </template>
+    </v-snackbar>
 
     <v-snackbar
       v-model="startupBackupReminderSnackbar"

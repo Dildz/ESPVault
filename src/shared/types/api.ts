@@ -43,9 +43,42 @@ export interface EspBoardVaultApi {
   shell: {
     openExternal(url: string): Promise<void>;
   };
+  updater: {
+    getCapability(): Promise<UpdateCapability>;
+    check(): Promise<UpdateCheckResult>;
+    downloadAndInstall(): Promise<void>;
+    onDownloadProgress(
+      callback: (progress: UpdateDownloadProgress) => void
+    ): () => void;
+  };
   window: {
     resetSize(): Promise<void>;
   };
+}
+
+export type UpdateUnsupportedReason =
+  | "dev"
+  | "macos"
+  | "linux-non-appimage"
+  | "windows-portable"
+  | "unknown";
+
+export interface UpdateCapability {
+  supported: boolean;
+  reason: UpdateUnsupportedReason | null;
+  currentVersion: string;
+}
+
+export interface UpdateCheckResult {
+  available: boolean;
+  version: string | null;
+}
+
+export interface UpdateDownloadProgress {
+  percent: number;
+  transferred: number;
+  total: number;
+  bytesPerSecond: number;
 }
 
 export interface BackupSaveResult {

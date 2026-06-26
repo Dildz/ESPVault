@@ -1,5 +1,10 @@
-import { contextBridge, ipcRenderer } from "electron";
-import type { EspBoardVaultApi } from "../shared/types/api";
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import type {
+  EspBoardVaultApi,
+  UpdateCapability,
+  UpdateCheckResult,
+  UpdateDownloadProgress
+} from "../shared/types/api";
 
 const api: EspBoardVaultApi = {
   app: {
@@ -138,6 +143,21 @@ const api: EspBoardVaultApi = {
   shell: {
     openExternal: (url) =>
       ipcRenderer.invoke("shell:open-external", url) as Promise<void>
+  },
+  updater: {
+    getCapability: () =>
+      ipcRenderer.invoke("updater:get-capability") as Promise<UpdateCapability>,
+    check: () =>
+      ipcRenderer.invoke("updater:check") as Promise<UpdateCheckResult>,
+    downloadAndInstall: () =>
+      ipcRenderer.invoke("updater:download-and-install") as Promise<void>,
+    onDownloadProgress: (callback) => {
+      const listener = (_event: IpcRendererEvent, progress: UpdateDownloadProgress) =>
+        callback(progress);
+      ipcRenderer.on("updater:download-progress", listener);
+      return () =>
+        ipcRenderer.removeListener("updater:download-progress", listener);
+    }
   },
   window: {
     resetSize: () => ipcRenderer.invoke("window:reset-size") as Promise<void>

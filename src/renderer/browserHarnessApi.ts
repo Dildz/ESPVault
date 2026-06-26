@@ -51,6 +51,16 @@ export function installBrowserHarnessApi(): void {
         console.info("Browser harness blocked external open.", url);
       }
     },
+    updater: {
+      getCapability: async () => ({
+        supported: false,
+        reason: "dev",
+        currentVersion: "browser-harness"
+      }),
+      check: async () => ({ available: false, version: null }),
+      downloadAndInstall: async () => undefined,
+      onDownloadProgress: () => () => undefined
+    },
     window: {
       resetSize: async () => undefined
     }

@@ -1,6 +1,6 @@
 import { build } from "vite";
 
-const electronExternals = [/^electron$/, /^node:/];
+const electronExternals = [/^electron$/, /^electron-updater$/, /^node:/];
 
 export async function buildElectronBundles({ minify = false } = {}) {
   await buildElectronEntry("./src/main/main.ts", "main.js", minify);

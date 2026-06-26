@@ -33,6 +33,7 @@ import type {
   SerialPortSelectionPort
 } from "../shared/types/api";
 import { prepareUpgradeSnapshot } from "./upgradeSnapshots";
+import { registerUpdaterHandlers } from "./updater";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const SERIAL_SELECTION_CHANNEL = "serial:get-last-selection";
@@ -118,6 +119,8 @@ interface CoverImageFilePayload {
 
 app.setName(isDevelopment ? "ESP Board Vault Dev" : "ESP Board Vault");
 applyConfiguredUserDataPath();
+
+registerUpdaterHandlers();
 
 ipcMain.handle(APP_GET_VERSION_CHANNEL, () => app.getVersion());
 ipcMain.handle(SERIAL_SELECTION_CHANNEL, () => lastSerialPortSelection);
