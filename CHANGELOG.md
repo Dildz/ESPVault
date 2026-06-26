@@ -2,6 +2,16 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## 2.0.1 - 2026-06-26
+
+### Added
+
+- In-app updates via electron-updater. Settings has an opt-in "check for updates
+  on startup" toggle and a manual "check for updates now" button. When an update
+  is found you can download & install (the app restarts onto the new version),
+  remind me later, or skip the version. The Updates section is disabled with a
+  reason for builds that can't self-update (portable, Linux .deb/.tar.gz, macOS).
+
 ## 2.0.0 - 2026-06-26
 
 First release of the customized fork (`Dildz/ESPVault`).
