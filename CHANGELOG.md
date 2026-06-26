@@ -2,6 +2,25 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## 2.0.0 - 2026-06-26
+
+First release of the customized fork (`Dildz/ESPVault`).
+
+### Added
+
+- Theme system with multiple selectable color schemes, with appearance controls
+  moved into Settings.
+
+### Changed
+
+- Decomposed the large `DashboardPage` component into per-domain insight
+  composables, each unit-tested (no behavior change).
+
+### Removed
+
+- In-app "Buy Me a Coffee" support link.
+- Orphaned scan-success event.
+
 ## 1.0.28 - Unreleased
 
 ### Fixed
