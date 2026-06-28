@@ -2,7 +2,7 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
-## 1.0.28 - Unreleased
+## 1.0.28
 
 ### Fixed
 
