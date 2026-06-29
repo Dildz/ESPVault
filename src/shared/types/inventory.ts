@@ -141,6 +141,17 @@ export interface PinAssignment {
   updatedAt: string;
 }
 
+export interface CreatePinAssignmentInput {
+  boardId: string;
+  gpio: string;
+  label?: string | null;
+  function?: string | null;
+  notes?: string | null;
+}
+
+export type UpdatePinAssignmentInput =
+  Partial<Omit<CreatePinAssignmentInput, "boardId">>;
+
 export interface AppSetting {
   key: string;
   value: unknown;

@@ -7,6 +7,7 @@ import { DexieBoardRepository } from "./DexieBoardRepository";
 import { DexieBoardTagRepository } from "./DexieBoardTagRepository";
 import { DexieDatabaseHealthRepository } from "./DexieDatabaseHealthRepository";
 import { DexieFirmwareHistoryRepository } from "./DexieFirmwareHistoryRepository";
+import { DexiePinAssignmentRepository } from "./DexiePinAssignmentRepository";
 import { DexieProjectChecklistRepository } from "./DexieProjectChecklistRepository";
 import { DexieProjectRepository } from "./DexieProjectRepository";
 import { VaultDatabase } from "./vaultDatabase";
@@ -347,6 +348,39 @@ describe("Dexie repositories", () => {
     expect(await boardTags.delete(wifi.id)).toBe(true);
     expect((await boardTags.list({ boardId: board.id })).map((tag) => tag.tag))
       .toEqual(["antenna"]);
+  });
+
+  it("creates, lists in GPIO order, guards duplicates, updates, and deletes pin assignments", async () => {
+    const database = createTestDatabase();
+    const boards = new DexieBoardRepository(database);
+    const pins = new DexiePinAssignmentRepository(database);
+    const board = await boards.create({ name: "Wired board" });
+    const otherBoard = await boards.create({ name: "Other board" });
+
+    const gpio10 = await pins.create({
+      boardId: board.id,
+      gpio: "10",
+      label: " relay "
+    });
+    await pins.create({ boardId: board.id, gpio: "2", function: "output" });
+    await pins.create({ boardId: otherBoard.id, gpio: "4" });
+
+    expect(gpio10.label).toBe("relay");
+
+    // One assignment per (board, GPIO).
+    await expect(pins.create({ boardId: board.id, gpio: "10" })).rejects.toThrow();
+
+    // Numeric GPIO order (2 before 10), scoped to the board.
+    expect((await pins.list({ boardId: board.id })).map((pin) => pin.gpio))
+      .toEqual(["2", "10"]);
+
+    const updated = await pins.update(gpio10.id, { label: "pump" });
+    expect(updated.label).toBe("pump");
+    expect(updated.updatedAt >= updated.createdAt).toBe(true);
+
+    expect(await pins.delete(gpio10.id)).toBe(true);
+    expect((await pins.list({ boardId: board.id })).map((pin) => pin.gpio))
+      .toEqual(["2"]);
   });
 
   it("stores app settings", async () => {
