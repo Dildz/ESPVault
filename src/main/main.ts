@@ -66,6 +66,10 @@ interface WindowSize {
   height: number;
 }
 
+interface WindowState extends WindowSize {
+  maximized: boolean;
+}
+
 const DEFAULT_WINDOW_SIZE: WindowSize = {
   width: 1280,
   height: 820
@@ -356,10 +360,10 @@ ipcMain.handle(DIALOG_CHOOSE_DIRECTORY_CHANNEL, async (event) => {
 });
 
 function createMainWindow(): BrowserWindow {
-  const windowSize = loadWindowSize();
+  const windowState = loadWindowState();
   const window = new BrowserWindow({
-    width: windowSize.width,
-    height: windowSize.height,
+    width: windowState.width,
+    height: windowState.height,
     minWidth: MIN_WINDOW_SIZE.width,
     minHeight: MIN_WINDOW_SIZE.height,
     autoHideMenuBar: true,
@@ -375,6 +379,9 @@ function createMainWindow(): BrowserWindow {
   });
 
   mainWindow = window;
+  if (windowState.maximized) {
+    window.maximize();
+  }
   persistWindowSizeChanges(window);
   configureWebSerial(window);
 
@@ -425,14 +432,28 @@ function resetWindowSize(window: BrowserWindow): void {
   saveWindowSize(window);
 }
 
-function loadWindowSize(): WindowSize {
+function loadWindowState(): WindowState {
   try {
     const rawState = readFileSync(getWindowStateFilePath(), "utf8");
-    const parsedState = JSON.parse(rawState) as Partial<WindowSize>;
-    return normalizeWindowSize(parsedState);
+    const parsedState = JSON.parse(rawState) as Partial<WindowState>;
+    return {
+      ...normalizeWindowSize(parsedState),
+      // Default to maximized so the app fills the screen out of the box; an
+      // existing state file without the flag is treated the same.
+      maximized: parsedState.maximized ?? true
+    };
   } catch {
-    return DEFAULT_WINDOW_SIZE;
+    return { ...DEFAULT_WINDOW_SIZE, maximized: true };
   }
+}
+
+function captureWindowState(window: BrowserWindow): WindowState {
+  // getNormalBounds() is the un-maximized size, so restoring down later gives a
+  // sensible window rather than the full-screen bounds.
+  return {
+    ...normalizeWindowSize(window.getNormalBounds()),
+    maximized: window.isMaximized()
+  };
 }
 
 function saveWindowSize(window: BrowserWindow): void {
@@ -440,13 +461,13 @@ function saveWindowSize(window: BrowserWindow): void {
     return;
   }
 
-  const bounds = normalizeWindowSize(window.getBounds());
+  const state = captureWindowState(window);
 
   try {
     ensureVaultDataDirectory();
     writeFileSync(
       getWindowStateFilePath(),
-      `${JSON.stringify(bounds, null, 2)}\n`,
+      `${JSON.stringify(state, null, 2)}\n`,
       "utf8"
     );
   } catch (caughtError) {
@@ -602,13 +623,13 @@ function writeWindowSizeForMove(targetUserDataPath: string): void {
     return;
   }
 
-  const bounds = normalizeWindowSize(mainWindow.getBounds());
+  const state = captureWindowState(mainWindow);
   const targetVaultDirectory =
     ensureVaultDataDirectoryForUserData(targetUserDataPath);
 
   writeFileSync(
     path.join(targetVaultDirectory, "window-state.json"),
-    `${JSON.stringify(bounds, null, 2)}\n`,
+    `${JSON.stringify(state, null, 2)}\n`,
     "utf8"
   );
 }
