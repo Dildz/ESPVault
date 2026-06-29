@@ -87,6 +87,11 @@ export interface BoardTag {
   createdAt: string;
 }
 
+export interface CreateBoardTagInput {
+  boardId: string;
+  tag: string;
+}
+
 export interface FirmwareHistoryEntry {
   id: string;
   boardId: string;

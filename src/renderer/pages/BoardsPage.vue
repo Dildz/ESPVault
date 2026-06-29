@@ -11,9 +11,13 @@ import type {
   CoverImageFileInput,
   CoverImageResult
 } from "../../shared/types/api";
-import type { FirmwareHistoryEntry } from "../../shared/types/inventory";
+import type {
+  BoardTag,
+  FirmwareHistoryEntry
+} from "../../shared/types/inventory";
 import BoardEditorDialog from "../components/BoardEditorDialog.vue";
 import { useBoardStore } from "../stores/boardStore";
+import { useBoardTagStore } from "../stores/boardTagStore";
 import { useFirmwareHistoryStore } from "../stores/firmwareHistoryStore";
 import { useProjectStore } from "../stores/projectStore";
 import { isHttpUrl } from "../utils/projectLinks";
@@ -68,6 +72,7 @@ const { boards, chipModels, error, loading } = storeToRefs(boardStore);
 const projectStore = useProjectStore();
 const { projects } = storeToRefs(projectStore);
 const firmwareStore = useFirmwareHistoryStore();
+const boardTagStore = useBoardTagStore();
 const props = defineProps<{
   openBoardId?: string | null;
 }>();
@@ -100,6 +105,7 @@ const firmwareForm = reactive({
   source: "",
   notes: ""
 });
+const newTag = ref("");
 
 const filters = reactive<BoardFilters>({
   search: "",
@@ -211,6 +217,12 @@ const firmwareEntries = computed(() =>
     : []
 );
 
+const boardTags = computed(() =>
+  selectedBoard.value
+    ? boardTagStore.getTagsForBoard(selectedBoard.value.id)
+    : []
+);
+
 const selectedPartitionRows = computed(() => selectedBoard.value?.partitions ?? []);
 const selectedPartitionSegments = computed(() =>
   selectedBoard.value ? buildPartitionMapSegments(selectedBoard.value) : []
@@ -267,6 +279,7 @@ watch(
   (boardId) => {
     if (boardId) {
       void firmwareStore.loadItems({ boardId });
+      void boardTagStore.loadItems({ boardId });
     }
   },
   { immediate: true }
@@ -375,6 +388,22 @@ async function confirmFirmwareDelete(): Promise<void> {
 
   await firmwareStore.deleteItem(deletingFirmware.value.id);
   deletingFirmware.value = null;
+}
+
+async function addTag(): Promise<void> {
+  if (!selectedBoard.value || !newTag.value.trim()) {
+    return;
+  }
+
+  await boardTagStore.createItem({
+    boardId: selectedBoard.value.id,
+    tag: newTag.value
+  });
+  newTag.value = "";
+}
+
+async function deleteTag(tag: BoardTag): Promise<void> {
+  await boardTagStore.deleteItem(tag.id);
 }
 
 async function openFirmwareSource(url: string | null): Promise<void> {
@@ -1282,6 +1311,38 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
             </div>
           </div>
 
+          <div class="board-info-panel board-tags-panel mt-5">
+            <div class="section-title">Tags</div>
+            <div class="board-tags">
+              <v-chip
+                v-for="tag in boardTags"
+                :key="tag.id"
+                size="small"
+                variant="tonal"
+                color="primary"
+                closable
+                :aria-label="`Remove tag ${tag.tag}`"
+                @click:close="deleteTag(tag)"
+              >
+                {{ tag.tag }}
+              </v-chip>
+              <span v-if="!boardTags.length" class="text-caption muted">
+                No tags yet
+              </span>
+            </div>
+            <v-text-field
+              v-model="newTag"
+              class="board-tag-input mt-3"
+              placeholder="Add a tag…"
+              density="compact"
+              variant="outlined"
+              hide-details
+              append-inner-icon="mdi-plus"
+              @keyup.enter="addTag"
+              @click:append-inner="addTag"
+            />
+          </div>
+
           <div class="board-info-panel firmware-panel mt-5">
             <div class="firmware-panel-header">
               <div class="section-title">Firmware history</div>
@@ -1499,6 +1560,18 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
   font-size: 0.8125rem;
   white-space: nowrap;
+}
+
+.board-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 24px;
+}
+
+.board-tag-input {
+  max-width: 320px;
 }
 
 .firmware-panel-header {

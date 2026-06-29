@@ -4,6 +4,7 @@ import type { BoardPartition } from "../../../shared/types/partition";
 import { DexieAppSettingsRepository } from "./DexieAppSettingsRepository";
 import { DexieBackupRepository } from "./DexieBackupRepository";
 import { DexieBoardRepository } from "./DexieBoardRepository";
+import { DexieBoardTagRepository } from "./DexieBoardTagRepository";
 import { DexieDatabaseHealthRepository } from "./DexieDatabaseHealthRepository";
 import { DexieFirmwareHistoryRepository } from "./DexieFirmwareHistoryRepository";
 import { DexieProjectChecklistRepository } from "./DexieProjectChecklistRepository";
@@ -317,6 +318,35 @@ describe("Dexie repositories", () => {
     expect(await firmware.get(newer.id)).toBeNull();
     expect((await firmware.list({ boardId: board.id })).map((entry) => entry.id))
       .toEqual([older.id]);
+  });
+
+  it("creates, lists alphabetically, dedupes, and deletes board tags", async () => {
+    const database = createTestDatabase();
+    const boards = new DexieBoardRepository(database);
+    const boardTags = new DexieBoardTagRepository(database);
+    const board = await boards.create({ name: "Tagged board" });
+    const otherBoard = await boards.create({ name: "Other board" });
+
+    const wifi = await boardTags.create({ boardId: board.id, tag: " wifi " });
+    await boardTags.create({ boardId: board.id, tag: "antenna" });
+    await boardTags.create({ boardId: otherBoard.id, tag: "spare" });
+
+    expect(wifi.tag).toBe("wifi");
+
+    // Re-adding the same tag (any case) is a no-op that returns the existing one.
+    const duplicate = await boardTags.create({
+      boardId: board.id,
+      tag: "WIFI"
+    });
+    expect(duplicate.id).toBe(wifi.id);
+
+    // Alphabetical, scoped to the requested board.
+    expect((await boardTags.list({ boardId: board.id })).map((tag) => tag.tag))
+      .toEqual(["antenna", "wifi"]);
+
+    expect(await boardTags.delete(wifi.id)).toBe(true);
+    expect((await boardTags.list({ boardId: board.id })).map((tag) => tag.tag))
+      .toEqual(["antenna"]);
   });
 
   it("stores app settings", async () => {
