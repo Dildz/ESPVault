@@ -2,6 +2,18 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## 2.0.4 - 2026-06-29
+
+### Added
+
+- Each board now has a firmware history — log what you flashed (name, version,
+  date flashed, source, notes), with a button to open an http(s) source link.
+  Entries are stored per board and included in backups.
+
+### Changed
+
+- The empty board-photo placeholder now uses a clearer camera graphic.
+
 ## 2.0.3 - 2026-06-26
 
 ### Fixed
