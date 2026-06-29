@@ -16,6 +16,13 @@ import type {
   FirmwareHistoryEntry
 } from "../../shared/types/inventory";
 import BoardEditorDialog from "../components/BoardEditorDialog.vue";
+import BoardPinLayout from "../components/BoardPinLayout.vue";
+import {
+  getPinoutBoard,
+  loadPinoutPins,
+  pinoutImageUrl,
+  type PinoutPin
+} from "../utils/pinoutAssets";
 import { useBoardStore } from "../stores/boardStore";
 import { useBoardTagStore } from "../stores/boardTagStore";
 import { useFirmwareHistoryStore } from "../stores/firmwareHistoryStore";
@@ -106,6 +113,11 @@ const firmwareForm = reactive({
   notes: ""
 });
 const newTag = ref("");
+
+// Phase 3: read-only preview of the generic pin layout (the universal default).
+const pinoutBoard = getPinoutBoard(null);
+const pinoutImage = pinoutImageUrl(pinoutBoard);
+const pinoutPins = ref<PinoutPin[]>([]);
 
 const filters = reactive<BoardFilters>({
   search: "",
@@ -236,6 +248,9 @@ const boardCoverPathKey = computed(() =>
 
 onMounted(() => {
   void Promise.all([boardStore.loadBoards(), projectStore.loadProjects()]);
+  void loadPinoutPins(pinoutBoard).then((pins) => {
+    pinoutPins.value = pins;
+  });
 });
 
 watch(
@@ -1415,6 +1430,11 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
             <p v-if="firmwareLinkError" class="text-error text-caption mt-2">
               {{ firmwareLinkError }}
             </p>
+          </div>
+
+          <div class="board-info-panel pin-layout-panel mt-5">
+            <div class="section-title">Pin layout (preview)</div>
+            <BoardPinLayout :pins="pinoutPins" :image-url="pinoutImage" />
           </div>
         </v-card-text>
       </v-card>
