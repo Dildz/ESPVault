@@ -7,6 +7,8 @@ All notable changes to ESP Board Vault are documented in this file.
 ### Fixed
 
 - Fixed missing Linux desktop panel icons ([#5](https://github.com/thelastoutpostworkshop/ESPVault/issues/5)).
+- Hide legacy Linux `/dev/ttyS*` ports by default in the serial picker while
+  keeping them available behind a toggle ([#6](https://github.com/thelastoutpostworkshop/ESPVault/issues/6)).
 
 ## 1.0.28
 

@@ -32,6 +32,12 @@ import type {
   SerialPortSelection,
   SerialPortSelectionPort
 } from "../shared/types/api";
+import {
+  isLegacyLinuxTtyPort,
+  isPreferredSerialPort,
+  shouldHideLegacyLinuxTtyPortsByDefault,
+  type SelectableSerialPort
+} from "./serialPorts";
 import { prepareUpgradeSnapshot } from "./upgradeSnapshots";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
@@ -76,17 +82,6 @@ const LINUX_DESKTOP_NAME = "esp-board-vault.desktop";
 let lastSerialPortSelection: SerialPortSelection = createEmptySerialPortSelection();
 let mainWindow: BrowserWindow | null = null;
 let windowSizeSaveTimer: ReturnType<typeof setTimeout> | null = null;
-
-interface SelectableSerialPort {
-  portId: string;
-  portName?: string;
-  deviceInstanceId?: string;
-  displayName?: string;
-  vendorId?: string;
-  productId?: string;
-  serialNumber?: string;
-  usbDriverName?: string;
-}
 
 interface BackupPackage {
   includedFileCount: number;
@@ -1900,46 +1895,45 @@ async function showSerialPortPicker<TPort extends SelectableSerialPort>(
   });
 }
 
-function isPreferredSerialPort(port: SelectableSerialPort): boolean {
-  const searchableText = [
-    port.displayName,
-    port.portName,
-    port.vendorId,
-    port.productId
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join(" ")
-    .toLowerCase();
-
-  return (
-    searchableText.includes("esp") ||
-    searchableText.includes("usb") ||
-    searchableText.includes("jtag") ||
-    searchableText.includes("cp210") ||
-    searchableText.includes("ch340") ||
-    searchableText.includes("ch343") ||
-    searchableText.includes("wch") ||
-    searchableText.includes("silicon labs")
-  );
-}
-
 function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
+  const hideLegacyPortsByDefault = shouldHideLegacyLinuxTtyPortsByDefault(ports);
+  const legacyPortCount = ports.filter((port) => isLegacyLinuxTtyPort(port)).length;
   const rows = ports
     .map(
-      (port, index) => `
-        <label class="port-row">
-          <input class="port-checkbox" type="checkbox" value="${index}" checked />
+      (port, index) => {
+        const isLegacyPort = isLegacyLinuxTtyPort(port);
+        const isInitiallyHidden = hideLegacyPortsByDefault && isLegacyPort;
+        const rowClasses = ["port-row", isLegacyPort ? "legacy-port" : ""]
+          .filter(Boolean)
+          .join(" ");
+
+        return `
+        <label class="${rowClasses}"${isInitiallyHidden ? " hidden" : ""}>
+          <input class="port-checkbox" type="checkbox" value="${index}"${
+            isInitiallyHidden ? "" : " checked"
+          } data-legacy="${isLegacyPort ? "true" : "false"}" />
           <span class="port-body">
             <span class="port-title">
               ${escapeHtml(formatSerialPortButton(port))}
               ${isPreferredSerialPort(port) ? '<span class="badge">Suggested</span>' : ""}
+              ${isLegacyPort ? '<span class="badge badge-muted">Legacy</span>' : ""}
             </span>
             <span class="port-detail">${escapeHtml(formatSerialPortDetail(port))}</span>
           </span>
         </label>
-      `
+      `;
+      }
     )
     .join("");
+  const legacyToggle = hideLegacyPortsByDefault
+    ? `
+      <label class="legacy-toggle">
+        <input id="showLegacy" type="checkbox" />
+        <span>Show legacy serial ports</span>
+        <span class="legacy-count">${legacyPortCount} hidden</span>
+      </label>
+    `
+    : "";
 
   return `<!doctype html>
 <html>
@@ -1964,12 +1958,28 @@ function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-wrap: wrap;
       padding: 14px 24px;
       border-bottom: 1px solid #e2e4df;
       background: #ffffff;
     }
     .toolbar-spacer { flex: 1; }
     .select-all-state { color: #596154; font-size: 13px; }
+    .legacy-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: #394035;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .legacy-toggle input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #466a3f;
+    }
+    .legacy-count { color: #6f7669; }
     main {
       flex: 1;
       min-height: 0;
@@ -2020,6 +2030,10 @@ function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
       font-size: 12px;
       font-weight: 600;
     }
+    .badge-muted {
+      color: #5d6458;
+      background: #eef0eb;
+    }
     footer {
       display: flex;
       justify-content: flex-end;
@@ -2061,6 +2075,7 @@ function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
     <div class="toolbar">
       <button id="selectAll" type="button">Select all</button>
       <button id="clearAll" type="button">Clear</button>
+      ${legacyToggle}
       <span class="toolbar-spacer"></span>
       <span id="selectionState" class="select-all-state"></span>
     </div>
@@ -2074,26 +2089,35 @@ function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
   </div>
   <script>
     const checkboxes = Array.from(document.querySelectorAll(".port-checkbox"));
+    const showLegacyCheckbox = document.getElementById("showLegacy");
     const scanButton = document.getElementById("scan");
     const selectionState = document.getElementById("selectionState");
 
+    function visibleCheckboxes() {
+      return checkboxes.filter((checkbox) => !checkbox.closest(".port-row").hidden);
+    }
+
     function checkedIndexes() {
-      return checkboxes
+      return visibleCheckboxes()
         .filter((checkbox) => checkbox.checked)
         .map((checkbox) => checkbox.value);
     }
 
     function updateState() {
       const count = checkedIndexes().length;
-      selectionState.textContent = count + " of " + checkboxes.length + " selected";
+      const visibleCount = visibleCheckboxes().length;
+      const hiddenCount = checkboxes.length - visibleCount;
+      selectionState.textContent = count + " of " + visibleCount + (
+        hiddenCount > 0 ? " visible" : ""
+      ) + " selected";
       scanButton.disabled = count === 0;
-      scanButton.textContent = count === checkboxes.length
+      scanButton.textContent = count === visibleCount
         ? "Scan all (" + count + ")"
         : "Scan selected (" + count + ")";
     }
 
     document.getElementById("selectAll").addEventListener("click", () => {
-      checkboxes.forEach((checkbox) => { checkbox.checked = true; });
+      visibleCheckboxes().forEach((checkbox) => { checkbox.checked = true; });
       updateState();
     });
 
@@ -2101,6 +2125,18 @@ function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
       checkboxes.forEach((checkbox) => { checkbox.checked = false; });
       updateState();
     });
+
+    if (showLegacyCheckbox) {
+      showLegacyCheckbox.addEventListener("change", () => {
+        const showLegacy = showLegacyCheckbox.checked;
+
+        document.querySelectorAll(".legacy-port").forEach((row) => {
+          row.hidden = !showLegacy;
+        });
+
+        updateState();
+      });
+    }
 
     document.getElementById("cancel").addEventListener("click", () => {
       window.location.href = "https://esp-board-vault.local/serial-picker/cancel";
