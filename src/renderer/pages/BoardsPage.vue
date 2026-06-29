@@ -26,6 +26,7 @@ import {
 import { useBoardStore } from "../stores/boardStore";
 import { useBoardTagStore } from "../stores/boardTagStore";
 import { useFirmwareHistoryStore } from "../stores/firmwareHistoryStore";
+import { usePinAssignmentStore } from "../stores/pinAssignmentStore";
 import { useProjectStore } from "../stores/projectStore";
 import { isHttpUrl } from "../utils/projectLinks";
 import {
@@ -80,6 +81,7 @@ const projectStore = useProjectStore();
 const { projects } = storeToRefs(projectStore);
 const firmwareStore = useFirmwareHistoryStore();
 const boardTagStore = useBoardTagStore();
+const pinAssignmentStore = usePinAssignmentStore();
 const props = defineProps<{
   openBoardId?: string | null;
 }>();
@@ -235,6 +237,12 @@ const boardTags = computed(() =>
     : []
 );
 
+const boardAssignments = computed(() =>
+  selectedBoard.value
+    ? pinAssignmentStore.getAssignmentsForBoard(selectedBoard.value.id)
+    : []
+);
+
 const selectedPartitionRows = computed(() => selectedBoard.value?.partitions ?? []);
 const selectedPartitionSegments = computed(() =>
   selectedBoard.value ? buildPartitionMapSegments(selectedBoard.value) : []
@@ -295,6 +303,7 @@ watch(
     if (boardId) {
       void firmwareStore.loadItems({ boardId });
       void boardTagStore.loadItems({ boardId });
+      void pinAssignmentStore.loadItems({ boardId });
     }
   },
   { immediate: true }
@@ -419,6 +428,34 @@ async function addTag(): Promise<void> {
 
 async function deleteTag(tag: BoardTag): Promise<void> {
   await boardTagStore.deleteItem(tag.id);
+}
+
+async function setPinLabel(gpio: string, label: string): Promise<void> {
+  if (!selectedBoard.value) {
+    return;
+  }
+
+  const existing = boardAssignments.value.find(
+    (assignment) => assignment.gpio === gpio
+  );
+  if (existing) {
+    await pinAssignmentStore.updateItem(existing.id, { label });
+  } else {
+    await pinAssignmentStore.createItem({
+      boardId: selectedBoard.value.id,
+      gpio,
+      label
+    });
+  }
+}
+
+async function clearPinLabel(gpio: string): Promise<void> {
+  const existing = boardAssignments.value.find(
+    (assignment) => assignment.gpio === gpio
+  );
+  if (existing) {
+    await pinAssignmentStore.deleteItem(existing.id);
+  }
 }
 
 async function openFirmwareSource(url: string | null): Promise<void> {
@@ -1433,8 +1470,18 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
           </div>
 
           <div class="board-info-panel pin-layout-panel mt-5">
-            <div class="section-title">Pin layout (preview)</div>
-            <BoardPinLayout :pins="pinoutPins" :image-url="pinoutImage" />
+            <div class="section-title">Pin layout</div>
+            <p class="text-caption muted mb-3">
+              Click a pin to label what it's wired to in your build.
+            </p>
+            <BoardPinLayout
+              :pins="pinoutPins"
+              :image-url="pinoutImage"
+              :assignments="boardAssignments"
+              editable
+              @set="setPinLabel"
+              @clear="clearPinLabel"
+            />
           </div>
         </v-card-text>
       </v-card>

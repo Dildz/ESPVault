@@ -1,10 +1,61 @@
 <script setup lang="ts">
+import { computed, ref } from "vue";
+import type { PinAssignment } from "../../shared/types/inventory";
 import type { PinoutPin } from "../utils/pinoutAssets";
 
-defineProps<{
+const props = defineProps<{
   pins: PinoutPin[];
   imageUrl: string | null;
+  assignments?: PinAssignment[];
+  editable?: boolean;
 }>();
+
+const emit = defineEmits<{
+  set: [gpio: string, label: string];
+  clear: [gpio: string];
+}>();
+
+const vFocus = {
+  mounted: (el: HTMLInputElement) => el.focus()
+};
+
+const assignmentByGpio = computed(() => {
+  const map = new Map<string, PinAssignment>();
+  for (const assignment of props.assignments ?? []) {
+    map.set(assignment.gpio, assignment);
+  }
+  return map;
+});
+
+const editingGpio = ref<string | null>(null);
+const draft = ref("");
+
+function labelFor(pin: PinoutPin): string | null {
+  return assignmentByGpio.value.get(String(pin.gpioid))?.label ?? null;
+}
+
+function startEdit(pin: PinoutPin): void {
+  if (!props.editable) {
+    return;
+  }
+  editingGpio.value = String(pin.gpioid);
+  draft.value = labelFor(pin) ?? "";
+}
+
+function commitEdit(pin: PinoutPin): void {
+  const gpio = String(pin.gpioid);
+  const value = draft.value.trim();
+  const current = labelFor(pin) ?? "";
+
+  if (value !== current) {
+    if (value) {
+      emit("set", gpio, value);
+    } else {
+      emit("clear", gpio);
+    }
+  }
+  editingGpio.value = null;
+}
 </script>
 
 <template>
@@ -23,8 +74,28 @@ defineProps<{
         "
         :style="{ top: `${pin.top}%`, left: `${pin.left}%` }"
       >
-        <span class="pin-dot" />
-        <span class="pin-chip">GPIO{{ pin.gpioid }}</span>
+        <span class="pin-dot" :class="{ 'pin-dot--assigned': labelFor(pin) }" />
+        <input
+          v-if="editable && editingGpio === String(pin.gpioid)"
+          v-model="draft"
+          v-focus
+          class="pin-input"
+          :placeholder="`GPIO${pin.gpioid}`"
+          @keyup.enter="commitEdit(pin)"
+          @blur="commitEdit(pin)"
+        >
+        <span
+          v-else
+          class="pin-chip"
+          :class="{
+            'pin-chip--assigned': labelFor(pin),
+            'pin-chip--editable': editable
+          }"
+          @click="startEdit(pin)"
+        >
+          <span class="pin-gpio">GPIO{{ pin.gpioid }}</span>
+          <span v-if="labelFor(pin)" class="pin-name">{{ labelFor(pin) }}</span>
+        </span>
       </div>
     </div>
   </div>
@@ -73,11 +144,18 @@ defineProps<{
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-on-surface), 0.4);
   box-shadow: 0 0 0 2px rgba(var(--v-theme-surface), 0.9);
 }
 
+.pin-dot--assigned {
+  background: rgb(var(--v-theme-primary));
+}
+
 .pin-chip {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
   padding: 1px 6px;
   font-size: 0.7rem;
   line-height: 1.4;
@@ -85,6 +163,35 @@ defineProps<{
   border: 1px solid var(--vault-border);
   border-radius: 6px;
   background: rgba(var(--v-theme-surface), 0.92);
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.pin-chip--editable {
+  cursor: text;
+}
+
+.pin-chip--assigned {
+  border-color: rgb(var(--v-theme-primary));
   color: rgb(var(--v-theme-on-surface));
+}
+
+.pin-gpio {
+  font-weight: 600;
+}
+
+.pin-name {
+  color: rgb(var(--v-theme-primary));
+}
+
+.pin-input {
+  width: 96px;
+  padding: 1px 6px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  border: 1px solid rgb(var(--v-theme-primary));
+  border-radius: 6px;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  outline: none;
 }
 </style>
