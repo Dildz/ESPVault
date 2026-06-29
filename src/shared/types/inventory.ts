@@ -99,6 +99,19 @@ export interface FirmwareHistoryEntry {
   createdAt: string;
 }
 
+export interface CreateFirmwareHistoryInput {
+  boardId: string;
+  firmwareName: string;
+  version?: string | null;
+  source?: string | null;
+  filePath?: string | null;
+  notes?: string | null;
+  flashedAt?: string | null;
+}
+
+export type UpdateFirmwareHistoryInput =
+  Partial<Omit<CreateFirmwareHistoryInput, "boardId">>;
+
 export type AttachmentType = "photo" | "firmware" | "backup" | "document" | "other";
 
 export interface BoardAttachment {

@@ -11,9 +11,12 @@ import type {
   CoverImageFileInput,
   CoverImageResult
 } from "../../shared/types/api";
+import type { FirmwareHistoryEntry } from "../../shared/types/inventory";
 import BoardEditorDialog from "../components/BoardEditorDialog.vue";
 import { useBoardStore } from "../stores/boardStore";
+import { useFirmwareHistoryStore } from "../stores/firmwareHistoryStore";
 import { useProjectStore } from "../stores/projectStore";
+import { isHttpUrl } from "../utils/projectLinks";
 import {
   BOARD_STATUS_COLORS,
   BOARD_STATUS_ICONS,
@@ -64,6 +67,7 @@ const boardStore = useBoardStore();
 const { boards, chipModels, error, loading } = storeToRefs(boardStore);
 const projectStore = useProjectStore();
 const { projects } = storeToRefs(projectStore);
+const firmwareStore = useFirmwareHistoryStore();
 const props = defineProps<{
   openBoardId?: string | null;
 }>();
@@ -83,6 +87,19 @@ const boardCoverViewerOpen = ref(false);
 const boardThumbnailUrls = ref<Record<string, string | null>>({});
 const partitionBuilderError = ref<string | null>(null);
 let boardThumbnailLoadToken = 0;
+
+const firmwareDialogOpen = ref(false);
+const editingFirmware = ref<FirmwareHistoryEntry | null>(null);
+const deletingFirmware = ref<FirmwareHistoryEntry | null>(null);
+const firmwareSaving = ref(false);
+const firmwareLinkError = ref<string | null>(null);
+const firmwareForm = reactive({
+  firmwareName: "",
+  version: "",
+  flashedAt: "",
+  source: "",
+  notes: ""
+});
 
 const filters = reactive<BoardFilters>({
   search: "",
@@ -188,6 +205,12 @@ const selectedBoard = computed(() => {
   );
 });
 
+const firmwareEntries = computed(() =>
+  selectedBoard.value
+    ? firmwareStore.getEntriesForBoard(selectedBoard.value.id)
+    : []
+);
+
 const selectedPartitionRows = computed(() => selectedBoard.value?.partitions ?? []);
 const selectedPartitionSegments = computed(() =>
   selectedBoard.value ? buildPartitionMapSegments(selectedBoard.value) : []
@@ -239,6 +262,16 @@ watch(
   { immediate: true }
 );
 
+watch(
+  () => selectedBoard.value?.id,
+  (boardId) => {
+    if (boardId) {
+      void firmwareStore.loadItems({ boardId });
+    }
+  },
+  { immediate: true }
+);
+
 function openCreateDialog(): void {
   editingBoard.value = null;
   editorOpen.value = true;
@@ -279,6 +312,85 @@ function openBoardFromProp(): void {
 function openAssignedProject(board: Board): void {
   if (board.projectId) {
     emit("open-project", board.projectId);
+  }
+}
+
+function resetFirmwareForm(entry: FirmwareHistoryEntry | null): void {
+  firmwareForm.firmwareName = entry?.firmwareName ?? "";
+  firmwareForm.version = entry?.version ?? "";
+  firmwareForm.flashedAt =
+    entry?.flashedAt ?? new Date().toISOString().slice(0, 10);
+  firmwareForm.source = entry?.source ?? "";
+  firmwareForm.notes = entry?.notes ?? "";
+}
+
+function openFirmwareCreate(): void {
+  editingFirmware.value = null;
+  resetFirmwareForm(null);
+  firmwareDialogOpen.value = true;
+}
+
+function openFirmwareEdit(entry: FirmwareHistoryEntry): void {
+  editingFirmware.value = entry;
+  resetFirmwareForm(entry);
+  firmwareDialogOpen.value = true;
+}
+
+async function saveFirmware(): Promise<void> {
+  if (!selectedBoard.value || !firmwareForm.firmwareName.trim()) {
+    return;
+  }
+
+  firmwareSaving.value = true;
+
+  try {
+    const input = {
+      firmwareName: firmwareForm.firmwareName,
+      version: firmwareForm.version,
+      flashedAt: firmwareForm.flashedAt,
+      source: firmwareForm.source,
+      notes: firmwareForm.notes
+    };
+
+    if (editingFirmware.value) {
+      await firmwareStore.updateItem(editingFirmware.value.id, input);
+    } else {
+      await firmwareStore.createItem({
+        boardId: selectedBoard.value.id,
+        ...input
+      });
+    }
+
+    firmwareDialogOpen.value = false;
+    editingFirmware.value = null;
+  } finally {
+    firmwareSaving.value = false;
+  }
+}
+
+async function confirmFirmwareDelete(): Promise<void> {
+  if (!deletingFirmware.value) {
+    return;
+  }
+
+  await firmwareStore.deleteItem(deletingFirmware.value.id);
+  deletingFirmware.value = null;
+}
+
+async function openFirmwareSource(url: string | null): Promise<void> {
+  if (!isHttpUrl(url)) {
+    return;
+  }
+
+  firmwareLinkError.value = null;
+
+  try {
+    await window.api.shell.openExternal((url as string).trim());
+  } catch (caughtError) {
+    firmwareLinkError.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The firmware source link could not be opened.";
   }
 }
 
@@ -1159,9 +1271,161 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
               </p>
             </div>
           </div>
+
+          <div class="board-info-panel firmware-panel mt-5">
+            <div class="firmware-panel-header">
+              <div class="section-title">Firmware history</div>
+              <v-btn
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-plus"
+                @click="openFirmwareCreate"
+              >
+                Add firmware
+              </v-btn>
+            </div>
+
+            <p v-if="!firmwareEntries.length" class="board-notes-text">
+              No firmware logged yet. Record what you flash so you remember
+              what's running on this board.
+            </p>
+
+            <div
+              v-for="entry in firmwareEntries"
+              :key="entry.id"
+              class="firmware-entry"
+            >
+              <div class="firmware-entry-main">
+                <div class="firmware-entry-title">
+                  <strong>{{ entry.firmwareName }}</strong>
+                  <span v-if="entry.version" class="firmware-entry-version">
+                    {{ entry.version }}
+                  </span>
+                </div>
+                <div
+                  v-if="entry.flashedAt || entry.source"
+                  class="firmware-entry-meta muted"
+                >
+                  <span v-if="entry.flashedAt">
+                    Flashed {{ formatDate(entry.flashedAt) }}
+                  </span>
+                  <span v-if="entry.source">{{ entry.source }}</span>
+                </div>
+                <p v-if="entry.notes" class="firmware-entry-notes">
+                  {{ entry.notes }}
+                </p>
+              </div>
+              <div class="firmware-entry-actions">
+                <v-btn
+                  v-if="isHttpUrl(entry.source)"
+                  size="small"
+                  variant="text"
+                  icon="mdi-open-in-new"
+                  aria-label="Open firmware source"
+                  @click="openFirmwareSource(entry.source)"
+                />
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="mdi-pencil-outline"
+                  aria-label="Edit firmware entry"
+                  @click="openFirmwareEdit(entry)"
+                />
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="mdi-delete-outline"
+                  aria-label="Delete firmware entry"
+                  @click="deletingFirmware = entry"
+                />
+              </div>
+            </div>
+
+            <p v-if="firmwareLinkError" class="text-error text-caption mt-2">
+              {{ firmwareLinkError }}
+            </p>
+          </div>
         </v-card-text>
       </v-card>
     </div>
+
+    <v-dialog v-model="firmwareDialogOpen" max-width="520" persistent>
+      <v-card>
+        <v-card-title>
+          {{ editingFirmware ? "Edit firmware" : "Add firmware" }}
+        </v-card-title>
+        <v-card-text class="firmware-form">
+          <v-text-field
+            v-model="firmwareForm.firmwareName"
+            label="Firmware name"
+            placeholder="Tasmota, ESPHome, my sketch…"
+            autofocus
+            hide-details
+          />
+          <v-text-field
+            v-model="firmwareForm.version"
+            label="Version (optional)"
+            hide-details
+          />
+          <v-text-field
+            v-model="firmwareForm.flashedAt"
+            label="Date flashed"
+            type="date"
+            hide-details
+          />
+          <v-text-field
+            v-model="firmwareForm.source"
+            label="Source (URL or note)"
+            placeholder="https://github.com/…"
+            hide-details
+          />
+          <v-textarea
+            v-model="firmwareForm.notes"
+            label="Notes (optional)"
+            rows="3"
+            hide-details
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="firmwareDialogOpen = false">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            :disabled="!firmwareForm.firmwareName.trim()"
+            :loading="firmwareSaving"
+            @click="saveFirmware"
+          >
+            Save
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog
+      :model-value="Boolean(deletingFirmware)"
+      max-width="440"
+      persistent
+    >
+      <v-card>
+        <v-card-title>Delete firmware entry?</v-card-title>
+        <v-card-text>
+          This removes
+          <strong>{{ deletingFirmware?.firmwareName }}</strong>
+          from this board's firmware history.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="deletingFirmware = null">Cancel</v-btn>
+          <v-btn
+            color="error"
+            prepend-icon="mdi-delete-outline"
+            @click="confirmFirmwareDelete"
+          >
+            Delete
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <BoardEditorDialog
       v-model="editorOpen"
@@ -1225,6 +1489,64 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
   font-size: 0.8125rem;
   white-space: nowrap;
+}
+
+.firmware-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.firmware-entry {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--vault-border);
+}
+
+.firmware-entry-main {
+  min-width: 0;
+}
+
+.firmware-entry-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.firmware-entry-version {
+  font-size: 0.8125rem;
+  color: rgb(var(--v-theme-primary));
+}
+
+.firmware-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 2px;
+  font-size: 0.8125rem;
+}
+
+.firmware-entry-notes {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+}
+
+.firmware-entry-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.firmware-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .board-toolbar.toolbar-band {

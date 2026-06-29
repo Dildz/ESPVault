@@ -5,6 +5,7 @@ import { DexieAppSettingsRepository } from "./DexieAppSettingsRepository";
 import { DexieBackupRepository } from "./DexieBackupRepository";
 import { DexieBoardRepository } from "./DexieBoardRepository";
 import { DexieDatabaseHealthRepository } from "./DexieDatabaseHealthRepository";
+import { DexieFirmwareHistoryRepository } from "./DexieFirmwareHistoryRepository";
 import { DexieProjectChecklistRepository } from "./DexieProjectChecklistRepository";
 import { DexieProjectRepository } from "./DexieProjectRepository";
 import { VaultDatabase } from "./vaultDatabase";
@@ -275,6 +276,47 @@ describe("Dexie repositories", () => {
 
     expect(await checklists.delete(first.id)).toBe(true);
     expect(await checklists.get(first.id)).toBeNull();
+  });
+
+  it("creates, lists most-recent-first, filters, updates, and deletes firmware history", async () => {
+    const database = createTestDatabase();
+    const boards = new DexieBoardRepository(database);
+    const firmware = new DexieFirmwareHistoryRepository(database);
+    const board = await boards.create({ name: "Sensor node" });
+    const otherBoard = await boards.create({ name: "Spare board" });
+
+    const older = await firmware.create({
+      boardId: board.id,
+      firmwareName: " Tasmota ",
+      version: "13.1",
+      source: "https://github.com/arendst/Tasmota",
+      flashedAt: "2026-01-10"
+    });
+    const newer = await firmware.create({
+      boardId: board.id,
+      firmwareName: "ESPHome",
+      flashedAt: "2026-05-02",
+      notes: "Switched to ESPHome."
+    });
+    await firmware.create({
+      boardId: otherBoard.id,
+      firmwareName: "Other board firmware"
+    });
+
+    expect(older.firmwareName).toBe("Tasmota");
+    expect(older.notes).toBeNull();
+
+    // Most recent flash date first, scoped to the requested board.
+    expect((await firmware.list({ boardId: board.id })).map((entry) => entry.id))
+      .toEqual([newer.id, older.id]);
+
+    const updated = await firmware.update(older.id, { version: "13.2" });
+    expect(updated.version).toBe("13.2");
+
+    expect(await firmware.delete(newer.id)).toBe(true);
+    expect(await firmware.get(newer.id)).toBeNull();
+    expect((await firmware.list({ boardId: board.id })).map((entry) => entry.id))
+      .toEqual([older.id]);
   });
 
   it("stores app settings", async () => {
