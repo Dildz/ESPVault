@@ -2,6 +2,14 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## 2.1.2 - 2026-06-30
+
+### Changed
+
+- Projects with no cover photo now show the same camera placeholder icon as
+  boards, instead of a separate empty state.
+- The app icon now has a transparent background.
+
 ## 2.1.1 - 2026-06-30
 
 ### Added
