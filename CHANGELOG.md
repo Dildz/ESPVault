@@ -2,6 +2,15 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## 2.1.1 - 2026-06-30
+
+### Added
+
+- Pin layout now flags each pin's special chip role — strapping, flash, input-only,
+  and USB — with a warning marker and tooltip, so you don't accidentally reuse a
+  boot-critical pin. Roles are derived from your board's detected chip family.
+- Added the Waveshare ESP32-C6-LCD-1.47 to the board model picker.
+
 ## 2.1.0 - 2026-06-30
 
 ### Added
