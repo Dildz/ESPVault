@@ -7,6 +7,9 @@ const props = defineProps<{
   pins: PinoutPin[];
   imageUrl: string | null;
   assignments?: PinAssignment[];
+  // GPIO numbers that exist on the board's chip; pins not listed are dimmed.
+  // null/undefined = dim nothing (e.g. a specific board image, or unknown chip).
+  validGpios?: number[] | null;
   editable?: boolean;
 }>();
 
@@ -26,6 +29,14 @@ const FUNCTION_PRESETS = [
   "Power +",
   "Power −"
 ];
+
+const validGpioSet = computed(() =>
+  props.validGpios ? new Set(props.validGpios) : null
+);
+
+function isUnavailable(pin: PinoutPin): boolean {
+  return validGpioSet.value ? !validGpioSet.value.has(pin.gpioid) : false;
+}
 
 const assignmentByGpio = computed(() => {
   const map = new Map<string, PinAssignment>();
@@ -119,9 +130,10 @@ function clearAndClose(): void {
         v-for="pin in pins"
         :key="pin.gpioid"
         class="pin-marker"
-        :class="
-          pin.valueJustify === 0 ? 'pin-marker--right' : 'pin-marker--left'
-        "
+        :class="[
+          pin.valueJustify === 0 ? 'pin-marker--right' : 'pin-marker--left',
+          { 'pin-marker--unavailable': isUnavailable(pin) }
+        ]"
         :style="{ top: `${pin.top}%`, left: `${pin.left}%` }"
       >
         <span
@@ -143,7 +155,11 @@ function clearAndClose(): void {
                 'pin-chip--assigned': isAssigned(pin),
                 'pin-chip--editable': editable
               }"
-              :title="assignmentFor(pin)?.notes ?? undefined"
+              :title="
+                isUnavailable(pin)
+                  ? 'Not available on this board\'s chip'
+                  : (assignmentFor(pin)?.notes ?? undefined)
+              "
             >
               <span class="pin-gpio">GPIO{{ pin.gpioid }}</span>
               <span v-if="displayName(pin)" class="pin-name">
@@ -234,6 +250,11 @@ function clearAndClose(): void {
 .pin-marker--left {
   flex-direction: row-reverse;
   transform: translate(-100%, -50%);
+}
+
+/* Pin doesn't exist on this board's chip (generic layout only). */
+.pin-marker--unavailable {
+  opacity: 0.35;
 }
 
 .pin-dot {

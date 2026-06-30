@@ -24,6 +24,7 @@ import {
   loadPinoutPins,
   pinoutImageUrl,
   sortModelNamesByChip,
+  validGpioNumbers,
   type PinoutPin
 } from "../utils/pinoutAssets";
 import { useBoardStore } from "../stores/boardStore";
@@ -135,6 +136,13 @@ const pinoutModelOptions = computed(() =>
     listPinoutBoards().map((board) => board.name),
     selectedBoard.value?.chipModel ?? null
   )
+);
+// Dim non-existent pins only on the generic layout — specific board images
+// already draw just the pins that board has. null = don't dim (unknown chip).
+const pinoutValidGpios = computed(() =>
+  pinoutBoard.value.name === GENERIC_BOARD_NAME
+    ? validGpioNumbers(selectedBoard.value?.chipModel ?? null)
+    : null
 );
 const selectedPinoutModel = computed({
   get: () => selectedBoard.value?.pinoutModel ?? GENERIC_BOARD_NAME,
@@ -1546,6 +1554,7 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
               :pins="pinoutPins"
               :image-url="pinoutImage"
               :assignments="boardAssignments"
+              :valid-gpios="pinoutValidGpios"
               editable
               @set="setPin"
             />

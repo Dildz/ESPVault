@@ -98,6 +98,34 @@ export function sortModelNamesByChip(
   return [...generic, ...matches, ...others];
 }
 
+function range(start: number, end: number): number[] {
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
+// GPIO numbers that physically exist per ESP chip family, following ESP-IDF SOC
+// GPIO availability. Used only on the GENERIC layout to dim pins the board's chip
+// doesn't have (specific board images already show only real pins). Hand-edit if
+// a family's range is off — this is a calibration table, not derived data.
+const VALID_GPIOS_BY_FAMILY: Record<string, number[]> = {
+  ESP32: [...range(0, 19), 21, 22, 23, 25, 26, 27, ...range(32, 39)],
+  S2: [...range(0, 21), ...range(26, 46)],
+  S3: [...range(0, 21), ...range(26, 48)],
+  C2: range(0, 20),
+  C3: range(0, 21),
+  C5: range(0, 28),
+  C6: range(0, 30),
+  H2: range(0, 27),
+  P4: range(0, 54),
+  ESP8266: range(0, 16)
+};
+
+// Valid GPIO numbers for a board's chip, or null when the chip is unknown (in
+// which case nothing should be dimmed).
+export function validGpioNumbers(chipModel: string | null): number[] | null {
+  const token = chipFamilyToken(chipModel);
+  return token ? VALID_GPIOS_BY_FAMILY[token] ?? null : null;
+}
+
 export async function loadPinoutPins(
   entry: PinoutBoardEntry
 ): Promise<PinoutPin[]> {

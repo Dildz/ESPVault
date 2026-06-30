@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   GENERIC_BOARD_NAME,
   chipFamilyToken,
-  sortModelNamesByChip
+  sortModelNamesByChip,
+  validGpioNumbers
 } from "./pinoutAssets";
 
 describe("chipFamilyToken", () => {
@@ -47,5 +48,25 @@ describe("sortModelNamesByChip", () => {
 
   it("leaves order untouched for an unknown chip", () => {
     expect(sortModelNamesByChip(names, null)).toEqual(names);
+  });
+});
+
+describe("validGpioNumbers", () => {
+  it("returns the chip's existing GPIOs", () => {
+    const c3 = validGpioNumbers("ESP32-C3");
+    expect(c3).toContain(21);
+    expect(c3).not.toContain(22);
+  });
+
+  it("excludes gaps in the classic ESP32 range", () => {
+    const esp32 = validGpioNumbers("ESP32-D0WDQ6");
+    expect(esp32).toContain(23);
+    expect(esp32).not.toContain(24);
+    expect(esp32).not.toContain(20);
+  });
+
+  it("returns null for an unknown chip", () => {
+    expect(validGpioNumbers(null)).toBeNull();
+    expect(validGpioNumbers("RP2040")).toBeNull();
   });
 });
