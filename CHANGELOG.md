@@ -2,6 +2,24 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## 2.1.0 - 2026-06-30
+
+### Added
+
+- Pin layout viewer: open a board to see an interactive pinout and label what
+  each GPIO is wired to in your build. Pick your exact board model for a matching
+  image (57 boards, with models for your scanned chip floated to the top), or use
+  the generic layout. Each pin can hold a label, a function (with presets like
+  LED, sensor, or power), and notes. Assignments save per board and are included
+  in backups.
+- On the generic layout, GPIOs that don't exist on the board's chip are dimmed.
+- Boards can now have tags — add and remove freeform chips in the board detail to
+  group and find boards your own way.
+
+### Changed
+
+- The app window now opens maximized by default.
+
 ## 2.0.4 - 2026-06-29
 
 ### Added
