@@ -126,6 +126,58 @@ export function validGpioNumbers(chipModel: string | null): number[] | null {
   return token ? VALID_GPIOS_BY_FAMILY[token] ?? null : null;
 }
 
+interface FamilyPinRoles {
+  strapping: number[];
+  inputOnly: number[];
+  flash: number[];
+  usb: number[];
+}
+
+// Special-role GPIOs per ESP chip family, from the Espressif ESP-IDF GPIO docs
+// (and the ESP8266 datasheet / ESP32-P4 chip datasheet). These are silicon facts
+// — true on every board carrying the chip — used for read-only warning hints, not
+// per-board wiring. Conservative where the datasheet range is board-dependent:
+//   - ESP32 flash excludes 16/17 (PSRAM only on WROVER; WROOM uses them freely).
+//   - ESP32-S3 flash capped at 26-32 (33-37 are octal-only).
+//   - ESP32-P4 has no flash/PSRAM GPIOs — flash is on dedicated pins, PSRAM is
+//     in-package.
+const PIN_ROLES_BY_FAMILY: Record<string, FamilyPinRoles> = {
+  ESP32: { strapping: [0, 2, 5, 12, 15], inputOnly: range(34, 39), flash: range(6, 11), usb: [] },
+  S2: { strapping: [0, 45, 46], inputOnly: [46], flash: range(26, 32), usb: [19, 20] },
+  S3: { strapping: [0, 3, 45, 46], inputOnly: [], flash: range(26, 32), usb: [19, 20] },
+  C2: { strapping: [8, 9], inputOnly: [], flash: range(12, 17), usb: [] },
+  C3: { strapping: [2, 8, 9], inputOnly: [], flash: range(12, 17), usb: [18, 19] },
+  C5: { strapping: [2, 7, 25, 27, 28], inputOnly: [], flash: range(16, 22), usb: [13, 14] },
+  C6: { strapping: [4, 5, 8, 9, 15], inputOnly: [], flash: range(24, 30), usb: [12, 13] },
+  H2: { strapping: [2, 3, 8, 9, 25], inputOnly: [], flash: range(15, 21), usb: [26, 27] },
+  P4: { strapping: range(34, 38), inputOnly: [], flash: [], usb: [24, 25, 26, 27] },
+  ESP8266: { strapping: [0, 2, 15], inputOnly: [], flash: range(6, 11), usb: [] }
+};
+
+// Maps each GPIO to its special-role labels for a board's chip (e.g. 0 ->
+// ["Strapping"], 46 -> ["Strapping", "Input-only"]). Empty when the chip is
+// unknown.
+export function pinRolesForChip(
+  chipModel: string | null
+): Record<number, string[]> {
+  const token = chipFamilyToken(chipModel);
+  const roles = token ? PIN_ROLES_BY_FAMILY[token] : null;
+  if (!roles) {
+    return {};
+  }
+  const map: Record<number, string[]> = {};
+  const add = (gpios: number[], label: string): void => {
+    for (const gpio of gpios) {
+      (map[gpio] ??= []).push(label);
+    }
+  };
+  add(roles.strapping, "Strapping");
+  add(roles.inputOnly, "Input-only");
+  add(roles.flash, "Flash");
+  add(roles.usb, "USB");
+  return map;
+}
+
 export async function loadPinoutPins(
   entry: PinoutBoardEntry
 ): Promise<PinoutPin[]> {

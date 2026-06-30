@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GENERIC_BOARD_NAME,
   chipFamilyToken,
+  pinRolesForChip,
   sortModelNamesByChip,
   validGpioNumbers
 } from "./pinoutAssets";
@@ -68,5 +69,31 @@ describe("validGpioNumbers", () => {
   it("returns null for an unknown chip", () => {
     expect(validGpioNumbers(null)).toBeNull();
     expect(validGpioNumbers("RP2040")).toBeNull();
+  });
+});
+
+describe("pinRolesForChip", () => {
+  it("labels strapping, flash, and input-only pins", () => {
+    const esp32 = pinRolesForChip("ESP32-D0WDQ6");
+    expect(esp32[0]).toEqual(["Strapping"]);
+    expect(esp32[6]).toEqual(["Flash"]);
+    expect(esp32[34]).toEqual(["Input-only"]);
+  });
+
+  it("stacks multiple roles on one pin", () => {
+    // ESP32-S2 GPIO46 is both a strapping pin and input-only.
+    expect(pinRolesForChip("ESP32-S2")[46]).toEqual(["Strapping", "Input-only"]);
+  });
+
+  it("labels USB pins and has no flash GPIOs on P4", () => {
+    const c3 = pinRolesForChip("ESP32-C3");
+    expect(c3[18]).toEqual(["USB"]);
+    const p4 = pinRolesForChip("ESP32-P4");
+    expect(p4[24]).toEqual(["USB"]);
+    expect(Object.values(p4).flat()).not.toContain("Flash");
+  });
+
+  it("returns an empty map for an unknown chip", () => {
+    expect(pinRolesForChip(null)).toEqual({});
   });
 });

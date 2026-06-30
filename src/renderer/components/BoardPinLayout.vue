@@ -10,6 +10,8 @@ const props = defineProps<{
   // GPIO numbers that exist on the board's chip; pins not listed are dimmed.
   // null/undefined = dim nothing (e.g. a specific board image, or unknown chip).
   validGpios?: number[] | null;
+  // gpio -> special-role labels (Strapping/Flash/Input-only/USB) for the chip.
+  pinRoles?: Record<number, string[]>;
   editable?: boolean;
 }>();
 
@@ -36,6 +38,27 @@ const validGpioSet = computed(() =>
 
 function isUnavailable(pin: PinoutPin): boolean {
   return validGpioSet.value ? !validGpioSet.value.has(pin.gpioid) : false;
+}
+
+function rolesFor(pin: PinoutPin): string[] {
+  return props.pinRoles?.[pin.gpioid] ?? [];
+}
+
+// Combined hover hint: chip availability, special roles, then the user's notes.
+function chipTitle(pin: PinoutPin): string | undefined {
+  const parts: string[] = [];
+  if (isUnavailable(pin)) {
+    parts.push("Not available on this board's chip");
+  }
+  const roles = rolesFor(pin);
+  if (roles.length) {
+    parts.push(`${roles.join(", ")} pin`);
+  }
+  const notes = assignmentFor(pin)?.notes;
+  if (notes) {
+    parts.push(notes);
+  }
+  return parts.length ? parts.join(" • ") : undefined;
 }
 
 const assignmentByGpio = computed(() => {
@@ -155,12 +178,14 @@ function clearAndClose(): void {
                 'pin-chip--assigned': isAssigned(pin),
                 'pin-chip--editable': editable
               }"
-              :title="
-                isUnavailable(pin)
-                  ? 'Not available on this board\'s chip'
-                  : (assignmentFor(pin)?.notes ?? undefined)
-              "
+              :title="chipTitle(pin)"
             >
+              <v-icon
+                v-if="rolesFor(pin).length"
+                class="pin-role-icon"
+                icon="mdi-alert-outline"
+                size="x-small"
+              />
               <span class="pin-gpio">GPIO{{ pin.gpioid }}</span>
               <span v-if="displayName(pin)" class="pin-name">
                 {{ displayName(pin) }}
@@ -171,6 +196,10 @@ function clearAndClose(): void {
           <v-card class="pin-edit" min-width="280">
             <div class="pin-edit-title text-caption muted">
               GPIO{{ pin.gpioid }}
+            </div>
+            <div v-if="rolesFor(pin).length" class="pin-edit-roles text-caption">
+              <v-icon icon="mdi-alert-outline" size="x-small" />
+              {{ rolesFor(pin).join(", ") }} pin — check the datasheet before use
             </div>
             <v-text-field
               v-model="draft.label"
@@ -304,6 +333,17 @@ function clearAndClose(): void {
 .pin-detail-dot {
   color: rgb(var(--v-theme-primary));
   font-weight: 700;
+}
+
+.pin-role-icon {
+  color: rgb(var(--v-theme-warning));
+}
+
+.pin-edit-roles {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: rgb(var(--v-theme-warning));
 }
 
 .pin-edit {

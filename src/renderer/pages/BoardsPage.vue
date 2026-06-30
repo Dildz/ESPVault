@@ -23,6 +23,7 @@ import {
   listPinoutBoards,
   loadPinoutPins,
   pinoutImageUrl,
+  pinRolesForChip,
   sortModelNamesByChip,
   validGpioNumbers,
   type PinoutPin
@@ -143,6 +144,11 @@ const pinoutValidGpios = computed(() =>
   pinoutBoard.value.name === GENERIC_BOARD_NAME
     ? validGpioNumbers(selectedBoard.value?.chipModel ?? null)
     : null
+);
+// Special-role hints (strapping/flash/input-only/USB) are chip facts, so they
+// apply on every layout, not just the generic one.
+const pinoutRoles = computed(() =>
+  pinRolesForChip(selectedBoard.value?.chipModel ?? null)
 );
 const selectedPinoutModel = computed({
   get: () => selectedBoard.value?.pinoutModel ?? GENERIC_BOARD_NAME,
@@ -1555,6 +1561,7 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
               :image-url="pinoutImage"
               :assignments="boardAssignments"
               :valid-gpios="pinoutValidGpios"
+              :pin-roles="pinoutRoles"
               editable
               @set="setPin"
             />
