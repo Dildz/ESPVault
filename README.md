@@ -22,6 +22,7 @@ I get it working again?"
 ## What You Can Do
 
 - Keep a local inventory of ESP boards.
+- Tag boards with freeform labels to group and find them your own way.
 - Search boards and projects from the app header.
 - Use dashboard charts to understand board status, memory, projects, and flash
   layouts.
@@ -42,6 +43,8 @@ I get it working again?"
 - See project health, assigned boards, board status, hardware metadata, and
   locations in one place.
 - Add cover images to board and project records.
+- View an interactive pin layout for a board: pick the exact board model, label
+  what each GPIO is wired to, and add a function and notes per pin.
 - Open curated ESP32 maker tools from inside the app.
 - Export a local backup and import it later.
 - Choose from multiple light and dark color themes.
