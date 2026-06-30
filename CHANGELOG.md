@@ -109,7 +109,15 @@ First release of the customized fork (`Dildz/ESPVault`).
 - In-app "Buy Me a Coffee" support link.
 - Orphaned scan-success event.
 
-## 1.0.28 - Unreleased
+## 1.0.29
+
+### Fixed
+
+- Fixed missing Linux desktop panel icons ([#5](https://github.com/thelastoutpostworkshop/ESPVault/issues/5)).
+- Hide legacy Linux `/dev/ttyS*` ports by default in the serial picker while
+  keeping them available behind a toggle ([#6](https://github.com/thelastoutpostworkshop/ESPVault/issues/6)).
+
+## 1.0.28
 
 ### Fixed
 
