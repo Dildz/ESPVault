@@ -1,0 +1,19 @@
+{
+  "pins": [
+    { "gpioid": 16, "top": 34.4, "left": 88, "valueJustify": 0 },
+    { "gpioid": 17, "top": 41.0, "left": 88, "valueJustify": 0 },
+    { "gpioid": 13, "top": 47.6, "left": 88, "valueJustify": 0 },
+    { "gpioid": 12, "top": 54.2, "left": 88, "valueJustify": 0 },
+    { "gpioid": 23, "top": 60.8, "left": 88, "valueJustify": 0 },
+    { "gpioid": 20, "top": 67.4, "left": 88, "valueJustify": 0 },
+    { "gpioid": 19, "top": 74.0, "left": 88, "valueJustify": 0 },
+    { "gpioid": 18, "top": 80.6, "left": 88, "valueJustify": 0 },
+    { "gpioid": 9, "top": 87.2, "left": 88, "valueJustify": 0 },
+    { "gpioid": 0, "top": 54.2, "left": 12, "valueJustify": -1 },
+    { "gpioid": 1, "top": 60.8, "left": 12, "valueJustify": -1 },
+    { "gpioid": 2, "top": 67.4, "left": 12, "valueJustify": -1 },
+    { "gpioid": 3, "top": 74.0, "left": 12, "valueJustify": -1 },
+    { "gpioid": 4, "top": 80.6, "left": 12, "valueJustify": -1 },
+    { "gpioid": 5, "top": 87.2, "left": 12, "valueJustify": -1 }
+  ]
+}

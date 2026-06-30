@@ -18,6 +18,17 @@ export interface PinoutPin {
 
 export const GENERIC_BOARD_NAME = "Generic View";
 
+// Hand-added boards not in the upstream GPIO Viewer set. Kept out of boards.json
+// so re-running scripts/vendor-pinouts.mjs (which overwrites boards.json) won't
+// drop them. Their image + indicator JSON live in the asset dirs like the rest.
+const CUSTOM_PINOUT_BOARDS: PinoutBoardEntry[] = [
+  {
+    name: "Waveshare ESP32-C6-LCD-1.47",
+    image: "devboards_images/Waveshare-ESP32-C6-LCD-1.47.png",
+    pins: "indicators/Waveshare-ESP32-C6-LCD-1.47.json"
+  }
+];
+
 const pinFiles = import.meta.glob<{ pins: PinoutPin[] }>(
   "../assets/pinouts/indicators/*.json"
 );
@@ -31,7 +42,7 @@ function assetKey(relativePath: string): string {
 }
 
 export function listPinoutBoards(): PinoutBoardEntry[] {
-  return boardsIndex as PinoutBoardEntry[];
+  return [...(boardsIndex as PinoutBoardEntry[]), ...CUSTOM_PINOUT_BOARDS];
 }
 
 export function getPinoutBoard(name: string | null | undefined): PinoutBoardEntry {
