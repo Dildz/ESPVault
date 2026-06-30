@@ -15,6 +15,7 @@ import {
   type ProjectChecklistItem,
   type ProjectStatus
 } from "../../shared/types/inventory";
+import EmptyPhotoIcon from "../components/EmptyPhotoIcon.vue";
 import {
   BOARD_STATUS_COLORS,
   BOARD_STATUS_ICONS,
@@ -1396,7 +1397,7 @@ async function readCoverImageFile(file: File): Promise<CoverImageFileInput> {
                 </template>
               </v-tooltip>
               <div v-if="!coverImageDataUrl" class="project-cover-placeholder">
-                <v-icon icon="mdi-image-plus-outline" size="34" color="primary" />
+                <EmptyPhotoIcon />
                 <div class="text-caption muted mt-1">No project photo</div>
               </div>
             </div>
