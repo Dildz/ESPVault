@@ -12,6 +12,8 @@ import type {
 } from "../../shared/types/api";
 import { readChipMetadata, type ChipMetadata } from "./chipMetadata";
 import { readBoardPartitionTable } from "./espPartitionScanner";
+import { formatBytes } from "../utils/boardDisplay";
+import { formatHex } from "../utils/formatHex";
 
 type ScannerLogLevel = "log" | "debug" | "error";
 
@@ -558,20 +560,6 @@ function normalizeFlashSizeLabel(value: string | null | undefined): string | nul
   return label ? label : null;
 }
 
-function formatBytes(value: number): string {
-  if (value < 1024 * 1024) {
-    const kilobytes = value / 1024;
-    return Number.isInteger(kilobytes)
-      ? `${kilobytes} KB`
-      : `${kilobytes.toFixed(1)} KB`;
-  }
-
-  const megabytes = value / 1024 / 1024;
-  return Number.isInteger(megabytes)
-    ? `${megabytes} MB`
-    : `${megabytes.toFixed(1)} MB`;
-}
-
 function isValidMacAddress(value: string | null): boolean {
   const normalized = value?.trim().toUpperCase();
   return Boolean(
@@ -618,14 +606,6 @@ function emptySecurityInfo(): SecurityInfo {
     secureBootEnabled: null,
     flashEncryptionEnabled: null
   };
-}
-
-function formatHex(value: number | null, bytes: number): string | null {
-  if (value === null) {
-    return null;
-  }
-
-  return `0x${value.toString(16).toUpperCase().padStart(bytes * 2, "0")}`;
 }
 
 function hasOddBitCount(value: number): boolean {

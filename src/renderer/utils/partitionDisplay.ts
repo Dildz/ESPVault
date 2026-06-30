@@ -1,6 +1,7 @@
 import type { Board } from "../../shared/types/board";
 import type { BoardPartition } from "../../shared/types/partition";
 import { formatBytes } from "./boardDisplay";
+import { formatHex } from "./formatHex";
 
 export interface PartitionMapSegment {
   key: string;
@@ -393,8 +394,4 @@ function normalizePartitionColorKey(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
-}
-
-function formatHex(value: number, bytes: number): string {
-  return `0x${value.toString(16).toUpperCase().padStart(bytes * 2, "0")}`;
 }

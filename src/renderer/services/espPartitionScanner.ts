@@ -3,6 +3,7 @@ import type {
   BoardPartition,
   BoardPartitionFilesystem
 } from "../../shared/types/partition";
+import { formatHex } from "../utils/formatHex";
 
 export interface PartitionTableScanResult {
   partitions: BoardPartition[] | null;
@@ -226,10 +227,6 @@ function inferFilesystem(
   }
 
   return null;
-}
-
-function formatHex(value: number, bytes: number): string {
-  return `0x${value.toString(16).toUpperCase().padStart(bytes * 2, "0")}`;
 }
 
 function getErrorMessage(error: unknown): string {
