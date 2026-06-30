@@ -35,11 +35,10 @@ const boardsRaw = await download("boards.json");
 await save("boards.json", boardsRaw);
 const boards = JSON.parse(boardsRaw.toString("utf8"));
 
-// Pin-coordinate JSON for every board is tiny (~256KB total) so bundle it all.
-// Board photos average ~1MB each (54MB for all 57), so for now only the generic
-// board image is bundled — it is the default layout for any board. Curated /
-// downscaled specific board images are added when the model picker lands.
-const bundleImage = (relativePath) => relativePath.endsWith("generic.png");
+// Bundle every board's pin-coordinate JSON (~256KB total) and every board photo.
+// The photos total ~54MB raw and are committed as-is so the model picker can show
+// each board's real image fully offline (no resize/recompress, no extra deps).
+const bundleImage = () => true;
 
 let bytes = 0;
 let ok = 0;

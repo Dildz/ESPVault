@@ -76,6 +76,7 @@ export class DexieBoardRepository implements BoardRepository {
       partitionTableReadError: this.optionalText(input.partitionTableReadError),
       boardType: this.optionalText(input.boardType),
       manufacturer: this.optionalText(input.manufacturer),
+      pinoutModel: this.optionalText(input.pinoutModel),
       purchaseUrl: this.optionalText(input.purchaseUrl),
       physicalLocation: this.optionalText(input.physicalLocation),
       projectId: this.optionalText(input.projectId),
@@ -269,6 +270,10 @@ export class DexieBoardRepository implements BoardRepository {
         input.manufacturer === undefined
           ? existing.manufacturer
           : this.optionalText(input.manufacturer),
+      pinoutModel:
+        input.pinoutModel === undefined
+          ? existing.pinoutModel
+          : this.optionalText(input.pinoutModel),
       purchaseUrl:
         input.purchaseUrl === undefined
           ? existing.purchaseUrl
@@ -423,6 +428,7 @@ export class DexieBoardRepository implements BoardRepository {
       partitionTableOffsetHex: board.partitionTableOffsetHex ?? null,
       partitionsDetectedAt: board.partitionsDetectedAt ?? null,
       partitionTableReadError: board.partitionTableReadError ?? null,
+      pinoutModel: board.pinoutModel ?? null,
       lastScannedAt: board.lastScannedAt ?? null
     };
   }

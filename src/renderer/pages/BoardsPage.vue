@@ -18,7 +18,9 @@ import type {
 import BoardEditorDialog from "../components/BoardEditorDialog.vue";
 import BoardPinLayout from "../components/BoardPinLayout.vue";
 import {
+  GENERIC_BOARD_NAME,
   getPinoutBoard,
+  listPinoutBoards,
   loadPinoutPins,
   pinoutImageUrl,
   type PinoutPin
@@ -116,10 +118,21 @@ const firmwareForm = reactive({
 });
 const newTag = ref("");
 
-// Phase 3: read-only preview of the generic pin layout (the universal default).
-const pinoutBoard = getPinoutBoard(null);
-const pinoutImage = pinoutImageUrl(pinoutBoard);
+// Pin layout: the chosen GPIO Viewer model for the selected board (its
+// pinoutModel, or the generic layout when unset). Image + pin coordinates swap
+// together when the model changes.
 const pinoutPins = ref<PinoutPin[]>([]);
+const pinoutBoard = computed(() =>
+  getPinoutBoard(selectedBoard.value?.pinoutModel ?? null)
+);
+const pinoutImage = computed(() => pinoutImageUrl(pinoutBoard.value));
+const pinoutModelOptions = listPinoutBoards().map((board) => board.name);
+const selectedPinoutModel = computed({
+  get: () => selectedBoard.value?.pinoutModel ?? GENERIC_BOARD_NAME,
+  set: (value: string) => {
+    void setPinoutModel(value);
+  }
+});
 
 const filters = reactive<BoardFilters>({
   search: "",
@@ -256,10 +269,21 @@ const boardCoverPathKey = computed(() =>
 
 onMounted(() => {
   void Promise.all([boardStore.loadBoards(), projectStore.loadProjects()]);
-  void loadPinoutPins(pinoutBoard).then((pins) => {
-    pinoutPins.value = pins;
-  });
 });
+
+// Reload pin coordinates whenever the chosen model changes (keyed by the pins
+// file path); guard against an out-of-order resolve overwriting a newer pick.
+watch(
+  () => pinoutBoard.value.pins,
+  (pinsFile) => {
+    void loadPinoutPins(pinoutBoard.value).then((pins) => {
+      if (pinoutBoard.value.pins === pinsFile) {
+        pinoutPins.value = pins;
+      }
+    });
+  },
+  { immediate: true }
+);
 
 watch(
   filteredBoards,
@@ -428,6 +452,19 @@ async function addTag(): Promise<void> {
 
 async function deleteTag(tag: BoardTag): Promise<void> {
   await boardTagStore.deleteItem(tag.id);
+}
+
+async function setPinoutModel(value: string): Promise<void> {
+  if (!selectedBoard.value) {
+    return;
+  }
+
+  // Generic is the absence of a model, stored as null.
+  const pinoutModel = value === GENERIC_BOARD_NAME ? null : value;
+  if (pinoutModel === (selectedBoard.value.pinoutModel ?? null)) {
+    return;
+  }
+  await boardStore.updateBoard(selectedBoard.value.id, { pinoutModel });
 }
 
 async function setPinLabel(gpio: string, label: string): Promise<void> {
@@ -1472,8 +1509,18 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
           <div class="board-info-panel pin-layout-panel mt-5">
             <div class="section-title">Pin layout</div>
             <p class="text-caption muted mb-3">
-              Click a pin to label what it's wired to in your build.
+              Pick your board model for the matching pinout, then click a pin to
+              label what it's wired to in your build.
             </p>
+            <v-autocomplete
+              v-model="selectedPinoutModel"
+              :items="pinoutModelOptions"
+              label="Board model"
+              density="compact"
+              variant="outlined"
+              hide-details
+              class="pin-model-picker mb-3"
+            />
             <BoardPinLayout
               :pins="pinoutPins"
               :image-url="pinoutImage"
@@ -1623,6 +1670,10 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
 </template>
 
 <style scoped>
+.pin-model-picker {
+  max-width: 360px;
+}
+
 .metadata-mono {
   font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
   font-size: 0.8125rem;

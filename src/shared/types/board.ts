@@ -56,6 +56,9 @@ export interface Board {
   partitionTableReadError: string | null;
   boardType: string | null;
   manufacturer: string | null;
+  // GPIO Viewer board name (from boards.json) chosen for the pin layout image;
+  // null = generic layout.
+  pinoutModel: string | null;
   purchaseUrl: string | null;
   physicalLocation: string | null;
   projectId: string | null;
@@ -110,6 +113,7 @@ export interface CreateBoardInput {
   partitionTableReadError?: string | null;
   boardType?: string | null;
   manufacturer?: string | null;
+  pinoutModel?: string | null;
   purchaseUrl?: string | null;
   physicalLocation?: string | null;
   projectId?: string | null;
