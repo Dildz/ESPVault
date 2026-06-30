@@ -23,6 +23,7 @@ import {
   listPinoutBoards,
   loadPinoutPins,
   pinoutImageUrl,
+  sortModelNamesByChip,
   type PinoutPin
 } from "../utils/pinoutAssets";
 import { useBoardStore } from "../stores/boardStore";
@@ -126,7 +127,15 @@ const pinoutBoard = computed(() =>
   getPinoutBoard(selectedBoard.value?.pinoutModel ?? null)
 );
 const pinoutImage = computed(() => pinoutImageUrl(pinoutBoard.value));
-const pinoutModelOptions = listPinoutBoards().map((board) => board.name);
+// GPIO Viewer issue #81 asks for a chip-filtered picker; we already know the
+// scanned chip, so float models matching the board's chip family to the top
+// (soft sort — the full list stays reachable). Generic always leads.
+const pinoutModelOptions = computed(() =>
+  sortModelNamesByChip(
+    listPinoutBoards().map((board) => board.name),
+    selectedBoard.value?.chipModel ?? null
+  )
+);
 const selectedPinoutModel = computed({
   get: () => selectedBoard.value?.pinoutModel ?? GENERIC_BOARD_NAME,
   set: (value: string) => {
@@ -467,31 +476,43 @@ async function setPinoutModel(value: string): Promise<void> {
   await boardStore.updateBoard(selectedBoard.value.id, { pinoutModel });
 }
 
-async function setPinLabel(gpio: string, label: string): Promise<void> {
+async function setPin(
+  gpio: string,
+  value: { label: string; function: string; notes: string }
+): Promise<void> {
   if (!selectedBoard.value) {
     return;
   }
 
+  const label = value.label.trim() || null;
+  const fn = value.function.trim() || null;
+  const notes = value.notes.trim() || null;
   const existing = boardAssignments.value.find(
     (assignment) => assignment.gpio === gpio
   );
+
+  // Nothing left on the pin → drop the assignment entirely.
+  if (!label && !fn && !notes) {
+    if (existing) {
+      await pinAssignmentStore.deleteItem(existing.id);
+    }
+    return;
+  }
+
   if (existing) {
-    await pinAssignmentStore.updateItem(existing.id, { label });
+    await pinAssignmentStore.updateItem(existing.id, {
+      label,
+      function: fn,
+      notes
+    });
   } else {
     await pinAssignmentStore.createItem({
       boardId: selectedBoard.value.id,
       gpio,
-      label
+      label,
+      function: fn,
+      notes
     });
-  }
-}
-
-async function clearPinLabel(gpio: string): Promise<void> {
-  const existing = boardAssignments.value.find(
-    (assignment) => assignment.gpio === gpio
-  );
-  if (existing) {
-    await pinAssignmentStore.deleteItem(existing.id);
   }
 }
 
@@ -1526,8 +1547,7 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
               :image-url="pinoutImage"
               :assignments="boardAssignments"
               editable
-              @set="setPinLabel"
-              @clear="clearPinLabel"
+              @set="setPin"
             />
           </div>
         </v-card-text>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import type { PinAssignment } from "../../shared/types/inventory";
 import type { PinoutPin } from "../utils/pinoutAssets";
 
@@ -11,13 +11,21 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  set: [gpio: string, label: string];
-  clear: [gpio: string];
+  // An empty draft (all fields blank) means "remove this assignment".
+  set: [gpio: string, value: { label: string; function: string; notes: string }];
 }>();
 
-const vFocus = {
-  mounted: (el: HTMLInputElement) => el.focus()
-};
+// Component presets borrowed from GPIO Viewer issue #102 (LED, sensor, cable…);
+// v-combobox still lets you type anything else.
+const FUNCTION_PRESETS = [
+  "LED",
+  "RGB LED",
+  "Button",
+  "Sensor",
+  "Cable",
+  "Power +",
+  "Power −"
+];
 
 const assignmentByGpio = computed(() => {
   const map = new Map<string, PinAssignment>();
@@ -28,33 +36,75 @@ const assignmentByGpio = computed(() => {
 });
 
 const editingGpio = ref<string | null>(null);
-const draft = ref("");
+const draft = reactive({ label: "", function: "", notes: "" });
+let original = "";
 
-function labelFor(pin: PinoutPin): string | null {
-  return assignmentByGpio.value.get(String(pin.gpioid))?.label ?? null;
+function assignmentFor(pin: PinoutPin): PinAssignment | undefined {
+  return assignmentByGpio.value.get(String(pin.gpioid));
 }
 
-function startEdit(pin: PinoutPin): void {
-  if (!props.editable) {
+function displayName(pin: PinoutPin): string | null {
+  const assignment = assignmentFor(pin);
+  return assignment?.label || assignment?.function || null;
+}
+
+function isAssigned(pin: PinoutPin): boolean {
+  const assignment = assignmentFor(pin);
+  return Boolean(
+    assignment?.label || assignment?.function || assignment?.notes
+  );
+}
+
+function hasDetail(pin: PinoutPin): boolean {
+  const assignment = assignmentFor(pin);
+  return Boolean(assignment?.notes || assignment?.function);
+}
+
+function snapshot(): string {
+  return JSON.stringify({
+    label: draft.label,
+    function: draft.function,
+    notes: draft.notes
+  });
+}
+
+function openEdit(pin: PinoutPin): void {
+  const assignment = assignmentFor(pin);
+  draft.label = assignment?.label ?? "";
+  draft.function = assignment?.function ?? "";
+  draft.notes = assignment?.notes ?? "";
+  original = snapshot();
+  editingGpio.value = String(pin.gpioid);
+}
+
+function commitAndClose(): void {
+  const gpio = editingGpio.value;
+  if (!gpio) {
     return;
   }
-  editingGpio.value = String(pin.gpioid);
-  draft.value = labelFor(pin) ?? "";
-}
-
-function commitEdit(pin: PinoutPin): void {
-  const gpio = String(pin.gpioid);
-  const value = draft.value.trim();
-  const current = labelFor(pin) ?? "";
-
-  if (value !== current) {
-    if (value) {
-      emit("set", gpio, value);
-    } else {
-      emit("clear", gpio);
-    }
+  if (snapshot() !== original) {
+    emit("set", gpio, {
+      label: draft.label,
+      function: draft.function,
+      notes: draft.notes
+    });
   }
   editingGpio.value = null;
+}
+
+function onMenuToggle(pin: PinoutPin, open: boolean): void {
+  if (open) {
+    openEdit(pin);
+  } else {
+    commitAndClose();
+  }
+}
+
+function clearAndClose(): void {
+  draft.label = "";
+  draft.function = "";
+  draft.notes = "";
+  commitAndClose();
 }
 </script>
 
@@ -74,28 +124,75 @@ function commitEdit(pin: PinoutPin): void {
         "
         :style="{ top: `${pin.top}%`, left: `${pin.left}%` }"
       >
-        <span class="pin-dot" :class="{ 'pin-dot--assigned': labelFor(pin) }" />
-        <input
-          v-if="editable && editingGpio === String(pin.gpioid)"
-          v-model="draft"
-          v-focus
-          class="pin-input"
-          :placeholder="`GPIO${pin.gpioid}`"
-          @keyup.enter="commitEdit(pin)"
-          @blur="commitEdit(pin)"
-        >
         <span
-          v-else
-          class="pin-chip"
-          :class="{
-            'pin-chip--assigned': labelFor(pin),
-            'pin-chip--editable': editable
-          }"
-          @click="startEdit(pin)"
+          class="pin-dot"
+          :class="{ 'pin-dot--assigned': isAssigned(pin) }"
+        />
+        <v-menu
+          :model-value="editingGpio === String(pin.gpioid)"
+          :disabled="!editable"
+          :close-on-content-click="false"
+          location="bottom"
+          @update:model-value="(open) => onMenuToggle(pin, open)"
         >
-          <span class="pin-gpio">GPIO{{ pin.gpioid }}</span>
-          <span v-if="labelFor(pin)" class="pin-name">{{ labelFor(pin) }}</span>
-        </span>
+          <template #activator="{ props: menuProps }">
+            <span
+              v-bind="menuProps"
+              class="pin-chip"
+              :class="{
+                'pin-chip--assigned': isAssigned(pin),
+                'pin-chip--editable': editable
+              }"
+              :title="assignmentFor(pin)?.notes ?? undefined"
+            >
+              <span class="pin-gpio">GPIO{{ pin.gpioid }}</span>
+              <span v-if="displayName(pin)" class="pin-name">
+                {{ displayName(pin) }}
+              </span>
+              <span v-if="hasDetail(pin)" class="pin-detail-dot">•</span>
+            </span>
+          </template>
+          <v-card class="pin-edit" min-width="280">
+            <div class="pin-edit-title text-caption muted">
+              GPIO{{ pin.gpioid }}
+            </div>
+            <v-text-field
+              v-model="draft.label"
+              label="Label"
+              placeholder="e.g. SCL, relay 1"
+              density="compact"
+              variant="outlined"
+              hide-details
+              autofocus
+              @keyup.enter="commitAndClose"
+            />
+            <v-combobox
+              v-model="draft.function"
+              :items="FUNCTION_PRESETS"
+              label="Function"
+              density="compact"
+              variant="outlined"
+              hide-details
+            />
+            <v-textarea
+              v-model="draft.notes"
+              label="Notes"
+              rows="2"
+              auto-grow
+              density="compact"
+              variant="outlined"
+              hide-details
+            />
+            <div class="pin-edit-actions">
+              <v-btn size="small" variant="text" @click="clearAndClose">
+                Clear
+              </v-btn>
+              <v-btn size="small" color="primary" @click="commitAndClose">
+                Done
+              </v-btn>
+            </div>
+          </v-card>
+        </v-menu>
       </div>
     </div>
   </div>
@@ -167,7 +264,7 @@ function commitEdit(pin: PinoutPin): void {
 }
 
 .pin-chip--editable {
-  cursor: text;
+  cursor: pointer;
 }
 
 .pin-chip--assigned {
@@ -183,15 +280,24 @@ function commitEdit(pin: PinoutPin): void {
   color: rgb(var(--v-theme-primary));
 }
 
-.pin-input {
-  width: 96px;
-  padding: 1px 6px;
-  font-size: 0.7rem;
-  line-height: 1.4;
-  border: 1px solid rgb(var(--v-theme-primary));
-  border-radius: 6px;
-  background: rgb(var(--v-theme-surface));
-  color: rgb(var(--v-theme-on-surface));
-  outline: none;
+.pin-detail-dot {
+  color: rgb(var(--v-theme-primary));
+  font-weight: 700;
+}
+
+.pin-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.pin-edit-title {
+  font-weight: 600;
+}
+
+.pin-edit-actions {
+  display: flex;
+  justify-content: space-between;
 }
 </style>
