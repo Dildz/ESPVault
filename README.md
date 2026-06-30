@@ -44,7 +44,9 @@ I get it working again?"
   locations in one place.
 - Add cover images to board and project records.
 - View an interactive pin layout for a board: pick the exact board model, label
-  what each GPIO is wired to, and add a function and notes per pin.
+  what each GPIO is wired to, and add a function and notes per pin. The pinout
+  images and layout data are adapted from the GPIO Viewer project; here they are
+  a static reference for labelling, not a live view of pin state.
 - Open curated ESP32 maker tools from inside the app.
 - Export a local backup and import it later.
 - Choose from multiple light and dark color themes.
