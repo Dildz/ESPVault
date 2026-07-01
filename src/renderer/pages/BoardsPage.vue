@@ -34,6 +34,8 @@ import { useBoardTagStore } from "../stores/boardTagStore";
 import { useFirmwareHistoryStore } from "../stores/firmwareHistoryStore";
 import { usePinAssignmentStore } from "../stores/pinAssignmentStore";
 import { useProjectStore } from "../stores/projectStore";
+import { scanEspBoard } from "../services/espBoardScanner";
+import { buildBoardUpdateInput } from "../services/boardScanMerge";
 import { isHttpUrl } from "../utils/projectLinks";
 import {
   BOARD_STATUS_COLORS,
@@ -98,6 +100,9 @@ const editorOpen = ref(false);
 const editingBoard = ref<Board | null>(null);
 const deletingBoard = ref<Board | null>(null);
 const saving = ref(false);
+const rescanBusy = ref(false);
+const scanNotice = ref<string | null>(null);
+const scanNoticeError = ref(false);
 const openedBoardId = ref<string | null>(null);
 const selectedBoardId = ref<string | null>(null);
 const boardCoverError = ref<string | null>(null);
@@ -489,6 +494,34 @@ async function setPinoutModel(value: string): Promise<void> {
     return;
   }
   await boardStore.updateBoard(selectedBoard.value.id, { pinoutModel });
+}
+
+// Scan a connected device and apply its detected hardware to THIS board.
+// Fills chip/flash/security/partition fields; leaves name, photo, links, notes
+// and tags untouched. Works for manual entries (no MAC) and as a re-scan.
+async function rescanBoardFromDevice(): Promise<void> {
+  const board = selectedBoard.value;
+  if (!board || rescanBusy.value) {
+    return;
+  }
+
+  rescanBusy.value = true;
+  scanNotice.value = null;
+
+  try {
+    const detected = await scanEspBoard();
+    await boardStore.updateBoard(board.id, buildBoardUpdateInput(detected, board));
+    scanNoticeError.value = false;
+    scanNotice.value = `${board.name} updated from scan data.`;
+  } catch (caughtError) {
+    scanNoticeError.value = true;
+    scanNotice.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The board scan could not be completed.";
+  } finally {
+    rescanBusy.value = false;
+  }
 }
 
 async function setPin(
@@ -1025,6 +1058,16 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
               >
                 {{ BOARD_STATUS_LABELS[selectedBoard.status] }}
               </v-chip>
+              <v-btn
+                icon="mdi-radar"
+                size="small"
+                variant="text"
+                color="primary"
+                aria-label="Scan board from device"
+                title="Scan a connected device and fill in this board's hardware details"
+                :loading="rescanBusy"
+                @click="rescanBoardFromDevice"
+              />
               <v-btn
                 icon="mdi-pencil"
                 size="small"
@@ -1693,6 +1736,15 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <v-snackbar
+      :model-value="Boolean(scanNotice)"
+      :color="scanNoticeError ? 'error' : 'success'"
+      :timeout="4000"
+      @update:model-value="scanNotice = null"
+    >
+      {{ scanNotice }}
+    </v-snackbar>
   </section>
 </template>
 
