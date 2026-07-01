@@ -2,6 +2,21 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## 2.1.3 - 2026-07-01
+
+### Added
+
+- Scan a connected device straight into an existing board. A new scan button on
+  the board detail fills in the chip, flash, security, and partition details from
+  the device while leaving your name, photo, links, notes, and tags untouched.
+  Works for boards you added by hand and as a re-scan of a board you own.
+
+### Fixed
+
+- Missing Linux desktop panel icons (from upstream).
+- Legacy Linux `/dev/ttyS*` serial ports are now hidden by default in the port
+  picker, with a toggle to show them (from upstream).
+
 ## 2.1.2 - 2026-06-30
 
 ### Changed
