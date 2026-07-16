@@ -35,6 +35,7 @@ import type {
 import {
   isLegacyLinuxTtyPort,
   isPreferredSerialPort,
+  isReservedSerialPort,
   shouldHideLegacyLinuxTtyPortsByDefault,
   type SelectableSerialPort
 } from "./serialPorts";
@@ -44,6 +45,7 @@ import { registerUpdaterHandlers } from "./updater";
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const SERIAL_SELECTION_CHANNEL = "serial:get-last-selection";
 const SERIAL_SELECTION_COUNT_CHANNEL = "serial:get-last-selection-count";
+const SERIAL_SET_RESERVED_PORT_NAMES_CHANNEL = "serial:set-reserved-port-names";
 const APP_GET_VERSION_CHANNEL = "app:get-version";
 const CLIPBOARD_WRITE_TEXT_CHANNEL = "clipboard:write-text";
 const DATABASE_CHANGE_LOCATION_CHANNEL = "database:change-location";
@@ -58,6 +60,7 @@ const SHELL_OPEN_EXTERNAL_CHANNEL = "shell:open-external";
 const SHELL_OPEN_PATH_CHANNEL = "shell:open-path";
 const DIALOG_CHOOSE_DIRECTORY_CHANNEL = "dialog:choose-directory";
 const BOARD_IMAGE_CHOOSE_COVER_CHANNEL = "board-image:choose-cover";
+const BOARD_IMAGE_CHOOSE_SECONDARY_CHANNEL = "board-image:choose-secondary";
 const BOARD_IMAGE_COPY_COVER_CHANNEL = "board-image:copy-cover";
 const BOARD_IMAGE_DELETE_COVER_CHANNEL = "board-image:delete-cover";
 const BOARD_IMAGE_READ_COVER_DATA_URL_CHANNEL = "board-image:read-cover-data-url";
@@ -87,6 +90,7 @@ const MIN_WINDOW_SIZE: WindowSize = {
 const LINUX_DESKTOP_NAME = "esp-board-vault.desktop";
 
 let lastSerialPortSelection: SerialPortSelection = createEmptySerialPortSelection();
+let reservedSerialPortNames: string[] = [];
 let mainWindow: BrowserWindow | null = null;
 let windowSizeSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -133,6 +137,9 @@ ipcMain.handle(
   SERIAL_SELECTION_COUNT_CHANNEL,
   () => lastSerialPortSelection.selectedCount
 );
+ipcMain.handle(SERIAL_SET_RESERVED_PORT_NAMES_CHANNEL, (_event, portNames: unknown) => {
+  reservedSerialPortNames = normalizeReservedSerialPortNames(portNames);
+});
 ipcMain.handle(CLIPBOARD_WRITE_TEXT_CHANNEL, (_event, text: unknown) => {
   if (typeof text !== "string") {
     throw new Error("Clipboard text must be a string.");
@@ -267,6 +274,26 @@ ipcMain.handle(BOARD_IMAGE_CHOOSE_COVER_CHANNEL, async (event, request) => {
   }
 
   return copyBoardCoverImage(boardId, result.filePaths[0]);
+});
+ipcMain.handle(BOARD_IMAGE_CHOOSE_SECONDARY_CHANNEL, async (event, request) => {
+  const { boardId } = parseBoardImageChooseRequest(request);
+  const result = await showOpenDialogForSender(event.sender, {
+    title: "Choose secondary board photo",
+    buttonLabel: "Use photo",
+    properties: ["openFile"],
+    filters: [
+      {
+        name: "Images",
+        extensions: ["jpg", "jpeg", "png", "webp", "gif", "bmp"]
+      }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { canceled: true };
+  }
+
+  return copyBoardSecondaryImage(boardId, result.filePaths[0]);
 });
 ipcMain.handle(BOARD_IMAGE_COPY_COVER_CHANNEL, (_event, request) => {
   const { boardId, file } = parseBoardImageCopyRequest(request);
@@ -996,6 +1023,20 @@ function collectBackupAttachmentEntries(backup: VaultBackup): Array<{
     }
   }
 
+  for (const board of backup.data.boards) {
+    if (!board.secondaryImagePath) {
+      continue;
+    }
+
+    const entry = createBackupAttachmentEntry(board.secondaryImagePath);
+
+    if (entry && !seen.has(entry.path)) {
+      seen.add(entry.path);
+      entries.push(entry);
+      board.secondaryImagePath = entry.path;
+    }
+  }
+
   for (const project of backup.data.projects) {
     if (!project.coverImagePath) {
       continue;
@@ -1072,6 +1113,9 @@ function rewriteBackupAttachmentPaths(backup: VaultBackup): void {
   for (const board of backup.data.boards) {
     if (board.coverImagePath) {
       board.coverImagePath = resolveRestoredAttachmentPath(board.coverImagePath);
+    }
+    if (board.secondaryImagePath) {
+      board.secondaryImagePath = resolveRestoredAttachmentPath(board.secondaryImagePath);
     }
   }
 
@@ -1490,7 +1534,28 @@ function copyBoardCoverImage(
     boardId,
     sourcePath,
     getBoardCoverImageDirectory,
-    readBoardCoverImageDataUrl
+    readBoardCoverImageDataUrl,
+    "cover"
+  );
+}
+
+function copyBoardSecondaryImage(
+  boardId: string,
+  sourcePath: string
+): {
+  canceled: false;
+  dataUrl: string | null;
+  filename: string;
+  localPath: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+} {
+  return copyCoverImage(
+    boardId,
+    sourcePath,
+    getBoardCoverImageDirectory,
+    readBoardCoverImageDataUrl,
+    "secondary"
   );
 }
 
@@ -1555,7 +1620,8 @@ function copyCoverImage(
   ownerId: string,
   sourcePath: string,
   getTargetDirectory: (ownerId: string) => string,
-  readDataUrl: (localPath: string) => string | null
+  readDataUrl: (localPath: string) => string | null,
+  filePrefix = "cover"
 ): {
   canceled: false;
   dataUrl: string | null;
@@ -1572,7 +1638,7 @@ function copyCoverImage(
   }
 
   const targetDirectory = getTargetDirectory(ownerId);
-  const targetFilename = `cover-${Date.now()}-${randomUUID()}${extension}`;
+  const targetFilename = `${filePrefix}-${Date.now()}-${randomUUID()}${extension}`;
   const targetPath = path.join(targetDirectory, targetFilename);
 
   mkdirSync(targetDirectory, { recursive: true });
@@ -1799,13 +1865,21 @@ function configureWebSerial(window: BrowserWindow): void {
   session.on("select-serial-port", async (event, portList, _webContents, callback) => {
     event.preventDefault();
 
-    if (portList.length <= 1) {
+    const onlyPortIsReserved =
+      portList.length === 1 &&
+      isReservedSerialPort(portList[0], reservedSerialPortNames);
+
+    if (portList.length <= 1 && !onlyPortIsReserved) {
       rememberSerialPortSelection(portList, portList);
       callback(portList[0]?.portId ?? "");
       return;
     }
 
-    const selectedPorts = await showSerialPortPicker(window, portList);
+    const selectedPorts = await showSerialPortPicker(
+      window,
+      portList,
+      reservedSerialPortNames
+    );
     rememberSerialPortSelection(portList, selectedPorts);
     callback(selectedPorts[0]?.portId ?? "");
   });
@@ -1839,6 +1913,22 @@ function createEmptySerialPortSelection(): SerialPortSelection {
   };
 }
 
+function normalizeReservedSerialPortNames(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((name): name is string => typeof name === "string")
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .slice(0, 100)
+    )
+  );
+}
+
 function parseUsbId(value: string | undefined): number | null {
   if (!value) {
     return null;
@@ -1862,7 +1952,8 @@ function isTrustedAppOrigin(origin: string | undefined): boolean {
 
 async function showSerialPortPicker<TPort extends SelectableSerialPort>(
   window: BrowserWindow,
-  ports: TPort[]
+  ports: TPort[],
+  reservedPortNames: readonly string[]
 ): Promise<TPort[]> {
   return new Promise((resolve) => {
     let settled = false;
@@ -1936,19 +2027,23 @@ async function showSerialPortPicker<TPort extends SelectableSerialPort>(
 
     void picker.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(
-        renderSerialPortPickerHtml(ports)
+        renderSerialPortPickerHtml(ports, reservedPortNames)
       )}`
     );
   });
 }
 
-function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
+function renderSerialPortPickerHtml(
+  ports: SelectableSerialPort[],
+  reservedPortNames: readonly string[]
+): string {
   const hideLegacyPortsByDefault = shouldHideLegacyLinuxTtyPortsByDefault(ports);
   const legacyPortCount = ports.filter((port) => isLegacyLinuxTtyPort(port)).length;
   const rows = ports
     .map(
       (port, index) => {
         const isLegacyPort = isLegacyLinuxTtyPort(port);
+        const isReservedPort = isReservedSerialPort(port, reservedPortNames);
         const isInitiallyHidden = hideLegacyPortsByDefault && isLegacyPort;
         const rowClasses = ["port-row", isLegacyPort ? "legacy-port" : ""]
           .filter(Boolean)
@@ -1957,13 +2052,14 @@ function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
         return `
         <label class="${rowClasses}"${isInitiallyHidden ? " hidden" : ""}>
           <input class="port-checkbox" type="checkbox" value="${index}"${
-            isInitiallyHidden ? "" : " checked"
+            isInitiallyHidden || isReservedPort ? "" : " checked"
           } data-legacy="${isLegacyPort ? "true" : "false"}" />
           <span class="port-body">
             <span class="port-title">
               ${escapeHtml(formatSerialPortButton(port))}
               ${isPreferredSerialPort(port) ? '<span class="badge">Suggested</span>' : ""}
               ${isLegacyPort ? '<span class="badge badge-muted">Legacy</span>' : ""}
+              ${isReservedPort ? '<span class="badge badge-reserved">Reserved</span>' : ""}
             </span>
             <span class="port-detail">${escapeHtml(formatSerialPortDetail(port))}</span>
           </span>
@@ -2081,6 +2177,10 @@ function renderSerialPortPickerHtml(ports: SelectableSerialPort[]): string {
     .badge-muted {
       color: #5d6458;
       background: #eef0eb;
+    }
+    .badge-reserved {
+      color: #8a5417;
+      background: #f8ead5;
     }
     footer {
       display: flex;

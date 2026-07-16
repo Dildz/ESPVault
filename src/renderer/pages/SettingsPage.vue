@@ -19,6 +19,10 @@ import {
   loadScanFreshnessThresholdDays,
   saveScanFreshnessThresholdDays
 } from "../services/scanFreshnessThreshold";
+import {
+  loadReservedSerialPortNames,
+  saveReservedSerialPortNames
+} from "../services/reservedSerialPorts";
 
 const backupRepository = repositories.backups;
 const {
@@ -61,6 +65,9 @@ const updateBusy = computed(
 const updateUnsupportedHint = computed(() =>
   describeUpdateUnsupportedReason(updateCapability.value?.reason ?? null)
 );
+const reservedSerialPortsInput = ref("");
+const reservedSerialPortsLoaded = ref(false);
+const savingReservedSerialPorts = ref(false);
 const backupReminder = computed(() =>
   getBackupReminder(lastBackupAt.value, undefined, {
     currentAppVersion: currentAppVersion.value,
@@ -279,6 +286,33 @@ function describeUpdateUnsupportedReason(
   }
 }
 
+async function loadReservedSerialPortsSetting(): Promise<void> {
+  try {
+    reservedSerialPortsInput.value = (await loadReservedSerialPortNames()).join("\n");
+  } finally {
+    reservedSerialPortsLoaded.value = true;
+  }
+}
+
+async function saveReservedSerialPorts(): Promise<void> {
+  savingReservedSerialPorts.value = true;
+  error.value = null;
+  notice.value = null;
+
+  try {
+    const portNames = await saveReservedSerialPortNames(reservedSerialPortsInput.value);
+    reservedSerialPortsInput.value = portNames.join("\n");
+    notice.value = "Reserved serial ports saved.";
+  } catch (caughtError) {
+    error.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : "The reserved serial ports could not be saved.";
+  } finally {
+    savingReservedSerialPorts.value = false;
+  }
+}
+
 onMounted(() => {
   void loadDatabaseLocation();
   void loadCurrentAppVersion();
@@ -286,6 +320,7 @@ onMounted(() => {
   void loadScanFreshnessThresholdSetting();
   void loadAutoUpdateSetting();
   void initUpdater();
+  void loadReservedSerialPortsSetting();
 });
 </script>
 
@@ -335,6 +370,51 @@ onMounted(() => {
           hide-details
           @update:model-value="updateTheme"
         />
+      </v-card-text>
+    </v-card>
+
+    <v-card class="panel-card mt-4" flat>
+      <v-card-title class="text-subtitle-1 font-weight-bold">
+        Serial scanning
+      </v-card-title>
+      <v-divider />
+      <v-card-text class="settings-row settings-row--stacked">
+        <div class="settings-detail">
+          <div class="settings-detail-heading">
+            <v-icon icon="mdi-serial-port" color="primary" />
+            <div>
+              <div class="font-weight-medium">Reserved serial ports</div>
+              <div class="text-body-2 muted mt-1">
+                Enter one port name per line, such as <span class="mono">COM1</span> or
+                <span class="mono">/dev/ttyUSB0</span>. Reserved ports stay visible in
+                the picker but start unchecked.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-reserved-ports-actions">
+          <v-textarea
+            v-model="reservedSerialPortsInput"
+            auto-grow
+            density="comfortable"
+            hide-details
+            label="Reserved port names"
+            placeholder="COM1&#10;/dev/ttyUSB0"
+            rows="3"
+            variant="outlined"
+            :disabled="!reservedSerialPortsLoaded || savingReservedSerialPorts"
+          />
+          <v-btn
+            color="primary"
+            variant="outlined"
+            prepend-icon="mdi-content-save"
+            :disabled="!reservedSerialPortsLoaded"
+            :loading="savingReservedSerialPorts"
+            @click="saveReservedSerialPorts"
+          >
+            Save ports
+          </v-btn>
+        </div>
       </v-card-text>
     </v-card>
 
@@ -577,6 +657,11 @@ onMounted(() => {
   gap: 16px;
 }
 
+.settings-row--stacked {
+  align-items: stretch;
+  flex-direction: column;
+}
+
 .settings-actions {
   display: flex;
   flex-wrap: wrap;
@@ -601,6 +686,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.settings-reserved-ports-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
 }
 
 .database-path {
@@ -628,6 +720,10 @@ onMounted(() => {
   .settings-number-input {
     flex: 1 1 auto;
     width: 100%;
+  }
+
+  .settings-reserved-ports-actions {
+    grid-template-columns: 1fr;
   }
 
   .theme-select {

@@ -10,6 +10,7 @@ import type {
   SerialPortSelection,
   SerialPortSelectionPort
 } from "../../shared/types/api";
+import { loadReservedSerialPortNames } from "./reservedSerialPorts";
 import { readChipMetadata, type ChipMetadata } from "./chipMetadata";
 import { readBoardPartitionTable } from "./espPartitionScanner";
 import { formatBytes } from "../utils/boardDisplay";
@@ -83,6 +84,8 @@ const DETECTED_FLASH_SIZE_LABELS: Record<number, string> = {
   0x39: "32MB",
   0x3a: "64MB"
 };
+const DISCONNECT_AFTER_SCAN_TIMEOUT_MS = 3000;
+const OPERATION_TIMED_OUT = Symbol("operation timed out");
 
 export async function scanEspBoard(
   onLog?: (level: ScannerLogLevel, message: string) => void
@@ -126,6 +129,7 @@ export async function scanEspBoards(
 async function requestSelectedSerialPorts(
   onLog?: (level: ScannerLogLevel, message: string) => void
 ): Promise<SerialPort[]> {
+  await configureReservedSerialPorts(onLog);
   const firstPort = await navigator.serial.requestPort();
   const selection = await getLastSerialSelection();
   const selectionCount = selection.selectedCount || 1;
@@ -149,6 +153,21 @@ async function requestSelectedSerialPorts(
   }
 
   return selectedPorts;
+}
+
+async function configureReservedSerialPorts(
+  onLog?: (level: ScannerLogLevel, message: string) => void
+): Promise<void> {
+  try {
+    const reservedPortNames = await loadReservedSerialPortNames();
+    await window.api.serial.setReservedPortNames(reservedPortNames);
+
+    if (reservedPortNames.length) {
+      onLog?.("log", `${reservedPortNames.length} reserved serial port(s) will start unchecked.`);
+    }
+  } catch {
+    onLog?.("debug", "Reserved serial ports could not be loaded; using default selection.");
+  }
 }
 
 function dedupeSerialPorts(ports: SerialPort[]): SerialPort[] {
@@ -628,7 +647,18 @@ async function resetAndDisconnect(loader: ESPLoader, logger: Logger): Promise<vo
   }
 
   try {
-    await loader.disconnect();
+    const disconnectResult = await waitForOperationOrTimeout(
+      loader.disconnect(),
+      DISCONNECT_AFTER_SCAN_TIMEOUT_MS
+    );
+
+    if (disconnectResult === OPERATION_TIMED_OUT) {
+      logger.error(
+        `Serial port cleanup timed out after ${formatSeconds(
+          DISCONNECT_AFTER_SCAN_TIMEOUT_MS
+        )}; scan data was retained. If the port remains busy, unplug and reconnect the board.`
+      );
+    }
   } catch (error) {
     logger.debug(`Disconnect after scan failed: ${getErrorMessage(error)}`);
   }
@@ -648,4 +678,30 @@ async function closeSerialPort(port: SerialPort, logger: Logger): Promise<void> 
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function waitForOperationOrTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number
+): Promise<T | typeof OPERATION_TIMED_OUT> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<typeof OPERATION_TIMED_OUT>((resolve) => {
+        timeoutId = setTimeout(() => {
+          resolve(OPERATION_TIMED_OUT);
+        }, timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+function formatSeconds(milliseconds: number): string {
+  return `${milliseconds / 1000} seconds`;
 }

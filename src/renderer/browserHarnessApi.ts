@@ -44,7 +44,8 @@ export function installBrowserHarnessApi(): void {
         selectedCount: 0,
         selectedPorts: []
       }),
-      getLastSelectionCount: async () => 0
+      getLastSelectionCount: async () => 0,
+      setReservedPortNames: async () => undefined
     },
     shell: {
       openExternal: async (url) => {
@@ -77,6 +78,7 @@ export function installBrowserHarnessApi(): void {
 function createCoverImageApi(ownerType: "board" | "project"): EspBoardVaultApi["boardImages"] {
   return {
     chooseCover: async () => ({ canceled: true }),
+    chooseSecondary: async () => ({ canceled: true }),
     copyCoverFromFile: async (ownerId, file) =>
       copyCoverImageFromFile(ownerType, ownerId, file),
     deleteCover: async (localPath) => {

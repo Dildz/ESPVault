@@ -2,6 +2,29 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## Unreleased
+
+### Added
+
+- HTTP(S) links in board descriptions are now clickable and open in your browser
+  (from upstream).
+- Sort the board list directly from its headers by name, status, or chip model
+  (from upstream).
+- A secondary board photo for pinouts, wiring, underside views, or other
+  reference images (from upstream).
+- Reserved serial ports stay visible in the scan picker but start unchecked, set
+  in Settings (from upstream).
+- Double-click a board or project row to open its edit dialog (from upstream).
+
+### Changed
+
+- Updated Electron to 43.1.0 for the Chromium 150 runtime update (from upstream).
+
+### Fixed
+
+- Scans no longer hang when Web Serial cleanup stalls after a successful scan.
+  The detected board data is kept and a recovery note is logged (from upstream).
+
 ## 2.1.3 - 2026-07-01
 
 ### Added

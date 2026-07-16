@@ -2,6 +2,42 @@ import { expect, test } from "@playwright/test";
 import { chooseSelectOption, openHarness, openView, tableRow } from "./helpers";
 
 test.describe("board inventory flow", () => {
+  test("sorts boards by the selected field", async ({ page }) => {
+    await openHarness(page);
+    await openView(page, "Boards");
+
+    await page.getByRole("button", { name: "Sort by board name" }).click();
+
+    await expect(page.locator(".boards-table tbody .board-row").first()).toContainText(
+      "Compact C3 Recovery Board"
+    );
+  });
+
+  test("opens description links through the external-link API", async ({ page }) => {
+    const documentationUrl = "https://example.com/esp32-datasheet";
+
+    await openHarness(page);
+    await openView(page, "Boards");
+    await tableRow(page, "Workbench ESP32 DevKit").dblclick();
+
+    const editDialog = page.getByRole("dialog").filter({ hasText: "Edit board" });
+    await editDialog
+      .getByLabel("Description")
+      .fill(`Documentation: ${documentationUrl}`);
+    await editDialog.getByRole("button", { name: "Save board" }).click();
+
+    const link = page.getByRole("link", { name: documentationUrl });
+    await expect(link).toHaveAttribute("href", documentationUrl);
+    await Promise.all([
+      page.waitForEvent(
+        "console",
+        (message) =>
+          message.type() === "info" && message.text().includes(documentationUrl)
+      ),
+      link.click()
+    ]);
+  });
+
   test("creates, edits, persists, and deletes a board", async ({ page }) => {
     const boardName = "QA Harness C6 Board";
     const updatedBoardName = "QA Harness C6 Board Updated";
@@ -32,8 +68,7 @@ test.describe("board inventory flow", () => {
     await openView(page, "Boards");
     await expect(tableRow(page, boardName)).toBeVisible();
 
-    await tableRow(page, boardName).click();
-    await page.getByLabel("Edit board").click();
+    await tableRow(page, boardName).dblclick();
 
     const editDialog = page.getByRole("dialog").filter({ hasText: "Edit board" });
     await expect(editDialog).toBeVisible();

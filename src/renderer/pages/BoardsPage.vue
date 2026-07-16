@@ -66,6 +66,13 @@ type BoardStatusFilter =
   | BoardStatus
   | "all"
   | typeof UNASSIGNED_PROJECT_STATUS_FILTER;
+type BoardSortField = "updatedAt" | "name" | "status" | "chipModel";
+type SortDirection = "asc" | "desc";
+
+interface BoardSort {
+  field: BoardSortField;
+  direction: SortDirection;
+}
 
 interface BoardFilters {
   search: string;
@@ -82,6 +89,13 @@ interface ActiveBoardFilterChip {
   icon: string;
   color: string;
 }
+
+interface DescriptionSegment {
+  type: "link" | "text";
+  value: string;
+}
+
+const DESCRIPTION_URL_PATTERN = /https?:\/\/[^\s<>"']+/gi;
 
 const boardStore = useBoardStore();
 const { boards, chipModels, error, loading } = storeToRefs(boardStore);
@@ -109,7 +123,9 @@ const boardCoverError = ref<string | null>(null);
 const boardCoverBusyId = ref<string | null>(null);
 const boardCoverDragActiveId = ref<string | null>(null);
 const boardCoverViewerOpen = ref(false);
+const boardSecondaryImageViewerOpen = ref(false);
 const boardThumbnailUrls = ref<Record<string, string | null>>({});
+const boardSecondaryImageUrls = ref<Record<string, string | null>>({});
 const partitionBuilderError = ref<string | null>(null);
 let boardThumbnailLoadToken = 0;
 
@@ -168,6 +184,7 @@ const filters = reactive<BoardFilters>({
   status: "all",
   chipModel: ""
 });
+const boardSort = ref<BoardSort>({ field: "updatedAt", direction: "desc" });
 
 const statusOptions: Array<{ title: string; value: BoardStatusFilter }> = [
   { title: "All statuses", value: "all" },
@@ -180,7 +197,6 @@ const statusOptions: Array<{ title: string; value: BoardStatusFilter }> = [
     value: status
   }))
 ];
-
 const chipModelOptions = computed(() => [
   { title: "All chip models", value: "" },
   ...chipModels.value.map((model) => ({ title: model, value: model }))
@@ -230,30 +246,32 @@ const locationOptions = computed(() =>
 const filteredBoards = computed(() => {
   const search = filters.search.trim().toLowerCase();
 
-  return boards.value.filter((board) => {
-    const matchesSearch =
-      !search ||
-      [
-        board.name,
-        board.description,
-        board.chipModel,
-        board.macAddress,
-        board.physicalLocation,
-        board.notes
-      ]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(search));
+  return boards.value
+    .filter((board) => {
+      const matchesSearch =
+        !search ||
+        [
+          board.name,
+          board.description,
+          board.chipModel,
+          board.macAddress,
+          board.physicalLocation,
+          board.notes
+        ]
+          .filter((value): value is string => Boolean(value))
+          .some((value) => value.toLowerCase().includes(search));
 
-    const matchesStatus =
-      filters.status === "all" ||
-      (filters.status === UNASSIGNED_PROJECT_STATUS_FILTER
-        ? !board.projectId
-        : board.status === filters.status);
-    const matchesChipModel =
-      !filters.chipModel || board.chipModel === filters.chipModel;
+      const matchesStatus =
+        filters.status === "all" ||
+        (filters.status === UNASSIGNED_PROJECT_STATUS_FILTER
+          ? !board.projectId
+          : board.status === filters.status);
+      const matchesChipModel =
+        !filters.chipModel || board.chipModel === filters.chipModel;
 
-    return matchesSearch && matchesStatus && matchesChipModel;
-  });
+      return matchesSearch && matchesStatus && matchesChipModel;
+    })
+    .sort(compareBoards);
 });
 
 const selectedBoard = computed(() => {
@@ -266,6 +284,12 @@ const selectedBoard = computed(() => {
     filteredBoards.value[0]
   );
 });
+const selectedBoardDescription = computed(
+  () => selectedBoard.value?.description || selectedBoard.value?.notes || "No notes yet"
+);
+const selectedBoardDescriptionSegments = computed(() =>
+  splitDescriptionIntoSegments(selectedBoardDescription.value)
+);
 
 const firmwareEntries = computed(() =>
   selectedBoard.value
@@ -292,7 +316,10 @@ const selectedPartitionSegments = computed(() =>
 
 const boardCoverPathKey = computed(() =>
   boards.value
-    .map((board) => `${board.id}:${board.coverImagePath ?? ""}`)
+    .map(
+      (board) =>
+        `${board.id}:${board.coverImagePath ?? ""}:${board.secondaryImagePath ?? ""}`
+    )
     .join("|")
 );
 
@@ -374,6 +401,110 @@ function openEditDialog(board: Board): void {
 
 function selectBoard(board: Board): void {
   selectedBoardId.value = board.id;
+}
+
+function toggleBoardSort(field: Exclude<BoardSortField, "updatedAt">): void {
+  if (boardSort.value.field === field) {
+    boardSort.value = {
+      field,
+      direction: boardSort.value.direction === "asc" ? "desc" : "asc"
+    };
+    return;
+  }
+
+  boardSort.value = { field, direction: "asc" };
+}
+
+function boardSortIcon(field: Exclude<BoardSortField, "updatedAt">): string {
+  if (boardSort.value.field !== field) {
+    return "mdi-sort";
+  }
+
+  return boardSort.value.direction === "asc"
+    ? "mdi-sort-ascending"
+    : "mdi-sort-descending";
+}
+
+function boardSortLabel(field: Exclude<BoardSortField, "updatedAt">, label: string): string {
+  if (boardSort.value.field !== field) {
+    return `Sort by ${label}`;
+  }
+
+  const nextDirection = boardSort.value.direction === "asc" ? "descending" : "ascending";
+  return `Sort by ${label} ${nextDirection}`;
+}
+
+function compareBoards(left: Board, right: Board): number {
+  const { direction, field } = boardSort.value;
+  let comparison: number;
+
+  switch (field) {
+    case "name":
+      comparison = compareBoardText(left.name, right.name, direction);
+      break;
+    case "chipModel":
+      comparison = compareBoardText(left.chipModel, right.chipModel, direction);
+      break;
+    case "status":
+      comparison = compareBoardText(
+        BOARD_STATUS_LABELS[left.status],
+        BOARD_STATUS_LABELS[right.status],
+        direction
+      );
+      break;
+    case "updatedAt":
+      comparison = compareBoardText(left.updatedAt, right.updatedAt, direction);
+      break;
+  }
+
+  return comparison || compareBoardText(left.name, right.name) || left.id.localeCompare(right.id);
+}
+
+function compareBoardText(
+  left: string | null | undefined,
+  right: string | null | undefined,
+  direction: SortDirection = "asc"
+): number {
+  const leftValue = left?.trim() ?? "";
+  const rightValue = right?.trim() ?? "";
+
+  if (!leftValue || !rightValue) {
+    return Number(!leftValue) - Number(!rightValue);
+  }
+
+  const multiplier = direction === "asc" ? 1 : -1;
+  return multiplier * leftValue.localeCompare(rightValue, undefined, {
+    numeric: true,
+    sensitivity: "base"
+  });
+}
+
+function splitDescriptionIntoSegments(description: string): DescriptionSegment[] {
+  const segments: DescriptionSegment[] = [];
+  let cursor = 0;
+
+  for (const match of description.matchAll(DESCRIPTION_URL_PATTERN)) {
+    const url = match[0].replace(/[.,!?;:]+$/, "");
+    const start = match.index ?? 0;
+
+    if (start > cursor) {
+      segments.push({ type: "text", value: description.slice(cursor, start) });
+    }
+
+    segments.push({ type: "link", value: url });
+    cursor = start + url.length;
+  }
+
+  if (cursor < description.length || !segments.length) {
+    segments.push({ type: "text", value: description.slice(cursor) });
+  }
+
+  return segments;
+}
+
+function openDescriptionLink(event: MouseEvent, url: string): void {
+  event.preventDefault();
+  void window.api.shell.openExternal(url);
 }
 
 function clearBoardFilter(filterKey: ActiveBoardFilterKey): void {
@@ -606,11 +737,17 @@ async function confirmDelete(): Promise<void> {
   }
 
   const coverImagePath = deletingBoard.value.coverImagePath;
+  const secondaryImagePath = deletingBoard.value.secondaryImagePath;
   const deletedBoardId = deletingBoard.value.id;
   await boardStore.deleteBoard(deletingBoard.value.id);
 
   if (coverImagePath) {
     await window.api.boardImages.deleteCover(coverImagePath).catch(() => {
+      // The board record is gone. A stale old image file is non-blocking.
+    });
+  }
+  if (secondaryImagePath) {
+    await window.api.boardImages.deleteCover(secondaryImagePath).catch(() => {
       // The board record is gone. A stale old image file is non-blocking.
     });
   }
@@ -625,25 +762,144 @@ async function confirmDelete(): Promise<void> {
 async function loadBoardCoverThumbnails(boardList: Board[]): Promise<void> {
   const token = ++boardThumbnailLoadToken;
   const nextThumbnails: Record<string, string | null> = {};
+  const nextSecondaryImages: Record<string, string | null> = {};
 
   await Promise.all(
     boardList.map(async (board) => {
       if (!board.coverImagePath) {
         nextThumbnails[board.id] = null;
-        return;
+      } else {
+        try {
+          nextThumbnails[board.id] =
+            await window.api.boardImages.readCoverDataUrl(board.coverImagePath);
+        } catch {
+          nextThumbnails[board.id] = null;
+        }
       }
 
-      try {
-        nextThumbnails[board.id] =
-          await window.api.boardImages.readCoverDataUrl(board.coverImagePath);
-      } catch {
-        nextThumbnails[board.id] = null;
+      if (!board.secondaryImagePath) {
+        nextSecondaryImages[board.id] = null;
+      } else {
+        try {
+          nextSecondaryImages[board.id] =
+            await window.api.boardImages.readCoverDataUrl(board.secondaryImagePath);
+        } catch {
+          nextSecondaryImages[board.id] = null;
+        }
       }
     })
   );
 
   if (token === boardThumbnailLoadToken) {
     boardThumbnailUrls.value = nextThumbnails;
+    boardSecondaryImageUrls.value = nextSecondaryImages;
+  }
+}
+
+async function chooseBoardSecondaryImage(board: Board): Promise<void> {
+  await applyBoardSecondaryImage(board, () =>
+    window.api.boardImages.chooseSecondary(board.id)
+  );
+}
+
+async function dropBoardSecondaryImage(board: Board, file: File): Promise<void> {
+  await applyBoardSecondaryImage(board, () =>
+    readCoverImageFile(file).then((imageFile) =>
+      window.api.boardImages.copyCoverFromFile(board.id, imageFile)
+    )
+  );
+}
+
+async function applyBoardSecondaryImage(
+  board: Board,
+  copyImage: () => Promise<CoverImageResult>
+): Promise<void> {
+  if (boardCoverBusyId.value) {
+    return;
+  }
+
+  boardCoverError.value = null;
+  boardCoverBusyId.value = board.id;
+  const previousPath = board.secondaryImagePath;
+  let copiedPath: string | null = null;
+
+  try {
+    const result = await copyImage();
+
+    if (result.canceled || !result.localPath) {
+      return;
+    }
+
+    copiedPath = result.localPath;
+    await boardStore.updateBoard(board.id, {
+      secondaryImagePath: result.localPath,
+      secondaryImageFilename: result.filename ?? null,
+      secondaryImageMimeType: result.mimeType ?? null,
+      secondaryImageSizeBytes: result.sizeBytes ?? null
+    });
+    boardSecondaryImageUrls.value = {
+      ...boardSecondaryImageUrls.value,
+      [board.id]:
+        result.dataUrl ??
+        (await window.api.boardImages.readCoverDataUrl(result.localPath))
+    };
+
+    if (previousPath && previousPath !== result.localPath) {
+      await window.api.boardImages.deleteCover(previousPath).catch(() => undefined);
+    }
+  } catch (caughtError) {
+    if (copiedPath) {
+      await window.api.boardImages.deleteCover(copiedPath).catch(() => undefined);
+    }
+    boardCoverError.value = getBoardCoverError(
+      caughtError,
+      "The secondary board photo could not be saved."
+    );
+  } finally {
+    boardCoverBusyId.value = null;
+  }
+}
+
+async function dropBoardSecondaryImageFromEvent(
+  board: Board,
+  event: DragEvent
+): Promise<void> {
+  clearBoardCoverDrag(board);
+  const file = getDroppedImageFile(event);
+
+  if (!file) {
+    boardCoverError.value = "Drop a JPG, PNG, WebP, GIF, or BMP image.";
+    return;
+  }
+
+  await dropBoardSecondaryImage(board, file);
+}
+
+async function removeBoardSecondaryImage(board: Board): Promise<void> {
+  if (!board.secondaryImagePath || boardCoverBusyId.value) {
+    return;
+  }
+
+  boardCoverBusyId.value = board.id;
+  boardCoverError.value = null;
+  const imagePath = board.secondaryImagePath;
+
+  try {
+    await boardStore.updateBoard(board.id, {
+      secondaryImagePath: null,
+      secondaryImageFilename: null,
+      secondaryImageMimeType: null,
+      secondaryImageSizeBytes: null
+    });
+    boardSecondaryImageUrls.value = { ...boardSecondaryImageUrls.value, [board.id]: null };
+    await window.api.boardImages.deleteCover(imagePath).catch(() => undefined);
+  } catch (caughtError) {
+    boardCoverError.value = getBoardCoverError(
+      caughtError,
+      "The secondary board photo could not be removed."
+    );
+  } finally {
+    boardCoverBusyId.value = null;
   }
 }
 
@@ -766,6 +1022,12 @@ function clearBoardCoverDrag(board: Board): void {
 function openBoardCoverViewer(board: Board): void {
   if (boardThumbnailUrls.value[board.id]) {
     boardCoverViewerOpen.value = true;
+  }
+}
+
+function openBoardSecondaryImageViewer(board: Board): void {
+  if (boardSecondaryImageUrls.value[board.id]) {
+    boardSecondaryImageViewerOpen.value = true;
   }
 }
 
@@ -988,9 +1250,42 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
         <v-table class="vault-data-table boards-table">
           <thead>
             <tr>
-              <th>Board</th>
-              <th>Status</th>
-              <th>Chip</th>
+              <th>
+                <button
+                  class="board-sort-button"
+                  type="button"
+                  :aria-label="boardSortLabel('name', 'board name')"
+                  :aria-pressed="boardSort.field === 'name'"
+                  @click="toggleBoardSort('name')"
+                >
+                  Board
+                  <v-icon :icon="boardSortIcon('name')" size="16" />
+                </button>
+              </th>
+              <th>
+                <button
+                  class="board-sort-button"
+                  type="button"
+                  :aria-label="boardSortLabel('status', 'status')"
+                  :aria-pressed="boardSort.field === 'status'"
+                  @click="toggleBoardSort('status')"
+                >
+                  Status
+                  <v-icon :icon="boardSortIcon('status')" size="16" />
+                </button>
+              </th>
+              <th>
+                <button
+                  class="board-sort-button"
+                  type="button"
+                  :aria-label="boardSortLabel('chipModel', 'chip model')"
+                  :aria-pressed="boardSort.field === 'chipModel'"
+                  @click="toggleBoardSort('chipModel')"
+                >
+                  Chip
+                  <v-icon :icon="boardSortIcon('chipModel')" size="16" />
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1000,6 +1295,7 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
               class="board-row"
               :class="{ 'board-row--selected': selectedBoard?.id === board.id }"
               @click="selectBoard(board)"
+              @dblclick="openEditDialog(board)"
             >
               <td>
                 <div class="board-list-identity">
@@ -1086,7 +1382,15 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
             </div>
           </div>
           <div class="text-body-2 muted detail-description">
-            {{ selectedBoard.description || selectedBoard.notes || "No notes yet" }}
+            <template v-for="(segment, index) in selectedBoardDescriptionSegments" :key="index">
+              <a
+                v-if="segment.type === 'link'"
+                class="board-description-link"
+                :href="segment.value"
+                @click="openDescriptionLink($event, segment.value)"
+              >{{ segment.value }}</a>
+              <template v-else>{{ segment.value }}</template>
+            </template>
           </div>
           <div class="board-detail-timestamps">
             <span>
@@ -1195,6 +1499,72 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
               </div>
               <div class="text-caption muted mt-2">
                 Drag an image here to update the board photo.
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="board-cover-panel secondary-board-photo-panel cover-drop-target"
+            :class="{
+              'cover-drop-target--active':
+                boardCoverDragActiveId === selectedBoard.id
+            }"
+            @dragenter.prevent="handleBoardCoverDrag(selectedBoard, $event)"
+            @dragover.prevent="handleBoardCoverDrag(selectedBoard, $event)"
+            @dragleave.prevent="clearBoardCoverDrag(selectedBoard)"
+            @drop.prevent.stop="dropBoardSecondaryImageFromEvent(selectedBoard, $event)"
+          >
+            <div class="board-cover-preview">
+              <button
+                v-if="boardSecondaryImageUrls[selectedBoard.id]"
+                class="board-cover-viewer-trigger"
+                type="button"
+                :aria-label="`View ${selectedBoard.secondaryImageFilename || 'secondary board photo'}`"
+                @click="openBoardSecondaryImageViewer(selectedBoard)"
+              >
+                <v-img
+                  :src="boardSecondaryImageUrls[selectedBoard.id] ?? ''"
+                  alt=""
+                  height="150"
+                  cover
+                />
+              </button>
+              <div v-else class="board-cover-placeholder">
+                <v-icon icon="mdi-image-plus-outline" size="34" color="secondary" />
+                <div class="text-caption muted mt-1">No secondary photo</div>
+              </div>
+            </div>
+            <div class="board-cover-body">
+              <div class="section-title">Secondary board photo</div>
+              <div class="text-body-2 mt-1">
+                {{ selectedBoard.secondaryImageFilename || "Add a pinout, underside, wiring, or reference image." }}
+              </div>
+              <div v-if="selectedBoard.secondaryImageSizeBytes !== null" class="text-caption muted mt-1">
+                {{ formatBytes(selectedBoard.secondaryImageSizeBytes) }}
+              </div>
+              <div class="board-cover-actions">
+                <v-btn
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-image-plus-outline"
+                  :loading="boardCoverBusyId === selectedBoard.id"
+                  @click="chooseBoardSecondaryImage(selectedBoard)"
+                >
+                  {{ selectedBoard.secondaryImagePath ? "Change photo" : "Add photo" }}
+                </v-btn>
+                <v-btn
+                  v-if="selectedBoard.secondaryImagePath"
+                  variant="text"
+                  color="error"
+                  prepend-icon="mdi-image-remove-outline"
+                  :disabled="boardCoverBusyId === selectedBoard.id"
+                  @click="removeBoardSecondaryImage(selectedBoard)"
+                >
+                  Remove
+                </v-btn>
+              </div>
+              <div class="text-caption muted mt-2">
+                Drag an image here to update the secondary board photo.
               </div>
             </div>
           </div>
@@ -1719,6 +2089,31 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
       </v-card>
     </v-dialog>
 
+    <v-dialog v-model="boardSecondaryImageViewerOpen" max-width="96vw">
+      <v-card class="cover-viewer-card">
+        <v-card-title class="cover-viewer-title">
+          <span class="text-subtitle-1 font-weight-bold">
+            {{ selectedBoard?.secondaryImageFilename || "Secondary board photo" }}
+          </span>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            aria-label="Close secondary board photo"
+            @click="boardSecondaryImageViewerOpen = false"
+          />
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="cover-viewer-body">
+          <img
+            v-if="selectedBoard && boardSecondaryImageUrls[selectedBoard.id]"
+            class="cover-viewer-image"
+            :src="boardSecondaryImageUrls[selectedBoard.id] ?? ''"
+            :alt="selectedBoard.secondaryImageFilename || 'Secondary board photo'"
+          >
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <v-dialog :model-value="Boolean(deletingBoard)" max-width="460" persistent>
       <v-card>
         <v-card-title>Delete board?</v-card-title>
@@ -1898,6 +2293,30 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   white-space: nowrap;
 }
 
+.board-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: inherit;
+}
+
+.board-sort-button:hover,
+.board-sort-button:focus-visible {
+  color: rgb(var(--v-theme-primary));
+}
+
+.board-sort-button:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 3px;
+}
+
 .boards-table :deep(td:first-child) {
   min-width: 260px;
 }
@@ -1928,6 +2347,13 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
   max-width: 100%;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.board-description-link {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
 }
 
 .board-detail-actions {

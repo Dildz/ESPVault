@@ -110,8 +110,20 @@ Scanning is read-only: it does not flash, erase, or modify the board. When
 available, the app records useful details such as chip model, MAC address, flash,
 PSRAM, security state, and bootloader information.
 
+Each board can also store a primary board photo and a separate secondary photo
+for a pinout, wiring, underside view, or other reference image.
+
 If multiple boards are connected, the app lets you choose which serial ports to
 scan.
+
+### Reserved Serial Ports
+
+If you keep non-ESP serial devices connected, such as a GPS receiver or a
+system COM port, add their port names under **Settings → Serial scanning**.
+Enter one exact port name per line (for example, `COM1` or `/dev/ttyUSB0`).
+Reserved ports remain visible in the scan picker, are marked **Reserved**, and
+start unchecked so they are not scanned accidentally. You can still select a
+reserved port manually when needed.
 
 ## Projects
 

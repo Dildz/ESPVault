@@ -75,6 +75,17 @@ const api: EspBoardVaultApi = {
         mimeType?: string | null;
         sizeBytes?: number | null;
       }>,
+    chooseSecondary: (boardId) =>
+      ipcRenderer.invoke("board-image:choose-secondary", {
+        boardId
+      }) as Promise<{
+        canceled: boolean;
+        dataUrl?: string | null;
+        filename?: string;
+        localPath?: string;
+        mimeType?: string | null;
+        sizeBytes?: number | null;
+      }>,
     copyCoverFromFile: (boardId, file) =>
       ipcRenderer.invoke("board-image:copy-cover", {
         boardId,
@@ -138,7 +149,9 @@ const api: EspBoardVaultApi = {
         }>;
       }>,
     getLastSelectionCount: () =>
-      ipcRenderer.invoke("serial:get-last-selection-count") as Promise<number>
+      ipcRenderer.invoke("serial:get-last-selection-count") as Promise<number>,
+    setReservedPortNames: (portNames) =>
+      ipcRenderer.invoke("serial:set-reserved-port-names", portNames) as Promise<void>
   },
   shell: {
     openExternal: (url) =>
