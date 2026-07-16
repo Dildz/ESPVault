@@ -106,6 +106,12 @@ details already filled in. Connect a board in bootloader mode, run a scan, then
 save the detected board into the vault or update an existing board record using
 its MAC address.
 
+You can also scan straight into a board you already have. Open the board and use
+the scan button in its header to read the connected device and fill in that
+board's chip, flash, security, and partition details, while leaving its name,
+photo, links, notes, and tags untouched. This works for boards you added by hand
+and as a re-scan of a board you own, and it does not depend on MAC matching.
+
 Scanning is read-only: it does not flash, erase, or modify the board. When
 available, the app records useful details such as chip model, MAC address, flash,
 PSRAM, security state, and bootloader information.
