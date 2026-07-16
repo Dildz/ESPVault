@@ -1530,7 +1530,7 @@ function uniqueLocationOptions(values: Array<string | null | undefined>): string
                 />
               </button>
               <div v-else class="board-cover-placeholder">
-                <v-icon icon="mdi-image-plus-outline" size="34" color="secondary" />
+                <EmptyPhotoIcon />
                 <div class="text-caption muted mt-1">No secondary photo</div>
               </div>
             </div>
