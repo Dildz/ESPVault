@@ -24,6 +24,8 @@ All notable changes to ESP Board Vault are documented in this file.
 
 - Scans no longer hang when Web Serial cleanup stalls after a successful scan.
   The detected board data is kept and a recovery note is logged (from upstream).
+- The Linux desktop and launcher icons now use the transparent app icon, matching
+  Windows and macOS. They previously still showed the old black background.
 
 ## 2.1.3 - 2026-07-01
 
