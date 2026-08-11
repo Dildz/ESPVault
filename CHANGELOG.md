@@ -2,6 +2,24 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
+## Unreleased
+
+### Changed
+
+- Clarified how to save scan results to an existing board: rescans now explain
+  that the saved record remains unchanged until **Save latest scan** is chosen,
+  and the action explains which board details it preserves (from upstream).
+- Renamed the Tools page to Maker Tools (from upstream).
+- Upgraded Pinia to 4.0.2 and added its Vue Devtools API peer dependency
+  (from upstream).
+
+### Fixed
+
+- The download links in the release install notes now point at the published
+  files instead of 404ing.
+- The empty secondary board photo slot now uses the shared camera placeholder,
+  matching the primary photo slot.
+
 ## 2.1.4 - 2026-07-16
 
 ### Added
