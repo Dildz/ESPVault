@@ -10,6 +10,8 @@ All notable changes to ESP Board Vault are documented in this file.
   that the saved record remains unchanged until **Save latest scan** is chosen,
   and the action explains which board details it preserves (from upstream).
 - Renamed the Tools page to Maker Tools (from upstream).
+- The scan summary now says saved boards are ready to save the latest scan,
+  matching the **Save latest scan** action instead of the old "update" wording.
 - Upgraded Pinia to 4.0.2 and added its Vue Devtools API peer dependency
   (from upstream).
 

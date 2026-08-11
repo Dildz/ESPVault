@@ -162,14 +162,15 @@ work back up in your own editor.
 Deleting a project does not delete its boards. It only clears their project
 assignment.
 
-## Tools And Navigation
+## Maker Tools And Navigation
 
 The app header includes quick actions for adding a board, scanning connected
 boards, and refreshing app data. The global search field opens matching board
 and project records directly. Color theme selection lives in Settings.
 
-The Tools page links to curated ESP32 and maker utilities, including ESPConnect,
-ESP32 Partition Builder, Video Conversion Studio, and Arduino Maker Workshop.
+The Maker Tools page links to curated ESP32 and maker utilities, including
+ESPConnect, ESP32 Partition Builder, Video Conversion Studio, and Arduino Maker
+Workshop.
 
 ## Backups And Local Data
 

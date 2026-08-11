@@ -72,7 +72,7 @@ const scanReadyFeedback = computed(() => {
     savedDetectedBoardCount.value
       ? `${savedDetectedBoardCount.value} saved board${
           savedDetectedBoardCount.value === 1 ? "" : "s"
-        } ready to update`
+        } ready to store the latest scan`
       : null
   ].filter((value): value is string => Boolean(value));
 
@@ -582,11 +582,11 @@ watch(
               <v-chip
                 v-if="savedDetectedBoardCount"
                 color="info"
-                prepend-icon="mdi-refresh-circle"
+                prepend-icon="mdi-content-save-outline"
                 size="small"
                 variant="tonal"
               >
-                {{ savedDetectedBoardCount }} ready to update
+                {{ savedDetectedBoardCount }} ready to save latest scan
               </v-chip>
             </div>
           </div>
