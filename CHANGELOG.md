@@ -2,7 +2,7 @@
 
 All notable changes to ESP Board Vault are documented in this file.
 
-## Unreleased
+## 2.1.5 - 2026-08-11
 
 ### Changed
 
